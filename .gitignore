@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
+# Reference documents (download separately — see docs/reference/README.md)
+docs/reference/*.pdf
+
+# Test/coverage artifacts
+coverage
+*.local
+
+# Editor/OS
+.DS_Store
+*.log
