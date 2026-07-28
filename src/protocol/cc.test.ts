@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { decodeZoned, ReservedValue, type Zone } from "./cc";
+import {
+  ccDirection,
+  decodeZoned,
+  FILTER_RESONANCE,
+  LFO1_RATE,
+  ReservedValue,
+  type Zone,
+} from "./cc";
 
 const evenZones: Zone<string>[] = [
   { max: 15, variant: "triangle" },
@@ -59,5 +66,15 @@ describe("decodeZoned", () => {
       expect((error as ReservedValue).value).toBe(100);
       expect((error as ReservedValue).lastMax).toBe(71);
     }
+  });
+});
+
+describe("ccDirection", () => {
+  it("flags Filter Resonance as inbound-only", () => {
+    expect(ccDirection(FILTER_RESONANCE)).toBe("inbound-only");
+  });
+
+  it("treats every other CC as bidirectional", () => {
+    expect(ccDirection(LFO1_RATE)).toBe("bidirectional");
   });
 });

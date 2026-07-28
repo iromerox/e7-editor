@@ -92,6 +92,7 @@ export const MIXER_SUB2_LEVEL = 37;
 export const MIXER_NOISE_EXT_LEVEL = 52;
 
 export const FILTER_CUTOFF = 74;
+export const FILTER_RESONANCE = 71;
 export const FILTER_EG1_MOD = 89;
 export const FILTER_VELOCITY_EG1_MOD = 86;
 export const FILTER_LFO1_MOD = 90;
@@ -138,3 +139,12 @@ export const DELAY_MIX = 12;
 
 export const OTHER_MODE = 116;
 export const OTHER_VOICES = 97;
+
+export type CcDirection = "bidirectional" | "inbound-only";
+
+// docs/protocol-quirks.md #13: unverified pending HW-03.
+const INBOUND_ONLY_CCS: ReadonlySet<number> = new Set([FILTER_RESONANCE]);
+
+export function ccDirection(cc: number): CcDirection {
+  return INBOUND_ONLY_CCS.has(cc) ? "inbound-only" : "bidirectional";
+}

@@ -105,10 +105,12 @@ than fatal, to absorb this.
 These have not been resolved against real hardware yet — track as open
 questions, not assumptions:
 
-13. **Filter Resonance (CC 71)** was referenced in code but never defined
-    with an actual constant. Believed **inbound-only** per informal hardware
-    notes (device reports panel changes, may not accept outbound writes) —
-    unverified.
+13. **Filter Resonance (CC 71)** is now defined (`FILTER_RESONANCE` in
+    `src/protocol/cc.ts`) and marked **inbound-only** (`ccDirection`) per
+    informal hardware notes (device reports panel changes, may not accept
+    outbound writes) — this framing is still **unverified**, pending
+    confirmation in HW-03. Don't remove the unverified framing until HW-03
+    resolves it.
 14. **`GlobalTranspose` vs. `Osc1Transpose`** both plausibly claim CC 3.
     Which byte does the physical CC 3 actually drive — the global transpose
     field, or oscillator 1's transpose? Needs a hardware test.
