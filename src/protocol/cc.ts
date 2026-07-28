@@ -1,5 +1,4 @@
 // MIDI CC number constants and a shared zoned CC decode helper.
-
 export interface Zone<Variant> {
   readonly max: number;
   readonly variant: Variant;
@@ -24,6 +23,17 @@ export function decodeZoned<Variant>(value: number, zones: readonly Zone<Variant
     lastMax = zone.max;
   }
   throw new ReservedValue(value, lastMax);
+}
+
+export function encodeZoned<Variant>(variant: Variant, zones: readonly Zone<Variant>[]): number {
+  let min = 0;
+  for (const zone of zones) {
+    if (zone.variant === variant) {
+      return min;
+    }
+    min = zone.max + 1;
+  }
+  throw new Error(`variant not present in zones: ${String(variant)}`);
 }
 
 export const MOD_WHEEL = 1;
