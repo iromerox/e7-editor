@@ -5,3 +5,4 @@ export * from "./enums";
 export * from "./lfo-clock-rate";
 export * from "./transpose";
 export { Tune } from "./tune";
+export { Voices } from "./voices";

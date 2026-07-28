@@ -29,6 +29,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `LfoClockRate` and `DelayClockRate`, separate 15-division musical-rate
   types with different hardware-captured byte layouts despite sharing
   division names.
+- `src/protocol/voices.ts`: `Voices`, packing V1/V2 as `16*V1 + V2` on CC 97
+  with real read/write accessors. Rejects CC 72-127 and any low-range CC
+  whose V2 nibble falls outside 0-7 as reserved.
 
 ### Fixed
 
