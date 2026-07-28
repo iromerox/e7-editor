@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Initial repository scaffolding: single-package TypeScript/Vite/SolidJS
   project, Biome, Vitest, `dependency-cruiser` layering checks, CI workflow.
+- `src/protocol/address.ts`: `PresetSlot` and `MultiSlot` memory addressing
+  with region constants for preset/configuration/volatile memory.
 
 ### Fixed
 

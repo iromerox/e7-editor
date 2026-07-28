@@ -23,8 +23,9 @@ info@gsmusic.com.ar.
 ## Why these matter
 
 The MIDI implementation document is the authoritative source for all
-protocol behavior encoded in `src/protocol`. Every exported type/function
-there cites the specific page it derives from.
+protocol behavior encoded in `src/protocol`. Each task's References section
+in the backlog and the fixture/round-trip tests tie an implementation back
+to the page it derives from — code itself carries no inline citations.
 
 ## Version
 

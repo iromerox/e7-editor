@@ -1,2 +1,1 @@
-// Scaffolding placeholder for the protocol layer — populated incrementally.
-export {};
+export { AddressComponentRangeError, MEMORY_REGIONS, MultiSlot, PresetSlot } from "./address";
