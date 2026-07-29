@@ -52,6 +52,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   manufacturer header; response parsing takes bare data, matching what the
   device actually sends. Lock/Unlock Preset helpers write 0 to unlock and 1
   to lock, per the byte-map text rather than the inverted example labels.
+- `src/protocol/config.ts`: `intoConfiguration`, bridging a 4-field Read
+  Configuration response into the full 6-field Write Configuration payload
+  by supplying the two values Read never returns (Clock Source, MPE Enable).
+- `src/protocol/program-change.ts`: Bank Select MSB/LSB + Program Change
+  resolution to a preset or multi slot, and the reverse encoding, matching
+  the spec's single (Bank MSB 0) and multi (Bank MSB 1) addressing.
+- `src/protocol/mpe.ts`: `encodeMcm`/`decodeMcm` for the 9-byte MPE
+  Configuration Message (RPN 0x0006 on channel 1), enabling with 1-15
+  channels or disabling with 0.
 
 ### Fixed
 

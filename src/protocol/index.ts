@@ -1,10 +1,13 @@
 export { AddressComponentRangeError, MEMORY_REGIONS, MultiSlot, PresetSlot } from "./address";
 export * from "./cc";
+export * from "./config";
 export * from "./delay-clock-rate";
 export * from "./enums";
 export * from "./lfo-clock-rate";
+export * from "./mpe";
 export * as nibble from "./nibble";
 export * from "./preset";
+export * from "./program-change";
 export * from "./sysex";
 export * from "./transpose";
 export { Tune } from "./tune";
