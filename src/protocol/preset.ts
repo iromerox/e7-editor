@@ -112,16 +112,11 @@ export interface Envelope {
   readonly keyboardTracking: number;
 }
 
-export interface PresetVoices {
-  readonly mono: number;
-  readonly poly: number;
-}
-
-export interface MultiZone {
-  readonly keyboardLower: number;
-  readonly keyboardUpper: number;
-  readonly velocityLower: number;
-  readonly velocityUpper: number;
+export interface PartSettings {
+  readonly keyboardZoneLower: number;
+  readonly keyboardZoneUpper: number;
+  readonly velocityZoneLower: number;
+  readonly velocityZoneUpper: number;
   readonly midiChannel: number;
   readonly midiFilter: number;
 }
@@ -169,8 +164,9 @@ export interface SinglePreset {
   readonly eg2: Envelope;
   readonly mode: number;
   readonly transpose: number;
-  readonly voices: PresetVoices;
-  readonly multiZone: MultiZone;
+  readonly monoVoice: number;
+  readonly polyVoice: number;
+  readonly partSettings: PartSettings;
   readonly part1Only: Part1Only;
   readonly reserved: Uint8Array;
 }
@@ -183,13 +179,21 @@ type ByteOffsets = Readonly<Record<string, number>>;
 type ByteFields<Offsets extends ByteOffsets> = { readonly [Field in keyof Offsets]: number };
 type OffsetsFor<Fields> = Readonly<Record<keyof Fields, number>>;
 
-type PresetScalar = "pitchBendRange" | "osc2Sync" | "mode" | "transpose";
+type PresetScalar =
+  | "pitchBendRange"
+  | "osc2Sync"
+  | "mode"
+  | "transpose"
+  | "monoVoice"
+  | "polyVoice";
 
 const SCALAR_OFFSETS: Readonly<Record<PresetScalar, number>> = {
   pitchBendRange: 50,
   osc2Sync: 51,
   mode: 99,
   transpose: 105,
+  monoVoice: 106,
+  polyVoice: 107,
 };
 
 const OSC1_OFFSETS: OffsetsFor<Oscillator> = {
@@ -297,16 +301,11 @@ const EG2_OFFSETS: OffsetsFor<Envelope> = {
   keyboardTracking: 98,
 };
 
-const VOICES_OFFSETS: OffsetsFor<PresetVoices> = {
-  mono: 106,
-  poly: 107,
-};
-
-const MULTI_ZONE_OFFSETS: OffsetsFor<MultiZone> = {
-  keyboardLower: 109,
-  keyboardUpper: 110,
-  velocityLower: 111,
-  velocityUpper: 112,
+const PART_SETTINGS_OFFSETS: OffsetsFor<PartSettings> = {
+  keyboardZoneLower: 109,
+  keyboardZoneUpper: 110,
+  velocityZoneLower: 111,
+  velocityZoneUpper: 112,
   midiChannel: 113,
   midiFilter: 114,
 };
@@ -344,7 +343,7 @@ function ascending(a: number, b: number): number {
 }
 
 export const MULTI_ONLY_BYTES: readonly number[] =
-  Object.values(MULTI_ZONE_OFFSETS).sort(ascending);
+  Object.values(PART_SETTINGS_OFFSETS).sort(ascending);
 
 export const PART1_ONLY_BYTES: readonly number[] = [
   ...NAME_BYTE_INDICES,
@@ -407,8 +406,7 @@ export function decodeSinglePreset(bytes: Uint8Array): SinglePreset {
     amp: decodeGroup(bytes, AMPLIFIER_OFFSETS),
     eg1: decodeGroup(bytes, EG1_OFFSETS),
     eg2: decodeGroup(bytes, EG2_OFFSETS),
-    voices: decodeGroup(bytes, VOICES_OFFSETS),
-    multiZone: decodeGroup(bytes, MULTI_ZONE_OFFSETS),
+    partSettings: decodeGroup(bytes, PART_SETTINGS_OFFSETS),
     part1Only: {
       name: bytes.slice(NAME_OFFSET, NAME_OFFSET + NAME_BYTES),
       delay: decodeGroup(bytes, DELAY_OFFSETS),
@@ -446,8 +444,7 @@ export function encodeSinglePreset(preset: SinglePreset): Uint8Array {
   encodeGroup(bytes, AMPLIFIER_OFFSETS, preset.amp);
   encodeGroup(bytes, EG1_OFFSETS, preset.eg1);
   encodeGroup(bytes, EG2_OFFSETS, preset.eg2);
-  encodeGroup(bytes, VOICES_OFFSETS, preset.voices);
-  encodeGroup(bytes, MULTI_ZONE_OFFSETS, preset.multiZone);
+  encodeGroup(bytes, PART_SETTINGS_OFFSETS, preset.partSettings);
   encodeGroup(bytes, DELAY_OFFSETS, preset.part1Only.delay);
   encodeGroup(bytes, CHORUS_OFFSETS, preset.part1Only.chorus);
   encodeGroup(bytes, STEREO_OFFSETS, preset.part1Only.stereo);

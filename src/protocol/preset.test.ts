@@ -69,6 +69,15 @@ describe("SinglePreset", () => {
     expect(preset.amp.level).toBe(99);
   });
 
+  it("reads Mono Voice from byte 106 and Poly Voice from byte 107", () => {
+    const bytes = new Uint8Array(SINGLE_PRESET_BYTES);
+    bytes[106] = 0x21;
+    bytes[107] = 0x37;
+    const preset = decodeSinglePreset(bytes);
+    expect(preset.monoVoice).toBe(0x21);
+    expect(preset.polyVoice).toBe(0x37);
+  });
+
   it("rejects a block that is not exactly 128 bytes", () => {
     expect(() => decodeSinglePreset(new Uint8Array(127))).toThrow(PresetLengthError);
     expect(() => decodeSinglePreset(new Uint8Array(129))).toThrow(PresetLengthError);
@@ -115,11 +124,11 @@ describe("preset fields conditioned on multi membership", () => {
   it("groups the bytes only used when the preset is part of a multi", () => {
     expect(MULTI_ONLY_BYTES).toEqual([109, 110, 111, 112, 113, 114]);
     const preset = decodeSinglePreset(new Uint8Array(SINGLE_PRESET_BYTES));
-    expect(Object.keys(preset.multiZone)).toEqual([
-      "keyboardLower",
-      "keyboardUpper",
-      "velocityLower",
-      "velocityUpper",
+    expect(Object.keys(preset.partSettings)).toEqual([
+      "keyboardZoneLower",
+      "keyboardZoneUpper",
+      "velocityZoneLower",
+      "velocityZoneUpper",
       "midiChannel",
       "midiFilter",
     ]);
