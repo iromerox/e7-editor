@@ -1,5 +1,6 @@
 export { AddressComponentRangeError, MEMORY_REGIONS, MultiSlot, PresetSlot } from "./address";
 export * from "./cc";
+export * from "./cc-map";
 export * from "./config";
 export * from "./delay-clock-rate";
 export * from "./enums";

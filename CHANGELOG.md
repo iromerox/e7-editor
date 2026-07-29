@@ -61,6 +61,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `src/protocol/mpe.ts`: `encodeMcm`/`decodeMcm` for the 9-byte MPE
   Configuration Message (RPN 0x0006 on channel 1), enabling with 1-15
   channels or disabling with 0.
+- `src/protocol/cc-map.ts`: bidirectional map between CC numbers and the
+  `SinglePreset` fields they drive — `ccToFields`, `fieldToCc`, `readField`,
+  `writeField`, and an `applyCc` that returns the updated preset without
+  mutating the original. Every mapped field has a real accessor pair,
+  including the packed Voices CC 97 that unpacks into the Poly Voice and
+  Mono Voice bytes. Performance-only CCs (Mod Wheel, Volume, Hold) and
+  LFO2 EG1 Mod (CC 67, which has no preset byte) are deliberately unmapped.
+  CC 3 resolves to both `osc1Transpose` and `transpose` and `applyCc`
+  reports it as ambiguous rather than guessing, pending a hardware test.
 
 ### Fixed
 

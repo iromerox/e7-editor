@@ -112,8 +112,16 @@ questions, not assumptions:
     confirmation in HW-03. Don't remove the unverified framing until HW-03
     resolves it.
 14. **`GlobalTranspose` vs. `Osc1Transpose`** both plausibly claim CC 3.
-    Which byte does the physical CC 3 actually drive — the global transpose
-    field, or oscillator 1's transpose? Needs a hardware test.
+    The CC table (p.5) lists CC 3 as OSC1 Transpose, but the byte map (p.25)
+    has both an OSC1 Transpose byte (20) and a bare Transpose byte (105) —
+    and only the former has a documented CC. Which byte does the physical
+    CC 3 actually drive? Needs a hardware test (HW-04). Until then
+    `src/protocol/cc-map.ts` maps CC 3 to *both* candidate fields
+    (`osc1Transpose` and `transpose`): `ccToFields(3)` returns the pair and
+    `applyCc` returns `{ kind: "ambiguous" }` rather than picking one.
+    Callers that know which control the user touched can still write either
+    field directly with `writeField`. Don't collapse the pair to a single
+    field until the hardware test resolves it.
 15. Whether other Read commands (Serial, Configuration, Autotuning, Lock
     echo, Write Memory echo) exhibit the same preview-frame prelude as Read
     Memory (#12) was never confirmed — the defensive handling should already
