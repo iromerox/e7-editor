@@ -42,6 +42,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   a multi (name, delay, chorus, stereo, lock) and fields only used when the
   preset is part of a multi (keyboard/velocity zones, MIDI channel and
   filter) are grouped separately from the always-active ones.
+- `src/protocol/nibble.ts`: `pack`/`unpack` for the 4-bit-per-byte payload
+  form SysEx data travels in, rejecting odd-length payloads and nibbles with
+  high bits set with typed errors.
+- `src/protocol/sysex.ts`: the `SysExMessage` union covering every documented
+  command (All LEDs ON, Read Serial Number, Read/Write Memory, Factory Reset,
+  Read/Write Configuration, Initialize preset, Read Autotuning Status) with
+  encoding, decoding, and 21-bit address splitting. Commands carry the 5-byte
+  manufacturer header; response parsing takes bare data, matching what the
+  device actually sends. Lock/Unlock Preset helpers write 0 to unlock and 1
+  to lock, per the byte-map text rather than the inverted example labels.
 
 ### Fixed
 
