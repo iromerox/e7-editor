@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ReservedValue } from "./cc";
+import { ReservedValue } from "./errors";
 import { type LfoClockRate, lfoClockRateFromCc, lfoClockRateToCc } from "./lfo-clock-rate";
 
 const BOUNDARIES: readonly [min: number, max: number, rate: LfoClockRate][] = [

@@ -7,7 +7,6 @@ import {
   MOD_WHEEL,
   OSC1_TRANSPOSE,
   OTHER_VOICES,
-  ReservedValue,
   VOLUME,
 } from "./cc";
 import {
@@ -19,6 +18,7 @@ import {
   readField,
   writeField,
 } from "./cc-map";
+import { ReservedValue } from "./errors";
 import { decodeSinglePreset, encodeSinglePreset, SINGLE_PRESET_BYTES } from "./preset";
 
 const CC3_CANDIDATES: readonly CcField[] = ["osc1Transpose", "transpose"];

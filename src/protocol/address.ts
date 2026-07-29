@@ -1,28 +1,13 @@
 // Memory addressing for preset and multi slots.
+import { type AddressComponent, AddressComponentRangeError } from "./errors";
+
 export const MEMORY_REGIONS = {
   preset: { start: 0x000000, end: 0x01ffff },
   configuration: { start: 0x020000, end: 0x0203ff },
   volatile: { start: 0x030000, end: 0x030fff },
 } as const;
 
-export class AddressComponentRangeError extends Error {
-  constructor(
-    readonly component: "bank" | "group" | "slot",
-    readonly value: number,
-    readonly min: number,
-    readonly max: number,
-  ) {
-    super(`${component} must be between ${min} and ${max}, got ${value}`);
-    this.name = "AddressComponentRangeError";
-  }
-}
-
-function assertInRange(
-  component: "bank" | "group" | "slot",
-  value: number,
-  min: number,
-  max: number,
-): void {
+function assertInRange(component: AddressComponent, value: number, min: number, max: number): void {
   if (!Number.isInteger(value) || value < min || value > max) {
     throw new AddressComponentRangeError(component, value, min, max);
   }

@@ -1,6 +1,6 @@
 // Voices CC (97): V1/V2 packed as 16*V1 + V2; V1 > 4 or V2 > 7 is reserved,
 // capping the maximum legal CC at 71 (protocol-quirks.md #8).
-import { ReservedValue } from "./cc";
+import { ReservedValue } from "./errors";
 
 export class Voices {
   constructor(

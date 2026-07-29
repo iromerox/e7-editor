@@ -1,20 +1,5 @@
 // Splitting bytes into 4 bits per byte, the form SysEx payloads travel in.
-export class OddNibbleCountError extends Error {
-  constructor(readonly count: number) {
-    super(`a nibble payload must have an even length, got ${count}`);
-    this.name = "OddNibbleCountError";
-  }
-}
-
-export class NibbleRangeError extends Error {
-  constructor(
-    readonly value: number,
-    readonly index: number,
-  ) {
-    super(`nibble ${index} must be between 0 and 15, got ${value}`);
-    this.name = "NibbleRangeError";
-  }
-}
+import { NibbleRangeError, OddNibbleCountError } from "./errors";
 
 export function pack(bytes: Uint8Array): Uint8Array {
   const nibbles = new Uint8Array(bytes.length * 2);

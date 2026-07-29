@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ReservedValue } from "./cc";
+import { ReservedValue } from "./errors";
 import { Tune } from "./tune";
 
 describe("Tune", () => {

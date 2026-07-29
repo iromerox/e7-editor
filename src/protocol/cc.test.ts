@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  ccDirection,
-  decodeZoned,
-  FILTER_RESONANCE,
-  LFO1_RATE,
-  ReservedValue,
-  type Zone,
-} from "./cc";
+import { ccDirection, decodeZoned, FILTER_RESONANCE, LFO1_RATE, type Zone } from "./cc";
+import { ReservedValue } from "./errors";
 
 const evenZones: Zone<string>[] = [
   { max: 15, variant: "triangle" },

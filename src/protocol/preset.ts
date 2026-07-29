@@ -1,4 +1,6 @@
 // Byte layout of the 128-byte single preset and the 512-byte multitimbral preset.
+import { PresetByteRangeError, PresetLengthError } from "./errors";
+
 export const SINGLE_PRESET_BYTES = 128;
 export const MULTI_PRESET_PARTS = 4;
 export const MULTI_PRESET_BYTES = SINGLE_PRESET_BYTES * MULTI_PRESET_PARTS;
@@ -10,27 +12,6 @@ export const LOCK_BYTE_INDEX = 127;
 export const RESERVED_BYTE_INDICES: readonly number[] = [
   56, 57, 61, 62, 63, 69, 100, 101, 102, 103, 104, 125, 126,
 ];
-
-export class PresetLengthError extends Error {
-  constructor(
-    readonly field: string,
-    readonly expected: number,
-    readonly actual: number,
-  ) {
-    super(`${field} must be ${expected} bytes, got ${actual}`);
-    this.name = "PresetLengthError";
-  }
-}
-
-export class PresetByteRangeError extends Error {
-  constructor(
-    readonly field: string,
-    readonly value: number | undefined,
-  ) {
-    super(`${field} must be an integer between 0 and 255, got ${value}`);
-    this.name = "PresetByteRangeError";
-  }
-}
 
 export interface Oscillator {
   readonly transpose: number;

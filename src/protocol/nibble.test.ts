@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { NibbleRangeError, OddNibbleCountError, pack, unpack } from "./nibble";
+import { NibbleRangeError, OddNibbleCountError } from "./errors";
+import { pack, unpack } from "./nibble";
 
 describe("pack", () => {
   it("emits the lower nibble before the higher one", () => {

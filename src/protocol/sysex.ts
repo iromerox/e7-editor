@@ -1,4 +1,13 @@
 // SysEx commands, headed by the manufacturer ID, and the bare-data responses they draw.
+import {
+  ManufacturerHeaderError,
+  SysExAddressRangeError,
+  SysExDataByteRangeError,
+  SysExFieldRangeError,
+  SysExFramingError,
+  SysExPayloadLengthError,
+  UnknownSysExCommandError,
+} from "./errors";
 import { pack, unpack } from "./nibble";
 import { LOCK_BYTE_INDEX } from "./preset";
 
@@ -20,72 +29,6 @@ export const MAX_AUTOTUNING_PROGRESS = 0x0f;
 
 export const PRESET_UNLOCKED = 0x00;
 export const PRESET_LOCKED = 0x01;
-
-export type FramingFault = "truncated" | "missing-start" | "missing-end";
-
-export class SysExFramingError extends Error {
-  constructor(
-    readonly fault: FramingFault,
-    readonly length: number,
-  ) {
-    super(`SysEx frame of ${length} bytes is ${fault}`);
-    this.name = "SysExFramingError";
-  }
-}
-
-export class ManufacturerHeaderError extends Error {
-  constructor(readonly received: readonly number[]) {
-    super(`expected manufacturer header ${hex(COMMAND_HEADER)}, got ${hex(received)}`);
-    this.name = "ManufacturerHeaderError";
-  }
-}
-
-export class UnknownSysExCommandError extends Error {
-  constructor(readonly id: number) {
-    super(`unknown SysEx command 0x${id.toString(16).padStart(2, "0")}`);
-    this.name = "UnknownSysExCommandError";
-  }
-}
-
-export class SysExAddressRangeError extends Error {
-  constructor(readonly address: number) {
-    super(`address must be an integer between 0 and ${MAX_SYSEX_ADDRESS}, got ${address}`);
-    this.name = "SysExAddressRangeError";
-  }
-}
-
-export class SysExDataByteRangeError extends Error {
-  constructor(
-    readonly value: number,
-    readonly index: number,
-  ) {
-    super(`data byte ${index} must be an integer between 0 and 127, got ${value}`);
-    this.name = "SysExDataByteRangeError";
-  }
-}
-
-export class SysExPayloadLengthError extends Error {
-  constructor(
-    readonly kind: string,
-    readonly expected: number,
-    readonly actual: number,
-  ) {
-    super(`${kind} payload of ${actual} bytes is invalid, expected ${expected}`);
-    this.name = "SysExPayloadLengthError";
-  }
-}
-
-export class SysExFieldRangeError extends Error {
-  constructor(
-    readonly field: string,
-    readonly value: number,
-    readonly min: number,
-    readonly max: number,
-  ) {
-    super(`${field} must be between ${min} and ${max}, got ${value}`);
-    this.name = "SysExFieldRangeError";
-  }
-}
 
 export interface WriteConfigurationFields {
   readonly rxChannel: number;
@@ -156,10 +99,6 @@ export const SYSEX_COMMAND_IDS = {
   "read-serial-number": 0x20,
 } as const satisfies Record<SysExCommandKind, number>;
 
-function hex(bytes: readonly number[]): string {
-  return bytes.map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
-}
-
 function byteAt(bytes: Uint8Array, index: number, kind: string): number {
   const value = bytes[index];
   if (value === undefined) {
@@ -177,7 +116,7 @@ function assertField(field: string, value: number, min: number, max: number): nu
 
 export function encodeAddress(address: number): number[] {
   if (!Number.isInteger(address) || address < 0 || address > MAX_SYSEX_ADDRESS) {
-    throw new SysExAddressRangeError(address);
+    throw new SysExAddressRangeError(address, 0, MAX_SYSEX_ADDRESS);
   }
   return [address & 0x7f, (address >> 7) & 0x7f, (address >> 14) & 0x7f];
 }
@@ -285,7 +224,7 @@ export function decodeCommand(frame: Uint8Array): SysExCommand {
   const data = frameData(frame);
   const header = data.subarray(0, COMMAND_HEADER.length);
   if (!COMMAND_HEADER.every((byte, index) => header[index] === byte)) {
-    throw new ManufacturerHeaderError(Array.from(header));
+    throw new ManufacturerHeaderError(COMMAND_HEADER, Array.from(header));
   }
   const body = data.subarray(COMMAND_HEADER.length);
   if (body.length === 0) {

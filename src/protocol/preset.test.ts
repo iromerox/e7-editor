@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PresetByteRangeError, PresetLengthError } from "./errors";
 import {
   decodeMultiPreset,
   decodeSinglePreset,
@@ -9,8 +10,6 @@ import {
   MULTI_PRESET_BYTES,
   NAME_BYTES,
   PART1_ONLY_BYTES,
-  PresetByteRangeError,
-  PresetLengthError,
   RESERVED_BYTE_INDICES,
   SINGLE_PRESET_BYTES,
 } from "./preset";

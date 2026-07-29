@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { ReservedValue } from "./cc";
 import {
   type ChorusType,
   chorusTypeFromCc,
@@ -26,6 +25,7 @@ import {
   otherModeFromCc,
   otherModeToCc,
 } from "./enums";
+import { ReservedValue } from "./errors";
 
 function checkBoundaries<Variant>(
   boundaries: readonly [min: number, max: number, variant: Variant][],

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AddressComponentRangeError, MEMORY_REGIONS, MultiSlot, PresetSlot } from "./address";
+import { MEMORY_REGIONS, MultiSlot, PresetSlot } from "./address";
+import { AddressComponentRangeError } from "./errors";
 
 describe("PresetSlot", () => {
   it("resolves preset 1.1.1 to the start of preset memory", () => {

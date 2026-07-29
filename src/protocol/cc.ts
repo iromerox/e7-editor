@@ -1,17 +1,9 @@
 // MIDI CC number constants and a shared zoned CC decode helper.
+import { ReservedValue } from "./errors";
+
 export interface Zone<Variant> {
   readonly max: number;
   readonly variant: Variant;
-}
-
-export class ReservedValue extends Error {
-  constructor(
-    readonly value: number,
-    readonly lastMax: number,
-  ) {
-    super(`CC value ${value} is reserved (past the last zone's max of ${lastMax})`);
-    this.name = "ReservedValue";
-  }
 }
 
 export function decodeZoned<Variant>(value: number, zones: readonly Zone<Variant>[]): Variant {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { decodeMcm, encodeMcm, McmChannelCountRangeError, McmTemplateError } from "./mpe";
+import { McmChannelCountRangeError, McmTemplateError } from "./errors";
+import { decodeMcm, encodeMcm } from "./mpe";
 
 describe("MPE Configuration Message", () => {
   it("encodes enabling MPE with 15 channels on channel 1 (p.23)", () => {

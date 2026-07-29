@@ -2,6 +2,7 @@
 // (p.11): Bank MSB 0 selects single mode (Bank LSB 0-3 picks the bank pair),
 // Bank MSB 1 selects multi mode (Bank LSB ignored).
 import { MultiSlot, PresetSlot } from "./address";
+import { type ProgramChangeField, ProgramChangeRangeError } from "./errors";
 
 export type ProgramChangeTarget =
   | { readonly kind: "single"; readonly slot: PresetSlot }
@@ -13,24 +14,7 @@ export interface ProgramChangeMessage {
   readonly program: number;
 }
 
-export class ProgramChangeRangeError extends Error {
-  constructor(
-    readonly field: "bank-msb" | "bank-lsb" | "program",
-    readonly value: number,
-    readonly min: number,
-    readonly max: number,
-  ) {
-    super(`${field} must be between ${min} and ${max}, got ${value}`);
-    this.name = "ProgramChangeRangeError";
-  }
-}
-
-function assertRange(
-  field: "bank-msb" | "bank-lsb" | "program",
-  value: number,
-  min: number,
-  max: number,
-): void {
+function assertRange(field: ProgramChangeField, value: number, min: number, max: number): void {
   if (!Number.isInteger(value) || value < min || value > max) {
     throw new ProgramChangeRangeError(field, value, min, max);
   }

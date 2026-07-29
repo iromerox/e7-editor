@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MultiSlot, PresetSlot } from "./address";
-import {
-  encodeProgramChange,
-  ProgramChangeRangeError,
-  resolveProgramChange,
-} from "./program-change";
+import { ProgramChangeRangeError } from "./errors";
+import { encodeProgramChange, resolveProgramChange } from "./program-change";
 
 describe("resolveProgramChange", () => {
   it("resolves bank LSB 0 to presets 1.1.1 through 2.8.8 (p.11)", () => {

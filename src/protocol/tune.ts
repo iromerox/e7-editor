@@ -1,6 +1,6 @@
 // 128-entry CC-to-millisemitone lookup for Tune; CC 63 and 64 both decode to
 // 0, the table's only duplicate.
-import { ReservedValue } from "./cc";
+import { ReservedValue } from "./errors";
 
 const TABLE: readonly number[] = [
   -500, -492, -484, -477, -469, -461, -453, -445, -438, -430, -422, -410, -402, -395, -387, -379,

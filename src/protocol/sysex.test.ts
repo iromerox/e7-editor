@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { PresetSlot } from "./address";
 import {
+  ManufacturerHeaderError,
+  SysExAddressRangeError,
+  SysExDataByteRangeError,
+  SysExFieldRangeError,
+  SysExFramingError,
+  SysExPayloadLengthError,
+  UnknownSysExCommandError,
+} from "./errors";
+import {
   COMMAND_HEADER,
   decodeAddress,
   decodeAutotuningStatusResponse,
@@ -14,16 +23,9 @@ import {
   isPresetLocked,
   lockPresetCommand,
   MAX_SYSEX_ADDRESS,
-  ManufacturerHeaderError,
   PRESET_LOCKED,
   PRESET_UNLOCKED,
-  SysExAddressRangeError,
   type SysExCommand,
-  SysExDataByteRangeError,
-  SysExFieldRangeError,
-  SysExFramingError,
-  SysExPayloadLengthError,
-  UnknownSysExCommandError,
   unlockPresetCommand,
 } from "./sysex";
 

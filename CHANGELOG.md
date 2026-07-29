@@ -71,6 +71,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   CC 3 resolves to both `osc1Transpose` and `transpose` and `applyCc`
   reports it as ambiguous rather than guessing, pending a hardware test.
 
+### Changed
+
+- Consolidated every protocol error class into `src/protocol/errors.ts` as a
+  single typed hierarchy (`ProtocolError` base class with a `code`
+  discriminant per failure mode), replacing the ad-hoc classes previously
+  defined and exported from `address.ts`, `cc.ts`, `mpe.ts`, `nibble.ts`,
+  `preset.ts`, `program-change.ts`, and `sysex.ts` individually.
+  `ManufacturerHeaderError` and `SysExAddressRangeError` now carry their
+  expected header / min-max bounds as structured constructor properties
+  instead of baking them into the message string.
+
 ### Fixed
 
 - Pinned TypeScript to `^6` — `dependency-cruiser` doesn't parse TS 7's

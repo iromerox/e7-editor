@@ -1,6 +1,8 @@
 // MPE Configuration Message (MCM): standard RPN 0x0006 on channel 1, with
 // the data-entry value carrying the member-channel count — 0 disables MPE,
 // 1-15 enables it (only the lower zone is supported) (p.23).
+import { McmChannelCountRangeError, McmTemplateError } from "./errors";
+
 export const MCM_BYTE_LENGTH = 9;
 
 const CC_CHANNEL_1 = 0xb0;
@@ -23,24 +25,6 @@ const MCM_TEMPLATE = [
 
 export interface McmMessage {
   readonly channels: number;
-}
-
-export class McmChannelCountRangeError extends Error {
-  constructor(readonly channels: number) {
-    super(`MCM channel count must be between 0 and 15, got ${channels}`);
-    this.name = "McmChannelCountRangeError";
-  }
-}
-
-export class McmTemplateError extends Error {
-  constructor(readonly bytes: Uint8Array) {
-    super(`bytes do not match the MCM template: ${hex(bytes)}`);
-    this.name = "McmTemplateError";
-  }
-}
-
-function hex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(" ");
 }
 
 function assertChannels(channels: number): void {

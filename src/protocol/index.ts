@@ -1,9 +1,10 @@
-export { AddressComponentRangeError, MEMORY_REGIONS, MultiSlot, PresetSlot } from "./address";
+export { MEMORY_REGIONS, MultiSlot, PresetSlot } from "./address";
 export * from "./cc";
 export * from "./cc-map";
 export * from "./config";
 export * from "./delay-clock-rate";
 export * from "./enums";
+export * from "./errors";
 export * from "./lfo-clock-rate";
 export * from "./mpe";
 export * as nibble from "./nibble";
