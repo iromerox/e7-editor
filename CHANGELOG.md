@@ -35,6 +35,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `src/protocol/cc.ts`: `FILTER_RESONANCE` (CC 71) constant and a `ccDirection`
   helper marking it inbound-only, so the upcoming CC↔field map can reject
   outbound writes to CCs known not to accept them.
+- `src/protocol/preset.ts`: `SinglePreset` (128 bytes) and `MultiPreset`
+  (four contiguous parts of 128) byte layouts, decoding and re-encoding every
+  byte position verbatim — including the ones the spec leaves unused, which
+  are never clobbered on encode. Fields the device reads only from part 1 of
+  a multi (name, delay, chorus, stereo, lock) and fields only used when the
+  preset is part of a multi (keyboard/velocity zones, MIDI channel and
+  filter) are grouped separately from the always-active ones.
 
 ### Fixed
 
