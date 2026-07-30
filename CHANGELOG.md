@@ -79,6 +79,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `src/midi/errors.ts`: typed error hierarchy for the MIDI transport
   (`MidiError` base class with a `code` discriminant per failure mode),
   mirroring the protocol layer's.
+- `src/midi/connection.ts`: a `Connection` binding an input/output port pair
+  and exposing incoming traffic as two independent streams — complete SysEx
+  frames and raw CC events (channel, controller, value, timestamp) — so
+  request/response traffic and live control forwarding never block or drop
+  each other. The SysEx stream admits a single consumer at a time, keeping a
+  pending request the sole owner of the frames it is waiting for, while the
+  CC stream fans out to every listener. `close()` and an unplugged device
+  tear down identically: both streams complete, port listeners are removed,
+  and further sends raise a typed closed-connection error rather than
+  writing to a dead port. `openConnection()` resolves a pair of port
+  specifiers, requesting system exclusive access if Web MIDI is not enabled
+  yet and refusing to connect without it.
 
 ### Changed
 

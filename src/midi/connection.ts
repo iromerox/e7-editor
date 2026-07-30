@@ -1,0 +1,147 @@
+// Bidirectional device connection exposing SysEx frames and CC events as independent streams.
+import { Observable, Subject } from "rxjs";
+import {
+  type ControlChangeMessageEvent,
+  type Input,
+  type MessageEvent,
+  type Output,
+  WebMidi,
+} from "webmidi";
+import { encodeCommand, type SysExCommand } from "../protocol";
+import {
+  ConnectionClosedError,
+  NoMatchingPortError,
+  SysExNotEnabledError,
+  SysExStreamBusyError,
+} from "./errors";
+import { listInputPorts, listOutputPorts, resolvePort } from "./ports";
+
+export interface CcEvent {
+  readonly channel: number;
+  readonly controller: number;
+  readonly value: number;
+  readonly timestamp: number;
+}
+
+export interface Connection {
+  readonly inputName: string;
+  readonly outputName: string;
+  readonly sysex: Observable<Uint8Array>;
+  readonly cc: Observable<CcEvent>;
+  readonly isOpen: boolean;
+  send(bytes: Uint8Array): void;
+  sendCommand(command: SysExCommand): void;
+  close(): Promise<void>;
+}
+
+export interface PortSpecifiers {
+  readonly input: string;
+  readonly output: string;
+}
+
+function exclusive<T>(source: Subject<T>, stream: string): Observable<T> {
+  let consumed = false;
+  return new Observable<T>((subscriber) => {
+    if (consumed) {
+      subscriber.error(new SysExStreamBusyError(stream));
+      return;
+    }
+    consumed = true;
+    const subscription = source.subscribe(subscriber);
+    return () => {
+      consumed = false;
+      subscription.unsubscribe();
+    };
+  });
+}
+
+export function createConnection(input: Input, output: Output): Connection {
+  const sysexFrames = new Subject<Uint8Array>();
+  const ccEvents = new Subject<CcEvent>();
+  let open = true;
+
+  const onSysex = (event: MessageEvent): void => {
+    sysexFrames.next(Uint8Array.from(event.message.rawData));
+  };
+
+  const onControlChange = (event: ControlChangeMessageEvent): void => {
+    if (event.rawValue === undefined) {
+      return;
+    }
+    ccEvents.next({
+      channel: event.message.channel,
+      controller: event.controller.number,
+      value: event.rawValue,
+      timestamp: event.timestamp,
+    });
+  };
+
+  const detach = (): void => {
+    if (!open) {
+      return;
+    }
+    open = false;
+    input.removeListener("sysex", onSysex);
+    input.removeListener("controlchange", onControlChange);
+    input.removeListener("disconnected", detach);
+    output.removeListener("disconnected", detach);
+    sysexFrames.complete();
+    ccEvents.complete();
+  };
+
+  input.addListener("sysex", onSysex);
+  input.addListener("controlchange", onControlChange);
+  input.addListener("disconnected", detach);
+  output.addListener("disconnected", detach);
+
+  const send = (bytes: Uint8Array): void => {
+    if (!open) {
+      throw new ConnectionClosedError(input.name, output.name);
+    }
+    output.send(bytes);
+  };
+
+  return {
+    inputName: input.name,
+    outputName: output.name,
+    sysex: exclusive(sysexFrames, "SysEx frame"),
+    cc: ccEvents.asObservable(),
+    get isOpen() {
+      return open;
+    },
+    send,
+    sendCommand(command: SysExCommand): void {
+      send(encodeCommand(command));
+    },
+    async close(): Promise<void> {
+      if (!open) {
+        return;
+      }
+      detach();
+      await Promise.all([input.close(), output.close()]);
+    },
+  };
+}
+
+export async function openConnection(specifiers: PortSpecifiers): Promise<Connection> {
+  if (!WebMidi.enabled) {
+    await WebMidi.enable({ sysex: true });
+  }
+  if (!WebMidi.sysexEnabled) {
+    throw new SysExNotEnabledError();
+  }
+
+  const inputPort = resolvePort(specifiers.input, listInputPorts());
+  const outputPort = resolvePort(specifiers.output, listOutputPorts());
+  const input: Input | undefined = WebMidi.getInputById(inputPort.id);
+  const output: Output | undefined = WebMidi.getOutputById(outputPort.id);
+  if (input === undefined) {
+    throw new NoMatchingPortError(specifiers.input);
+  }
+  if (output === undefined) {
+    throw new NoMatchingPortError(specifiers.output);
+  }
+
+  await Promise.all([input.open(), output.open()]);
+  return createConnection(input, output);
+}
