@@ -6,13 +6,8 @@ import { Observable, Subject } from "rxjs";
 import { WebMidi } from "webmidi";
 import { encodeCommand } from "../protocol";
 import { createCcRateLimiter } from "./cc-rate-limit";
-import {
-  ConnectionClosedError,
-  NoMatchingPortError,
-  SysExNotEnabledError,
-  SysExStreamBusyError,
-} from "./errors";
-import { listInputPorts, listOutputPorts, resolvePort } from "./ports";
+import { ConnectionClosedError, NoMatchingPortError, SysExStreamBusyError } from "./errors";
+import { enableMidi, listInputPorts, listOutputPorts, resolvePort } from "./ports";
 import { createSysExReassembler } from "./reassembly";
 
 export interface CcEvent {
@@ -26,6 +21,7 @@ export interface Connection {
   readonly inputName: string;
   readonly outputName: string;
   readonly sysex: Observable<Uint8Array>;
+  readonly sysexMonitor: Observable<Uint8Array>;
   readonly cc: Observable<CcEvent>;
   readonly isOpen: boolean;
   readonly reassembly: SysExReassemblyStats;
@@ -117,6 +113,7 @@ export function createConnection(input: Input, output: Output): Connection {
     inputName: input.name,
     outputName: output.name,
     sysex: exclusive(sysexFrames, "SysEx frame"),
+    sysexMonitor: sysexFrames.asObservable(),
     cc: ccEvents.asObservable(),
     get isOpen() {
       return open;
@@ -143,12 +140,7 @@ export function createConnection(input: Input, output: Output): Connection {
 }
 
 export async function openConnection(specifiers: PortSpecifiers): Promise<Connection> {
-  if (!WebMidi.enabled) {
-    await WebMidi.enable({ sysex: true });
-  }
-  if (!WebMidi.sysexEnabled) {
-    throw new SysExNotEnabledError();
-  }
+  await enableMidi();
 
   const inputPort = resolvePort(specifiers.input, listInputPorts());
   const outputPort = resolvePort(specifiers.output, listOutputPorts());

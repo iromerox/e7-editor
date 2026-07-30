@@ -98,6 +98,28 @@ request/response helper in `src/midi` must treat parse failures within the
 timeout window as transient (keep waiting for a frame that parses) rather
 than fatal, to absorb this.
 
+**In-browser, it does not appear.** A smoke test run against the same device
+(serial #361, USB, Brave/Chromium, Web MIDI) read the serial number and all
+eight 16-byte blocks of preset 1.1.1 and saw **zero** unparsed frames across
+all nine commands — one frame per command, each parsing as the documented
+response, the Read Memory responses arriving a consistent 15.7-16.0ms after
+their command. So the tolerance in `requestResponse` is **defensive, not
+load-bearing**: keep it, but nothing may assume a preview frame arrives.
+
+That is not evidence the device stopped sending it. Three explanations fit,
+and HW-02 should tell them apart rather than assume the first:
+
+1. Chromium validates inbound SysEx and drops malformed frames before they
+   reach the page, so a frame still on the wire is invisible to Web MIDI.
+2. The original sighting was the device echoing the outbound command back
+   with Soft Thru enabled — the command frame carries an odd-length payload
+   after its header and would fail response decoding exactly as described,
+   and it would arrive at once rather than after the device's ~16ms read
+   latency, matching "~16ms early". Read the Soft Thru configuration byte on
+   both rigs before ruling this out.
+3. The `midir` backend produced it, which would make this quirk and #16 the
+   same underlying bug seen from two angles.
+
 ---
 
 ## Open questions (needs hardware re-validation)
@@ -122,22 +144,77 @@ questions, not assumptions:
     Callers that know which control the user touched can still write either
     field directly with `writeField`. Don't collapse the pair to a single
     field until the hardware test resolves it.
-15. Whether other Read commands (Serial, Configuration, Autotuning, Lock
-    echo, Write Memory echo) exhibit the same preview-frame prelude as Read
-    Memory (#12) was never confirmed — the defensive handling should already
-    be correct for any of them, but it's untested.
-16. **Whether a browser ever splits an inbound SysEx frame across events is
-    unobserved.** The Rust implementation needed real reassembly because of
-    a `midir`-backend fragmentation quirk; Web MIDI is specified to deliver
-    one complete `F0...F7` frame per message event, so
-    `src/midi/reassembly.ts` is a guard against a driver that doesn't,
-    not a known-load-bearing path. `Connection.reassembly` counts frames
-    that arrived across more than one event (`fragmentedFrames`) and partial
-    buffers dropped because a new `F0` preempted them
-    (`discardedPartials`) — read both after the MIDI-06 hardware smoke test
-    and record the observed numbers here, replacing this paragraph with what
-    the hardware actually did. One caveat that test has to check as well:
-    webmidi.js classifies an incoming message by its leading status byte, so
-    a continuation fragment carrying no status byte may never surface as a
-    `sysex` event at all. If fragmentation turns out to be real in-browser,
-    what feeds the reassembler has to change, not just the reassembler.
+15. Whether other Read commands (Configuration, Autotuning, Lock echo, Write
+    Memory echo) exhibit the same preview-frame prelude as Read Memory (#12)
+    is still unconfirmed — the defensive handling should already be correct
+    for any of them, but it's untested. Read Serial Number is no longer among
+    them: the smoke test recorded a single clean response frame for it.
+16. **No browser has been seen to split an inbound SysEx frame.** The Rust
+    implementation needed real reassembly because of a `midir`-backend
+    fragmentation quirk; Web MIDI is specified to deliver one complete
+    `F0...F7` frame per message event, so `src/midi/reassembly.ts` is a guard
+    against a driver that doesn't, not a known-load-bearing path. The smoke
+    test (serial #361, USB, Brave/Chromium, nine commands) reported
+    `fragmentedFrames` 0, `discardedPartials` 0, and no bytes left pending —
+    every frame arrived whole in a single event, as specified. Keep the guard
+    for drivers not yet tried, but nothing may depend on it doing work.
+
+    The caveat it was meant to catch therefore stays open rather than
+    resolved: webmidi.js classifies an incoming message by its leading status
+    byte, so a continuation fragment carrying no status byte may never
+    surface as a `sysex` event at all. A run that fragments would show up not
+    as a non-zero `fragmentedFrames` but as a timeout with bytes left
+    pending. If that is ever observed, what feeds the reassembler has to
+    change, not just the reassembler.
+19. **Whether the device accepts a pipelined request is untested, and a full
+    backup takes over two minutes if it doesn't.** Every command in the smoke
+    test answered in 15.7-16.0ms — a fixed cost, identical for a 2-byte
+    serial response and a 34-byte memory response. It is device-side, not
+    transport-side: across those nine samples the spread was 0.3ms, whereas
+    delivery batched on a browser task queue would scatter latencies across a
+    full tick, and the ~63Hz floor doesn't match a 60Hz refresh either.
+
+    `requestResponse` sends one command and waits, so that cost is paid
+    serially. Reading all of preset memory is 8192 Read Memory calls
+    (`0x000000-0x01FFFF`, 16 bytes each) — about 2min 11s, and no amount of
+    client-side work reduces it while requests stay sequential. Whether the
+    device will accept a new command while preparing a response, and how deep
+    that queue goes, has never been tried. Settle it before designing BULK's
+    bulk reads and progress UI, because the answer decides whether a full
+    backup is a progress bar or an operation the user walks away from.
+20. **The outbound CC rate limit was chosen without hardware and may be about
+    3x too permissive.** `MIN_CC_INTERVAL_MS` is 5 (200Hz per
+    channel/controller pair). If the device really works on the ~16ms cycle
+    #19 measured, a knob drag still delivers roughly three updates per device
+    cycle, so the limiter throttles far less than its name suggests. Whether
+    the device drops the surplus, lags behind a drag, or handles it fine is
+    unknown — nothing has been sent to the instrument at rate yet.
+21. **Every hardware finding here is USB-only.** The smoke test ran over the
+    e7's USB port. DIN MIDI is a different physical path at 31250 baud, where
+    a 34-byte Read Memory response occupies ~9ms of wire time rather than
+    being effectively instant, so both the framing questions (#12, #16) and
+    the latency in #19 could behave differently. Treat #12, #16, and #19 as
+    settled for USB and open for DIN until someone runs the same page through
+    a DIN interface.
+
+---
+
+## Confirmed against hardware
+
+Observations from a real device that the printed document doesn't state.
+Same standing as the settled entries above, kept apart only because they
+were learned by running the instrument rather than by reading.
+
+17. **Preset names are ASCII, padded to 20 bytes with `0x20`.** The byte map
+    (p.25) reserves bytes 0-19 for the name without saying how characters are
+    encoded; the printed Read Memory example on p.14 implies ASCII, and
+    preset 1.1.1 of serial #361 confirms it — `50 75 6D 70 69 6E 20 50 61 64`
+    followed by ten `0x20`, reading "Pumpin Pad". Trailing spaces are padding,
+    not part of the name.
+
+18. **Reserved bytes are not uniformly zero.** In that same preset, bytes 125
+    and 126 both read `0xFF` while every other undocumented byte read `0x00`
+    — and they are the only two bytes in the whole 128 above `0x7F`. What
+    they mean is unknown, but they carry a value the device put there, which
+    is why `src/protocol/preset.ts` round-trips undocumented bytes verbatim
+    instead of zeroing them on encode. Don't "clean" them.

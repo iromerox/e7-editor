@@ -1,6 +1,6 @@
 // MIDI port enumeration and resolution of user-supplied port specifiers.
 import { WebMidi } from "webmidi";
-import { AmbiguousPortError, NoMatchingPortError } from "./errors";
+import { AmbiguousPortError, NoMatchingPortError, SysExNotEnabledError } from "./errors";
 
 export interface PortInfo {
   readonly index: number;
@@ -17,6 +17,15 @@ const INDEX_SPECIFIER = /^#(\d+)$/;
 
 function describePorts(ports: readonly AdvertisedPort[]): PortInfo[] {
   return ports.map((port, index) => ({ index, id: port.id, name: port.name }));
+}
+
+export async function enableMidi(): Promise<void> {
+  if (!WebMidi.enabled) {
+    await WebMidi.enable({ sysex: true });
+  }
+  if (!WebMidi.sysexEnabled) {
+    throw new SysExNotEnabledError();
+  }
 }
 
 export function listInputPorts(): PortInfo[] {

@@ -28,7 +28,8 @@ spec.
 
 Thin `webmidi` wrapper: port enumeration/resolution (by index, exact name, or
 unique substring), a `Connection` exposing two independent streams — SysEx
-frames (for request/response) and raw CC events (for live forwarding) — and
+frames (for request/response) and raw CC events (for live forwarding), plus
+a non-exclusive monitor stream mirroring every SysEx frame for logging — and
 a `requestResponse(command, timeout)` helper that tolerates the device's
 undocumented preview frame before real responses (see
 `protocol-quirks.md`, #12). Outbound CC is rate-limited/coalesced to avoid
@@ -36,7 +37,8 @@ flooding the device during a knob drag. Inbound SysEx passes through a
 reassembly guard that buffers until a complete `F0...F7` frame is on hand —
 defensive only: whether any browser actually fragments a frame is unverified
 (see `protocol-quirks.md`, #16), so don't build further on it until the
-hardware smoke test says it happens.
+hardware smoke test says it happens — `docs/hardware-smoke-test.md` covers
+running that test against a real device.
 
 No worker-thread isolation: the browser's event loop is already
 non-blocking around MIDI I/O, so a dedicated worker thread for the

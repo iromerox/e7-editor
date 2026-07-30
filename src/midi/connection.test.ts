@@ -152,6 +152,29 @@ describe("createConnection streams", () => {
     expect(next).toEqual([Uint8Array.of(0xf0, 0x02, 0xf7)]);
   });
 
+  it("mirrors every frame to the monitor stream without claiming the SysEx consumer slot", () => {
+    const { input, connection } = harness();
+    const logged: Uint8Array[] = [];
+    const audit: Uint8Array[] = [];
+    connection.sysexMonitor.subscribe((frame) => logged.push(frame));
+    connection.sysexMonitor.subscribe((frame) => audit.push(frame));
+
+    const frames: Uint8Array[] = [];
+    let rejected: unknown;
+    connection.sysex.subscribe({
+      next: (frame) => frames.push(frame),
+      error: (error: unknown) => (rejected = error),
+    });
+
+    input.receiveSysex(0xf0, 0x01, 0xf7);
+    input.receiveSysex(0xf0, 0x02, 0xf7);
+
+    expect(rejected).toBeUndefined();
+    expect(frames).toHaveLength(2);
+    expect(logged).toEqual(frames);
+    expect(audit).toEqual(frames);
+  });
+
   it("fans the CC stream out to every live-forwarding consumer", () => {
     const { input, connection } = harness();
     const editor: CcEvent[] = [];

@@ -64,6 +64,7 @@ function harness(): Harness {
         subscription.unsubscribe();
       };
     }),
+    sysexMonitor: frames.asObservable(),
     cc: new Subject<CcEvent>().asObservable(),
     get isOpen() {
       return open;

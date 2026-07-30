@@ -118,6 +118,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   two together. `Connection.reassembly` reports how many frames arrived
   fragmented and how many partials were discarded, so the hardware smoke
   test can record whether browsers fragment at all.
+- Hardware smoke test page, served by the dev server at `/smoke-test.html`
+  and left out of the production build. Against a connected e7 it enables
+  Web MIDI with system exclusive access, resolves the device's ports, reads
+  the serial number, and reads a preset as eight sequential 16-byte Read
+  Memory calls, decoding its name. It is read-only — nothing is written to
+  the instrument. Every frame that crossed the wire is logged as pasteable
+  hex, timestamped from the moment its command went out and marked as either
+  the documented response or an unparsed frame, alongside the reassembly
+  counters — so a run answers, with evidence, whether the device's
+  undocumented preview frame and SysEx fragmentation actually reach a
+  browser.
+- `Connection.sysexMonitor`, a non-exclusive stream mirroring every complete
+  inbound SysEx frame. Logging and diagnostics can watch the traffic without
+  taking the single consumer slot on `Connection.sysex` that a pending
+  request needs.
+- `enableMidi()`, requesting Web MIDI with system exclusive access and
+  refusing anything less, so ports can be listed before a connection is
+  opened. `openConnection()` now goes through it rather than enabling
+  inline.
 
 ### Changed
 
@@ -140,3 +159,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Architecture and protocol-quirks docs, reference document download
   instructions.
+- `docs/hardware-smoke-test.md`: running the smoke test against a real
+  device, and how to read each counter in its log against the open questions
+  in `protocol-quirks.md` it settles.
+- First hardware findings, from a run against serial #361 over USB in
+  Brave/Chromium. Neither behavior the transport was built to absorb appears
+  in a browser: the device's undocumented preview frame never reached the
+  page, and no SysEx frame arrived fragmented. Both guards stay but are now
+  documented as defensive rather than load-bearing. Recorded alongside them:
+  what the run does not rule out (Chromium may be dropping malformed frames
+  itself, and the original sighting may have been a Soft Thru echo), that
+  preset names are ASCII padded with spaces to 20 bytes, and that
+  undocumented preset bytes are not uniformly zero — preset 1.1.1 holds
+  `0xFF` in bytes 125 and 126, confirming they must round-trip verbatim.
+- Three open questions the same run raised: the device answers every command
+  in a fixed ~16ms, which is device-side rather than browser-side and puts a
+  floor of about 2min 11s on reading all preset memory unless the device
+  turns out to accept pipelined requests; the outbound CC rate limit of 200Hz
+  may be roughly 3x more permissive than a ~62.5Hz device cycle warrants; and
+  every one of these findings holds for USB only, DIN MIDI being untested.
