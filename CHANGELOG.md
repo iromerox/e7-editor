@@ -70,6 +70,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   LFO2 EG1 Mod (CC 67, which has no preset byte) are deliberately unmapped.
   CC 3 resolves to both `osc1Transpose` and `transpose` and `applyCc`
   reports it as ambiguous rather than guessing, pending a hardware test.
+- `src/midi/ports.ts`: MIDI input/output enumeration, each port reported with
+  its name and the identifier the browser assigns it for the session, plus
+  `resolvePort` for turning a user-supplied specifier into a port — `#N` by
+  listing position, then exact name, then a unique case-insensitive
+  substring. A substring matching several ports is reported as ambiguous,
+  naming the candidates, instead of silently picking one.
+- `src/midi/errors.ts`: typed error hierarchy for the MIDI transport
+  (`MidiError` base class with a `code` discriminant per failure mode),
+  mirroring the protocol layer's.
 
 ### Changed
 
