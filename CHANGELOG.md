@@ -149,6 +149,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   RxDB's own `version` + `migrationStrategies`; a version 0 → 1 strategy is
   in place and tested against a database written under the old schema, so
   the migration path is proven before a real schema change needs it.
+- `src/store/syx-codec.ts`: `.syx` file contents are parsed into 16-byte
+  write-memory blocks and classified purely by the addresses they write —
+  Single, Multi, Group, Bank, Backup, or MultiPack for any other set of whole
+  presets — never by filename or extension. The result carries the decoded
+  presets and their bank/group/slot, so an entry can be stored without
+  parsing the file a second time.
+- `src/store/errors.ts`: a typed `StoreError` hierarchy for library-side
+  failures, so a file with a `.syx` extension holding anything other than
+  writes to preset memory — another manufacturer's SysEx, a non-write-memory
+  command, an address outside preset memory, a duplicated or partly written
+  preset — is rejected with a specific error rather than misclassified.
 
 ### Changed
 
