@@ -1,6 +1,6 @@
 import type { Input, Output } from "webmidi";
 import type { CcEvent, Connection } from "./connection";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createConnection } from "./connection";
 import { ConnectionClosedError, SysExStreamBusyError } from "./errors";
 
@@ -193,6 +193,40 @@ describe("createConnection sending", () => {
     const { connection } = harness();
     expect(connection.inputName).toBe("GS Music e7 IN");
     expect(connection.outputName).toBe("GS Music e7 OUT");
+  });
+});
+
+describe("createConnection outbound control changes", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("encodes the control change on its own channel and rate limits the burst", async () => {
+    vi.useFakeTimers();
+    const { output, connection } = harness();
+
+    for (let value = 60; value <= 70; value += 1) {
+      connection.sendControlChange(3, 74, value);
+    }
+    connection.sendControlChange(3, 20, 5);
+    await vi.advanceTimersByTimeAsync(50);
+
+    expect(output.sent).toEqual([Uint8Array.of(0xb2, 74, 70), Uint8Array.of(0xb2, 20, 5)]);
+  });
+
+  it("rejects a control change after close and never writes a held-back value", async () => {
+    vi.useFakeTimers();
+    const { output, connection } = harness();
+
+    connection.sendControlChange(1, 74, 64);
+    await vi.advanceTimersByTimeAsync(0);
+    connection.sendControlChange(1, 74, 65);
+    await connection.close();
+    await vi.advanceTimersByTimeAsync(50);
+
+    expect(output.sent).toEqual([Uint8Array.of(0xb0, 74, 64)]);
+    expect(() => connection.sendControlChange(1, 74, 66)).toThrow(ConnectionClosedError);
+    expect(output.sent).toHaveLength(1);
   });
 });
 

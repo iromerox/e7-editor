@@ -72,6 +72,9 @@ function harness(): Harness {
     sendCommand(command: SysExCommand): void {
       send(encodeCommand(command));
     },
+    sendControlChange(channel: number, controller: number, value: number): void {
+      send(Uint8Array.of(0xb0 | (channel - 1), controller, value));
+    },
     close(): Promise<void> {
       open = false;
       frames.complete();

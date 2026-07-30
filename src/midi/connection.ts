@@ -4,6 +4,7 @@ import type { SysExCommand } from "../protocol";
 import { Observable, Subject } from "rxjs";
 import { WebMidi } from "webmidi";
 import { encodeCommand } from "../protocol";
+import { createCcRateLimiter } from "./cc-rate-limit";
 import {
   ConnectionClosedError,
   NoMatchingPortError,
@@ -27,8 +28,11 @@ export interface Connection {
   readonly isOpen: boolean;
   send(bytes: Uint8Array): void;
   sendCommand(command: SysExCommand): void;
+  sendControlChange(channel: number, controller: number, value: number): void;
   close(): Promise<void>;
 }
+
+const CONTROL_CHANGE_STATUS = 0xb0;
 
 export interface PortSpecifiers {
   readonly input: string;
@@ -72,11 +76,23 @@ export function createConnection(input: Input, output: Output): Connection {
     });
   };
 
+  const send = (bytes: Uint8Array): void => {
+    if (!open) {
+      throw new ConnectionClosedError(input.name, output.name);
+    }
+    output.send(bytes);
+  };
+
+  const rateLimiter = createCcRateLimiter((channel, controller, value) => {
+    send(Uint8Array.of(CONTROL_CHANGE_STATUS | (channel - 1), controller, value));
+  });
+
   const detach = (): void => {
     if (!open) {
       return;
     }
     open = false;
+    rateLimiter.dispose();
     input.removeListener("sysex", onSysex);
     input.removeListener("controlchange", onControlChange);
     input.removeListener("disconnected", detach);
@@ -90,13 +106,6 @@ export function createConnection(input: Input, output: Output): Connection {
   input.addListener("disconnected", detach);
   output.addListener("disconnected", detach);
 
-  const send = (bytes: Uint8Array): void => {
-    if (!open) {
-      throw new ConnectionClosedError(input.name, output.name);
-    }
-    output.send(bytes);
-  };
-
   return {
     inputName: input.name,
     outputName: output.name,
@@ -108,6 +117,12 @@ export function createConnection(input: Input, output: Output): Connection {
     send,
     sendCommand(command: SysExCommand): void {
       send(encodeCommand(command));
+    },
+    sendControlChange(channel: number, controller: number, value: number): void {
+      if (!open) {
+        throw new ConnectionClosedError(input.name, output.name);
+      }
+      rateLimiter.send(channel, controller, value);
     },
     async close(): Promise<void> {
       if (!open) {

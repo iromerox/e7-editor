@@ -101,6 +101,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   back, and the four commands with no documented response (All LEDs ON,
   Factory Reset, Initialize Preset, Write Configuration) are rejected at
   compile time and raise a typed error at runtime instead of timing out.
+- `src/midi/cc-rate-limit.ts`: outbound control changes are capped at 200 Hz
+  (5 ms) per channel and controller, so a knob drag can't outrun the device.
+  Updates arriving inside that window are coalesced, and only the latest one
+  ships when the window opens — the value the user lands on always reaches
+  the wire. Values for different channel/controller pairs never coalesce
+  against each other, and a lone control change goes out on the spot rather
+  than waiting out an interval. `Connection.sendControlChange(channel,
+  controller, value)` sends through it, and closing the connection drops any
+  value still held back instead of writing to a dead port.
 
 ### Changed
 
