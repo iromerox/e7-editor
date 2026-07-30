@@ -91,6 +91,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   writing to a dead port. `openConnection()` resolves a pair of port
   specifiers, requesting system exclusive access if Web MIDI is not enabled
   yet and refusing to connect without it.
+- `src/midi/request-response.ts`: `requestResponse(connection, command,
+  timeout)`, which sends a command and resolves with the decoded response the
+  device documents for it. Frames that don't parse as that response — such as
+  the short malformed preview frame the device sends ahead of a real Read
+  Memory response — are ignored and waited past, so only a genuinely silent
+  device produces a failure: a typed timeout error reporting how many frames
+  were ignored. The command sent decides the response type the caller gets
+  back, and the four commands with no documented response (All LEDs ON,
+  Factory Reset, Initialize Preset, Write Configuration) are rejected at
+  compile time and raise a typed error at runtime instead of timing out.
 
 ### Changed
 
