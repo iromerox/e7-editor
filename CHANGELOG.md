@@ -137,6 +137,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   refusing anything less, so ports can be listed before a connection is
   opened. `openConnection()` now goes through it rather than enabling
   inline.
+- `src/store/schema.ts`: the library entry collection schema — what the
+  entry is (Single, Multi, Group, Bank, MultiPack or Backup), its name, the
+  bank/group/slot it originated from when it has one, when it was captured
+  and how (device dump, user import or edit), tags, comment, SHA-256
+  hash, the raw SysEx bytes as base64, and a JSON-safe snapshot of the
+  decoded preset. Entries carry a generated primary key rather than being
+  keyed by content or slot, so the same sound can be stored more than once.
+- `src/store/database.ts`: `createLibraryDatabase()`, opening the library on
+  IndexedDB through RxDB's Dexie storage. Schema evolution goes through
+  RxDB's own `version` + `migrationStrategies`; a version 0 → 1 strategy is
+  in place and tested against a database written under the old schema, so
+  the migration path is proven before a real schema change needs it.
 
 ### Changed
 
