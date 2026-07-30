@@ -110,6 +110,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   than waiting out an interval. `Connection.sendControlChange(channel,
   controller, value)` sends through it, and closing the connection drops any
   value still held back instead of writing to a dead port.
+- `src/midi/reassembly.ts`: incoming SysEx is buffered until a complete
+  `F0...F7` frame is on hand, so a driver that splits a frame across message
+  events can't hand a caller a truncated one, and two frames arriving in a
+  single event are delivered as two. An `F0` arriving before the open frame
+  closes drops the partial buffer and starts over rather than splicing the
+  two together. `Connection.reassembly` reports how many frames arrived
+  fragmented and how many partials were discarded, so the hardware smoke
+  test can record whether browsers fragment at all.
 
 ### Changed
 

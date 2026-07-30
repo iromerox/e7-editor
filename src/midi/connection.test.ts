@@ -165,6 +165,33 @@ describe("createConnection streams", () => {
     expect(meter).toHaveLength(1);
   });
 
+  it("holds a frame split across events back until it is complete", () => {
+    const { input, connection } = harness();
+    const frames: Uint8Array[] = [];
+    connection.sysex.subscribe((frame) => frames.push(frame));
+
+    input.receiveSysex(0xf0, 0x01, 0x02);
+    expect(frames).toEqual([]);
+    expect(connection.reassembly.pendingBytes).toBe(3);
+
+    input.receiveSysex(0x03, 0xf7);
+
+    expect(frames).toEqual([Uint8Array.of(0xf0, 0x01, 0x02, 0x03, 0xf7)]);
+    expect(connection.reassembly.fragmentedFrames).toBe(1);
+  });
+
+  it("restarts on a second F0 instead of delivering a frame built from two", () => {
+    const { input, connection } = harness();
+    const frames: Uint8Array[] = [];
+    connection.sysex.subscribe((frame) => frames.push(frame));
+
+    input.receiveSysex(0xf0, 0x01, 0x02);
+    input.receiveSysex(0xf0, 0x03, 0xf7);
+
+    expect(frames).toEqual([Uint8Array.of(0xf0, 0x03, 0xf7)]);
+    expect(connection.reassembly.discardedPartials).toBe(1);
+  });
+
   it("drops a control change carrying no value byte rather than reporting a made-up one", () => {
     const { input, connection } = harness();
     const ccs: CcEvent[] = [];

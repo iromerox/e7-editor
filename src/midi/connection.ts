@@ -1,6 +1,7 @@
 // Bidirectional device connection exposing SysEx frames and CC events as independent streams.
 import type { ControlChangeMessageEvent, Input, MessageEvent, Output } from "webmidi";
 import type { SysExCommand } from "../protocol";
+import type { SysExReassemblyStats } from "./reassembly";
 import { Observable, Subject } from "rxjs";
 import { WebMidi } from "webmidi";
 import { encodeCommand } from "../protocol";
@@ -12,6 +13,7 @@ import {
   SysExStreamBusyError,
 } from "./errors";
 import { listInputPorts, listOutputPorts, resolvePort } from "./ports";
+import { createSysExReassembler } from "./reassembly";
 
 export interface CcEvent {
   readonly channel: number;
@@ -26,6 +28,7 @@ export interface Connection {
   readonly sysex: Observable<Uint8Array>;
   readonly cc: Observable<CcEvent>;
   readonly isOpen: boolean;
+  readonly reassembly: SysExReassemblyStats;
   send(bytes: Uint8Array): void;
   sendCommand(command: SysExCommand): void;
   sendControlChange(channel: number, controller: number, value: number): void;
@@ -58,10 +61,13 @@ function exclusive<T>(source: Subject<T>, stream: string): Observable<T> {
 export function createConnection(input: Input, output: Output): Connection {
   const sysexFrames = new Subject<Uint8Array>();
   const ccEvents = new Subject<CcEvent>();
+  const reassembler = createSysExReassembler();
   let open = true;
 
   const onSysex = (event: MessageEvent): void => {
-    sysexFrames.next(Uint8Array.from(event.message.rawData));
+    for (const frame of reassembler.push(event.message.rawData)) {
+      sysexFrames.next(frame);
+    }
   };
 
   const onControlChange = (event: ControlChangeMessageEvent): void => {
@@ -93,6 +99,7 @@ export function createConnection(input: Input, output: Output): Connection {
     }
     open = false;
     rateLimiter.dispose();
+    reassembler.reset();
     input.removeListener("sysex", onSysex);
     input.removeListener("controlchange", onControlChange);
     input.removeListener("disconnected", detach);
@@ -114,6 +121,7 @@ export function createConnection(input: Input, output: Output): Connection {
     get isOpen() {
       return open;
     },
+    reassembly: reassembler,
     send,
     sendCommand(command: SysExCommand): void {
       send(encodeCommand(command));

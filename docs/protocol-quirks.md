@@ -126,3 +126,18 @@ questions, not assumptions:
     echo, Write Memory echo) exhibit the same preview-frame prelude as Read
     Memory (#12) was never confirmed — the defensive handling should already
     be correct for any of them, but it's untested.
+16. **Whether a browser ever splits an inbound SysEx frame across events is
+    unobserved.** The Rust implementation needed real reassembly because of
+    a `midir`-backend fragmentation quirk; Web MIDI is specified to deliver
+    one complete `F0...F7` frame per message event, so
+    `src/midi/reassembly.ts` is a guard against a driver that doesn't,
+    not a known-load-bearing path. `Connection.reassembly` counts frames
+    that arrived across more than one event (`fragmentedFrames`) and partial
+    buffers dropped because a new `F0` preempted them
+    (`discardedPartials`) — read both after the MIDI-06 hardware smoke test
+    and record the observed numbers here, replacing this paragraph with what
+    the hardware actually did. One caveat that test has to check as well:
+    webmidi.js classifies an incoming message by its leading status byte, so
+    a continuation fragment carrying no status byte may never surface as a
+    `sysex` event at all. If fragmentation turns out to be real in-browser,
+    what feeds the reassembler has to change, not just the reassembler.

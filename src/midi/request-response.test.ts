@@ -68,6 +68,7 @@ function harness(): Harness {
     get isOpen() {
       return open;
     },
+    reassembly: { pendingBytes: 0, fragmentedFrames: 0, discardedPartials: 0 },
     send,
     sendCommand(command: SysExCommand): void {
       send(encodeCommand(command));

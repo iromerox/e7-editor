@@ -32,7 +32,11 @@ frames (for request/response) and raw CC events (for live forwarding) — and
 a `requestResponse(command, timeout)` helper that tolerates the device's
 undocumented preview frame before real responses (see
 `protocol-quirks.md`, #12). Outbound CC is rate-limited/coalesced to avoid
-flooding the device during a knob drag.
+flooding the device during a knob drag. Inbound SysEx passes through a
+reassembly guard that buffers until a complete `F0...F7` frame is on hand —
+defensive only: whether any browser actually fragments a frame is unverified
+(see `protocol-quirks.md`, #16), so don't build further on it until the
+hardware smoke test says it happens.
 
 No worker-thread isolation: the browser's event loop is already
 non-blocking around MIDI I/O, so a dedicated worker thread for the
