@@ -1,3 +1,4 @@
+import type { CcField } from "./cc-map";
 import { describe, expect, it } from "vitest";
 import {
   AMPLIFIER_LEVEL,
@@ -9,17 +10,9 @@ import {
   OTHER_VOICES,
   VOLUME,
 } from "./cc";
-import {
-  applyCc,
-  CC_FIELDS,
-  type CcField,
-  ccToFields,
-  fieldToCc,
-  readField,
-  writeField,
-} from "./cc-map";
+import { CC_FIELDS, applyCc, ccToFields, fieldToCc, readField, writeField } from "./cc-map";
 import { ReservedValue } from "./errors";
-import { decodeSinglePreset, encodeSinglePreset, SINGLE_PRESET_BYTES } from "./preset";
+import { SINGLE_PRESET_BYTES, decodeSinglePreset, encodeSinglePreset } from "./preset";
 
 const CC3_CANDIDATES: readonly CcField[] = ["osc1Transpose", "transpose"];
 

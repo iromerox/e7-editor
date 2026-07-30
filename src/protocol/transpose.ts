@@ -1,5 +1,6 @@
 // Irregular 49-band CC-to-semitone lookup for Transpose.
-import { decodeZoned, encodeZoned, type Zone } from "./cc";
+import type { Zone } from "./cc";
+import { decodeZoned, encodeZoned } from "./cc";
 
 export type Transpose =
   | -24

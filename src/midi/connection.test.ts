@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
 import type { Input, Output } from "webmidi";
-import { type CcEvent, type Connection, createConnection } from "./connection";
+import type { CcEvent, Connection } from "./connection";
+import { describe, expect, it } from "vitest";
+import { createConnection } from "./connection";
 import { ConnectionClosedError, SysExStreamBusyError } from "./errors";
 
 type PortListener = (event: unknown) => void;

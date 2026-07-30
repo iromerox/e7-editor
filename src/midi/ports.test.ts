@@ -1,7 +1,9 @@
+import type { Input, Output } from "webmidi";
+import type { PortInfo } from "./ports";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Input, type Output, WebMidi } from "webmidi";
+import { WebMidi } from "webmidi";
 import { AmbiguousPortError, NoMatchingPortError } from "./errors";
-import { listInputPorts, listOutputPorts, type PortInfo, resolvePort } from "./ports";
+import { listInputPorts, listOutputPorts, resolvePort } from "./ports";
 
 function fixture(): PortInfo[] {
   return [

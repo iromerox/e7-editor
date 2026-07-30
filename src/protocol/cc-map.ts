@@ -1,4 +1,19 @@
 // Bidirectional map between MIDI CC numbers and the SinglePreset fields they drive.
+import type {
+  Amplifier,
+  Chorus,
+  Delay,
+  Envelope,
+  Filter,
+  Lfo1,
+  Lfo2,
+  Lfo3,
+  Mixer,
+  Oscillator,
+  Portamento,
+  SinglePreset,
+  Stereo,
+} from "./preset";
 import {
   AMPLIFIER_KEYBOARD_TRACKING,
   AMPLIFIER_LEVEL,
@@ -86,21 +101,6 @@ import {
   PORTAMENTO_SWITCH,
   PORTAMENTO_TIME,
 } from "./cc";
-import type {
-  Amplifier,
-  Chorus,
-  Delay,
-  Envelope,
-  Filter,
-  Lfo1,
-  Lfo2,
-  Lfo3,
-  Mixer,
-  Oscillator,
-  Portamento,
-  SinglePreset,
-  Stereo,
-} from "./preset";
 import { Voices } from "./voices";
 
 type NumericKey<Group> = {

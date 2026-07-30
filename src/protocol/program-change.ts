@@ -1,8 +1,9 @@
 // Bank Select MSB/LSB + Program Change resolve to a preset or multi slot
 // (p.11): Bank MSB 0 selects single mode (Bank LSB 0-3 picks the bank pair),
 // Bank MSB 1 selects multi mode (Bank LSB ignored).
+import type { ProgramChangeField } from "./errors";
 import { MultiSlot, PresetSlot } from "./address";
-import { type ProgramChangeField, ProgramChangeRangeError } from "./errors";
+import { ProgramChangeRangeError } from "./errors";
 
 export type ProgramChangeTarget =
   | { readonly kind: "single"; readonly slot: PresetSlot }

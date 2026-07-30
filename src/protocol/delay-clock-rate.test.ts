@@ -1,5 +1,6 @@
+import type { DelayClockRate } from "./delay-clock-rate";
 import { describe, expect, it } from "vitest";
-import { type DelayClockRate, delayClockRateFromCc, delayClockRateToCc } from "./delay-clock-rate";
+import { delayClockRateFromCc, delayClockRateToCc } from "./delay-clock-rate";
 import { ReservedValue } from "./errors";
 
 const BOUNDARIES: readonly [min: number, max: number, rate: DelayClockRate][] = [

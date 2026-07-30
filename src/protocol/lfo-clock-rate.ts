@@ -1,6 +1,7 @@
 // LFO clock-sync rate divisions (15 musical divisions); hardware-captured
 // zone boundaries, unverified pending hardware re-validation.
-import { decodeZoned, encodeZoned, type Zone } from "./cc";
+import type { Zone } from "./cc";
+import { decodeZoned, encodeZoned } from "./cc";
 
 export type LfoClockRate =
   | "whole"

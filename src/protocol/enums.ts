@@ -1,5 +1,6 @@
 // Regular-zone CC enums documented directly in the spec's zone tables (pp. 4-10).
-import { decodeZoned, encodeZoned, type Zone } from "./cc";
+import type { Zone } from "./cc";
+import { decodeZoned, encodeZoned } from "./cc";
 
 export type OscShape =
   | "triangle"

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PresetByteRangeError, PresetLengthError } from "./errors";
 import {
-  decodeMultiPreset,
-  decodeSinglePreset,
-  encodeMultiPreset,
-  encodeSinglePreset,
   LOCK_BYTE_INDEX,
   MULTI_ONLY_BYTES,
   MULTI_PRESET_BYTES,
@@ -12,6 +8,10 @@ import {
   PART1_ONLY_BYTES,
   RESERVED_BYTE_INDICES,
   SINGLE_PRESET_BYTES,
+  decodeMultiPreset,
+  decodeSinglePreset,
+  encodeMultiPreset,
+  encodeSinglePreset,
 } from "./preset";
 
 function fixture(length: number, value: (index: number) => number): Uint8Array {

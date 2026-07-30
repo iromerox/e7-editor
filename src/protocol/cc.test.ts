@@ -1,5 +1,6 @@
+import type { Zone } from "./cc";
 import { describe, expect, it } from "vitest";
-import { ccDirection, decodeZoned, FILTER_RESONANCE, LFO1_RATE, type Zone } from "./cc";
+import { FILTER_RESONANCE, LFO1_RATE, ccDirection, decodeZoned } from "./cc";
 import { ReservedValue } from "./errors";
 
 const evenZones: Zone<string>[] = [

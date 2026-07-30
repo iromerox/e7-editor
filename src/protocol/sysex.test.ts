@@ -1,3 +1,4 @@
+import type { SysExCommand, SysExResponse } from "./sysex";
 import { describe, expect, it } from "vitest";
 import { specBytes } from "../test-hex";
 import { PresetSlot } from "./address";
@@ -12,6 +13,9 @@ import {
 } from "./errors";
 import {
   COMMAND_HEADER,
+  MAX_SYSEX_ADDRESS,
+  PRESET_LOCKED,
+  PRESET_UNLOCKED,
   decodeAddress,
   decodeAutotuningStatusResponse,
   decodeCommand,
@@ -23,11 +27,6 @@ import {
   encodeResponse,
   isPresetLocked,
   lockPresetCommand,
-  MAX_SYSEX_ADDRESS,
-  PRESET_LOCKED,
-  PRESET_UNLOCKED,
-  type SysExCommand,
-  type SysExResponse,
   unlockPresetCommand,
 } from "./sysex";
 

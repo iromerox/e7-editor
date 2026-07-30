@@ -1,7 +1,8 @@
 // Delay clock-sync rate divisions (15 musical divisions); hardware-captured
 // zone boundaries in a different byte order than LfoClockRate, unverified
 // pending hardware re-validation.
-import { decodeZoned, encodeZoned, type Zone } from "./cc";
+import type { Zone } from "./cc";
+import { decodeZoned, encodeZoned } from "./cc";
 
 export type DelayClockRate =
   | "sixteenth"

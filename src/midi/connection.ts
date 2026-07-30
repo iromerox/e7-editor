@@ -1,13 +1,9 @@
 // Bidirectional device connection exposing SysEx frames and CC events as independent streams.
+import type { ControlChangeMessageEvent, Input, MessageEvent, Output } from "webmidi";
+import type { SysExCommand } from "../protocol";
 import { Observable, Subject } from "rxjs";
-import {
-  type ControlChangeMessageEvent,
-  type Input,
-  type MessageEvent,
-  type Output,
-  WebMidi,
-} from "webmidi";
-import { encodeCommand, type SysExCommand } from "../protocol";
+import { WebMidi } from "webmidi";
+import { encodeCommand } from "../protocol";
 import {
   ConnectionClosedError,
   NoMatchingPortError,

@@ -1,6 +1,7 @@
+import type { Transpose } from "./transpose";
 import { describe, expect, it } from "vitest";
 import { ReservedValue } from "./errors";
-import { type Transpose, transposeFromCc, transposeToCc } from "./transpose";
+import { transposeFromCc, transposeToCc } from "./transpose";
 
 const BOUNDARIES: readonly [min: number, max: number, semitones: Transpose][] = [
   [0, 1, -24],

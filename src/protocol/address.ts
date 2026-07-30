@@ -1,5 +1,6 @@
 // Memory addressing for preset and multi slots.
-import { type AddressComponent, AddressComponentRangeError } from "./errors";
+import type { AddressComponent } from "./errors";
+import { AddressComponentRangeError } from "./errors";
 
 export const MEMORY_REGIONS = {
   preset: { start: 0x000000, end: 0x01ffff },
