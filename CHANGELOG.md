@@ -196,6 +196,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and filtering it. Bank-and-group filtering deliberately does not use an
   index: Dexie storage cannot index an optional field, and an entry captured
   from no slot has no bank or group to index.
+- `src/app/theme.ts`: the hardware finish theme — panel tone (blue or black),
+  LED color (white or red) and cap color (white or black) as three
+  independent axes, each of the eight combinations deriving the full set of
+  CSS custom properties the panel replica is drawn from: panel and section
+  background, silkscreen and label colors, LED on/off/halo, cap top and
+  bottom, knob notch, and the modified-vs-library dot. Defaults to the blue
+  panel with white LEDs and white caps, matching the most common shipped
+  configuration.
+- `src/app/ThemeProvider.tsx`: the app shell now mounts inside a theme root
+  that publishes those custom properties to everything below it and repaints
+  the moment a finish axis changes, with a selector for the three axes in the
+  shell header.
 
 ### Changed
 
