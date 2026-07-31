@@ -1,6 +1,7 @@
-// Application shell: the theme root, the header, and the hardware-finish selector.
+// Application shell: the theme root, the header, the connection bar, and the hardware-finish selector.
 import type { JSX } from "solid-js";
 import { For } from "solid-js";
+import { ConnectionBar } from "./ConnectionBar";
 import { ThemeProvider, useTheme } from "./ThemeProvider";
 import { CAP_COLORS, LED_COLORS, PANEL_TONES } from "./theme";
 
@@ -43,6 +44,7 @@ function Shell(): JSX.Element {
       }}
     >
       <h1>e7 editor</h1>
+      <ConnectionBar />
       <fieldset style={{ "border-color": "var(--e7-silkscreen)" }}>
         <legend>Finish</legend>
         <FinishSelect

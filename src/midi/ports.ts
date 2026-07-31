@@ -8,6 +8,11 @@ export interface PortInfo {
   readonly name: string;
 }
 
+export interface PortLists {
+  readonly inputs: readonly PortInfo[];
+  readonly outputs: readonly PortInfo[];
+}
+
 interface AdvertisedPort {
   readonly id: string;
   readonly name: string;
@@ -34,6 +39,20 @@ export function listInputPorts(): PortInfo[] {
 
 export function listOutputPorts(): PortInfo[] {
   return describePorts(WebMidi.outputs);
+}
+
+export function listPorts(): PortLists {
+  return { inputs: listInputPorts(), outputs: listOutputPorts() };
+}
+
+export function watchPorts(onChange: (ports: PortLists) => void): () => void {
+  const notify = (): void => {
+    onChange(listPorts());
+  };
+  WebMidi.addListener("portschanged", notify);
+  return () => {
+    WebMidi.removeListener("portschanged", notify);
+  };
 }
 
 export function resolvePort(specifier: string, ports: readonly PortInfo[]): PortInfo {

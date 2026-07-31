@@ -208,6 +208,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that publishes those custom properties to everything below it and repaints
   the moment a finish axis changes, with a selector for the three axes in the
   shell header.
+- `src/app/ConnectionBar.tsx`: the shell's connection bar — input and output
+  port pickers, connect and disconnect, and the serial number the device
+  answers with once connected, read over the connection rather than assumed.
+  System exclusive access is requested from the bar on demand instead of at
+  page load. The port lists follow the browser's port-change notifications, so
+  plugging or unplugging a device updates them with no manual refresh, and a
+  selection whose port went away is dropped and named rather than quietly
+  pointed at another device. A connect that fails — a port gone between
+  selection and connect, a device that never answers the serial number read —
+  says so and leaves nothing half-open, and unplugging a connected device
+  returns the bar to its disconnected state instead of leaving a stale serial
+  number on screen. `src/midi/ports.ts` gained `listPorts()` and
+  `watchPorts()` to back it.
 
 ### Changed
 

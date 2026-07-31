@@ -1,9 +1,9 @@
 import type { Input, Output } from "webmidi";
-import type { PortInfo } from "./ports";
+import type { PortInfo, PortLists } from "./ports";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebMidi } from "webmidi";
 import { AmbiguousPortError, NoMatchingPortError } from "./errors";
-import { listInputPorts, listOutputPorts, resolvePort } from "./ports";
+import { listInputPorts, listOutputPorts, resolvePort, watchPorts } from "./ports";
 
 function fixture(): PortInfo[] {
   return [
@@ -51,6 +51,38 @@ describe("listInputPorts / listOutputPorts", () => {
   it("reports no ports where the environment exposes no Web MIDI access", () => {
     expect(listInputPorts()).toEqual([]);
     expect(listOutputPorts()).toEqual([]);
+  });
+});
+
+describe("watchPorts", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("re-reads both lists every time the browser reports a port change", () => {
+    const seen: PortLists[] = [];
+    const stop = watchPorts((ports) => seen.push(ports));
+
+    vi.spyOn(WebMidi, "inputs", "get").mockReturnValue([advertisedPort("in-a", "GS Music e7")]);
+    WebMidi.emit("portschanged", {});
+    vi.spyOn(WebMidi, "inputs", "get").mockReturnValue([]);
+    WebMidi.emit("portschanged", {});
+    stop();
+
+    expect(seen).toEqual([
+      { inputs: [{ index: 0, id: "in-a", name: "GS Music e7" }], outputs: [] },
+      { inputs: [], outputs: [] },
+    ]);
+  });
+
+  it("stops reporting once the watch is released", () => {
+    const seen: PortLists[] = [];
+    const stop = watchPorts((ports) => seen.push(ports));
+
+    stop();
+    WebMidi.emit("portschanged", {});
+
+    expect(seen).toEqual([]);
   });
 });
 
