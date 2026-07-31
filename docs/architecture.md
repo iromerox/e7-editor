@@ -62,6 +62,16 @@ hash. RxDB's reactive queries
 drive UI updates directly — no filesystem watcher needed, since there's no
 filesystem to watch in the browser.
 
+Single `.syx` files move in and out of the library through the File System
+Access API where the browser has it, and through a hidden file input (import)
+and an object-URL download (export) where it doesn't — Firefox has neither
+picker, so the fallback is a first-class path, not a legacy branch. A file
+arriving from disk is untrusted input: its size and framing are checked with
+a Zod schema at the boundary before its bytes reach the `.syx` codec, and
+what the codec rejects surfaces as a typed error rather than a silent
+no-op. Entries keep the imported bytes verbatim, so exporting one writes back
+the file that was read.
+
 ## `src/app`
 
 SolidJS UI: connection bar, library browser, device browser (bank → group →

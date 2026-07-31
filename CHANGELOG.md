@@ -173,6 +173,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   way to storage. Exporting a library and importing it into a fresh database
   reproduces every entry unchanged, raw SysEx base64 and decoded snapshot
   included.
+- `src/store/import-export.ts`: `.syx` files move between disk and the
+  library — `importSyxFromDisk()` reads one or more files through the File
+  System Access picker where the browser has one and a hidden file input
+  where it doesn't, and `exportEntryToDisk()` writes an entry back out
+  through the save picker or, failing that, an object-URL download. A file
+  from disk is untrusted input, so its size and F0/F7 framing are validated
+  at the boundary before its bytes reach the `.syx` codec: anything that is
+  not readable SysEx — a text file, something larger than a whole-instrument
+  backup, or well-framed SysEx that writes nothing to preset memory — is
+  rejected with a typed error and never reaches the library. An imported
+  entry takes its name from the preset bytes for a single or multi and from
+  the file name otherwise, carries whichever of bank/group/slot its
+  classification pins down, and stores the file verbatim, so exporting it
+  again writes back a byte-identical `.syx`.
 
 ### Changed
 

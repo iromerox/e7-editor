@@ -12,7 +12,9 @@ export type StoreErrorCode =
   | "incomplete-preset"
   | "malformed-backup"
   | "incompatible-backup"
-  | "library-not-empty";
+  | "library-not-empty"
+  | "syx-payload"
+  | "entry-payload";
 
 export abstract class StoreError extends Error {
   abstract readonly code: StoreErrorCode;
@@ -148,6 +150,30 @@ export class IncompatibleBackupError extends StoreError {
       }`,
     );
     this.name = "IncompatibleBackupError";
+  }
+}
+
+export class SyxPayloadError extends StoreError {
+  readonly code = "syx-payload" as const;
+
+  constructor(
+    readonly fileName: string,
+    readonly faults: readonly string[],
+  ) {
+    super(`${fileName} does not hold SysEx this library can read: ${faults.join("; ")}`);
+    this.name = "SyxPayloadError";
+  }
+}
+
+export class EntryPayloadError extends StoreError {
+  readonly code = "entry-payload" as const;
+
+  constructor(
+    readonly id: string,
+    readonly fault: string,
+  ) {
+    super(`the SysEx stored for entry ${id} cannot be read back: ${fault}`);
+    this.name = "EntryPayloadError";
   }
 }
 
