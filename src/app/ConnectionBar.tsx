@@ -1,10 +1,9 @@
 // Port selection, connect/disconnect, and the serial number the connected device reports.
 import type { JSX } from "solid-js";
 import type { Connection, PortInfo, PortLists } from "../midi";
-import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, onCleanup, onMount } from "solid-js";
 import { enableMidi, listPorts, openConnection, requestResponse, watchPorts } from "../midi";
-
-type ConnectionState = "midi-disabled" | "disconnected" | "connecting" | "connected";
+import { useAppState } from "./AppStateProvider";
 
 export interface ConnectionBarProps {
   readonly onConnectionChange?: (connection: Connection | undefined) => void;
@@ -56,29 +55,31 @@ function PortSelect(props: PortSelectProps): JSX.Element {
 }
 
 export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
-  const [inputs, setInputs] = createSignal<readonly PortInfo[]>([]);
-  const [outputs, setOutputs] = createSignal<readonly PortInfo[]>([]);
-  const [inputName, setInputName] = createSignal("");
-  const [outputName, setOutputName] = createSignal("");
-  const [state, setState] = createSignal<ConnectionState>("midi-disabled");
-  const [serialNumber, setSerialNumber] = createSignal<number | undefined>();
-  const [notice, setNotice] = createSignal("");
+  const {
+    state,
+    setPorts,
+    selectInputPort,
+    selectOutputPort,
+    setConnectionStatus,
+    setSerialNumber,
+    setNotice,
+  } = useAppState();
 
   let stopWatchingDevice: (() => void) | undefined;
   let connection: Connection | undefined;
 
   const applyPorts = (ports: PortLists): void => {
-    setInputs(ports.inputs);
-    setOutputs(ports.outputs);
-    if (state() === "connected" || state() === "connecting") {
+    setPorts(ports);
+    const { status, inputName, outputName } = state.connection;
+    if (status === "connected" || status === "connecting") {
       return;
     }
     const lost = [
-      vanished(inputName(), ports.inputs) ? inputName() : "",
-      vanished(outputName(), ports.outputs) ? outputName() : "",
+      vanished(inputName, ports.inputs) ? inputName : "",
+      vanished(outputName, ports.outputs) ? outputName : "",
     ].filter((name) => name !== "");
-    setInputName(chosen(inputName(), ports.inputs));
-    setOutputName(chosen(outputName(), ports.outputs));
+    selectInputPort(chosen(inputName, ports.inputs));
+    selectOutputPort(chosen(outputName, ports.outputs));
     if (lost.length > 0) {
       setNotice(`No longer available: ${lost.join(", ")}.`);
     }
@@ -89,7 +90,7 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
     stopWatchingDevice = undefined;
     connection = undefined;
     setSerialNumber(undefined);
-    setState("disconnected");
+    setConnectionStatus("disconnected");
     props.onConnectionChange?.(undefined);
   };
 
@@ -97,7 +98,7 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
     setNotice("");
     try {
       await enableMidi();
-      setState("disconnected");
+      setConnectionStatus("disconnected");
       applyPorts(listPorts());
     } catch (error) {
       setNotice(describe(error));
@@ -106,15 +107,18 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
 
   const connect = async (): Promise<void> => {
     setNotice("");
-    setState("connecting");
+    setConnectionStatus("connecting");
     let opened: Connection | undefined;
     try {
-      const active = await openConnection({ input: inputName(), output: outputName() });
+      const active = await openConnection({
+        input: state.connection.inputName,
+        output: state.connection.outputName,
+      });
       opened = active;
       const response = await requestResponse(active, { kind: "read-serial-number" });
       connection = active;
       setSerialNumber(response.serialNumber);
-      setState("connected");
+      setConnectionStatus("connected");
       props.onConnectionChange?.(active);
       const subscription = active.cc.subscribe({
         complete: () => {
@@ -125,7 +129,7 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
       stopWatchingDevice = () => subscription.unsubscribe();
     } catch (error) {
       setNotice(describe(error));
-      setState("disconnected");
+      setConnectionStatus("disconnected");
       await opened?.close();
       applyPorts(listPorts());
     }
@@ -161,7 +165,7 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
       }}
     >
       <Show
-        when={state() !== "midi-disabled"}
+        when={state.connection.status !== "midi-disabled"}
         fallback={
           <button type="button" onClick={() => void enable()}>
             Enable MIDI
@@ -170,24 +174,28 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
       >
         <PortSelect
           label="Input"
-          ports={inputs()}
-          value={inputName()}
-          disabled={state() !== "disconnected"}
-          onSelect={setInputName}
+          ports={state.ports.inputs}
+          value={state.connection.inputName}
+          disabled={state.connection.status !== "disconnected"}
+          onSelect={selectInputPort}
         />
         <PortSelect
           label="Output"
-          ports={outputs()}
-          value={outputName()}
-          disabled={state() !== "disconnected"}
-          onSelect={setOutputName}
+          ports={state.ports.outputs}
+          value={state.connection.outputName}
+          disabled={state.connection.status !== "disconnected"}
+          onSelect={selectOutputPort}
         />
         <Show
-          when={state() === "connected"}
+          when={state.connection.status === "connected"}
           fallback={
             <button
               type="button"
-              disabled={state() === "connecting" || inputName() === "" || outputName() === ""}
+              disabled={
+                state.connection.status === "connecting" ||
+                state.connection.inputName === "" ||
+                state.connection.outputName === ""
+              }
               onClick={() => void connect()}
             >
               Connect
@@ -197,12 +205,12 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
           <button type="button" onClick={() => void disconnect()}>
             Disconnect
           </button>
-          <span>Serial number {serialNumber()}</span>
+          <span>Serial number {state.connection.serialNumber}</span>
         </Show>
       </Show>
-      <Show when={notice() !== ""}>
+      <Show when={state.connection.notice !== ""}>
         <span role="alert" style={{ "font-weight": "bold" }}>
-          {notice()}
+          {state.connection.notice}
         </span>
       </Show>
     </section>

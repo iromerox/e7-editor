@@ -1,9 +1,10 @@
 // Device browser: bank and group navigation over the e7's single and multi slots, with per-slot name and lock reads.
 import type { JSX } from "solid-js";
 import type { Connection } from "../midi";
-import type { SlotAddress, SlotKind, SlotSummary } from "./device-slots";
-import { For, Match, Show, Switch, createMemo, createSignal } from "solid-js";
-import { createStore } from "solid-js/store";
+import type { DeviceSlotState } from "./app-state";
+import type { SlotAddress, SlotSummary } from "./device-slots";
+import { For, Match, Show, Switch, createMemo } from "solid-js";
+import { useAppState } from "./AppStateProvider";
 import {
   BANKS_PER_KIND,
   GROUPS_PER_BANK,
@@ -13,11 +14,6 @@ import {
   slotKey,
   slotLabel,
 } from "./device-slots";
-
-type SlotState =
-  | { readonly status: "reading" }
-  | { readonly status: "read"; readonly summary: SlotSummary }
-  | { readonly status: "failed"; readonly reason: string };
 
 export interface DevicePaneProps {
   readonly connection: Connection | undefined;
@@ -94,7 +90,7 @@ function LockChip(props: { readonly locked: boolean }): JSX.Element {
 
 interface SlotCellProps {
   readonly address: SlotAddress;
-  readonly state: SlotState | undefined;
+  readonly state: DeviceSlotState | undefined;
   readonly readable: boolean;
   readonly onRead: (address: SlotAddress) => void;
 }
@@ -147,33 +143,22 @@ function SlotCell(props: SlotCellProps): JSX.Element {
 }
 
 export function DevicePane(props: DevicePaneProps): JSX.Element {
-  const [kind, setKind] = createSignal<SlotKind>("Single");
-  const [bank, setBank] = createSignal(1);
-  const [group, setGroup] = createSignal(1);
-  const [slots, setSlots] = createStore<Record<string, SlotState>>({});
+  const { state, selectSlotKind, selectBank, selectGroup, setSlotState } = useAppState();
 
   const reader = createMemo(() => {
     const connection = props.connection;
     return connection === undefined ? undefined : createSlotReader(connection);
   });
 
-  const selectKind = (next: SlotKind): void => {
-    setKind(next);
-    if (bank() > BANKS_PER_KIND[next]) {
-      setBank(1);
-    }
-  };
-
   const readSlot = (address: SlotAddress): void => {
     const reading = reader();
     if (reading === undefined) {
       return;
     }
-    const key = slotKey(address);
-    setSlots(key, { status: "reading" });
+    setSlotState(address, { status: "reading" });
     void reading.read(address).then(
-      (summary) => setSlots(key, { status: "read", summary }),
-      (error: unknown) => setSlots(key, { status: "failed", reason: describe(error) }),
+      (summary) => setSlotState(address, { status: "read", summary }),
+      (error: unknown) => setSlotState(address, { status: "failed", reason: describe(error) }),
     );
   };
 
@@ -194,9 +179,9 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
               <button
                 type="button"
                 role="tab"
-                aria-selected={option === kind()}
-                onClick={() => selectKind(option)}
-                style={{ "font-weight": option === kind() ? "bold" : "normal" }}
+                aria-selected={option === state.device.kind}
+                onClick={() => selectSlotKind(option)}
+                style={{ "font-weight": option === state.device.kind ? "bold" : "normal" }}
               >
                 {option}
               </button>
@@ -214,15 +199,15 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
       >
         <ChoiceRow
           label="Bank"
-          options={counting(BANKS_PER_KIND[kind()])}
-          value={bank()}
-          onSelect={setBank}
+          options={counting(BANKS_PER_KIND[state.device.kind])}
+          value={state.device.bank}
+          onSelect={selectBank}
         />
         <ChoiceRow
           label="Group"
           options={counting(GROUPS_PER_BANK)}
-          value={group()}
-          onSelect={setGroup}
+          value={state.device.group}
+          onSelect={selectGroup}
         />
       </div>
       <Show when={props.connection === undefined}>
@@ -230,7 +215,7 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
           Connect to a device to read the names and lock state of its slots.
         </p>
       </Show>
-      <div role="tabpanel" aria-label={`${kind()} slots`}>
+      <div role="tabpanel" aria-label={`${state.device.kind} slots`}>
         <ul
           style={{
             display: "grid",
@@ -244,15 +229,15 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
           <For each={counting(SLOTS_PER_GROUP)}>
             {(slot) => {
               const address = (): SlotAddress => ({
-                kind: kind(),
-                bank: bank(),
-                group: group(),
+                kind: state.device.kind,
+                bank: state.device.bank,
+                group: state.device.group,
                 slot,
               });
               return (
                 <SlotCell
                   address={address()}
-                  state={slots[slotKey(address())]}
+                  state={state.device.slots[slotKey(address())]}
                   readable={props.connection !== undefined}
                   onRead={readSlot}
                 />

@@ -3,6 +3,7 @@ import type { JSX } from "solid-js";
 import type { Connection } from "../midi";
 import type { LibraryDatabase } from "../store";
 import { For, createSignal } from "solid-js";
+import { AppStateProvider } from "./AppStateProvider";
 import { ConnectionBar } from "./ConnectionBar";
 import { DevicePane } from "./DevicePane";
 import { LibraryPane } from "./LibraryPane";
@@ -74,7 +75,9 @@ function Shell(props: AppProps): JSX.Element {
 export function App(props: AppProps): JSX.Element {
   return (
     <ThemeProvider>
-      <Shell database={props.database} />
+      <AppStateProvider>
+        <Shell database={props.database} />
+      </AppStateProvider>
     </ThemeProvider>
   );
 }

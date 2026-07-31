@@ -2,6 +2,7 @@ import type { LibraryDatabase, LibraryEntry } from "../store";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLibraryDatabase } from "../store";
+import { AppStateProvider } from "./AppStateProvider";
 import { LibraryPane } from "./LibraryPane";
 
 const openDatabases: LibraryDatabase[] = [];
@@ -57,6 +58,14 @@ const backup: LibraryEntry = {
   sysex: "8AAhYvc=",
 };
 
+function renderPane(database: LibraryDatabase): void {
+  render(() => (
+    <AppStateProvider>
+      <LibraryPane database={database} />
+    </AppStateProvider>
+  ));
+}
+
 function listed(): string[] {
   return screen.getAllByRole("listitem").map((item) => item.textContent ?? "");
 }
@@ -74,7 +83,7 @@ afterEach(async () => {
 describe("LibraryPane", () => {
   it("lists each entry with its name, kind, tags and captured slot", async () => {
     const database = await openLibrary(single, backup);
-    render(() => <LibraryPane database={database} />);
+    renderPane(database);
 
     await vi.waitFor(() => expect(listed()).toHaveLength(2));
     expect(listed()[0]).toContain("Fat Brass");
@@ -88,7 +97,7 @@ describe("LibraryPane", () => {
 
   it("picks up an entry added after render, without a manual refresh", async () => {
     const database = await openLibrary(single);
-    render(() => <LibraryPane database={database} />);
+    renderPane(database);
     await vi.waitFor(() => expect(listed()).toHaveLength(1));
 
     await database.entries.insert(multi);
@@ -99,7 +108,7 @@ describe("LibraryPane", () => {
 
   it("drops an entry removed after render, without a manual refresh", async () => {
     const database = await openLibrary(single, multi);
-    render(() => <LibraryPane database={database} />);
+    renderPane(database);
     await vi.waitFor(() => expect(listed()).toHaveLength(2));
 
     await (await database.entries.findOne(single.id).exec())?.remove();
@@ -110,7 +119,7 @@ describe("LibraryPane", () => {
 
   it("narrows to one kind when filtered, and restores the rest afterwards", async () => {
     const database = await openLibrary(single, multi, backup);
-    render(() => <LibraryPane database={database} />);
+    renderPane(database);
     await vi.waitFor(() => expect(listed()).toHaveLength(3));
 
     await filterBy("Multi");
@@ -123,7 +132,7 @@ describe("LibraryPane", () => {
 
   it("keeps tracking the store while a kind filter is applied", async () => {
     const database = await openLibrary(single);
-    render(() => <LibraryPane database={database} />);
+    renderPane(database);
     await filterBy("Backup");
     await vi.waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
 
@@ -135,7 +144,7 @@ describe("LibraryPane", () => {
 
   it("explains an empty library rather than showing a blank pane", async () => {
     const database = await openLibrary();
-    render(() => <LibraryPane database={database} />);
+    renderPane(database);
 
     await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
     expect(screen.getByText("0 entries")).toBeInTheDocument();
@@ -144,7 +153,7 @@ describe("LibraryPane", () => {
 
   it("distinguishes a filter that matched nothing from an empty library", async () => {
     const database = await openLibrary(single);
-    render(() => <LibraryPane database={database} />);
+    renderPane(database);
     await vi.waitFor(() => expect(listed()).toHaveLength(1));
 
     await filterBy("Group");

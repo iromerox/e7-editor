@@ -245,6 +245,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and reading only the three 16-byte blocks the name and lock byte fall in.
   The connection bar now reports the connection it opens or drops, so the
   shell can hand it to the device pane.
+- `src/app/app-state.ts`: one typed application state — connection status and
+  the selected ports, the ports Web MIDI reports, the library's kind filter
+  and its latest results, the cache of slots read from the device, the editor
+  and where its preset came from (nothing, a device slot, or a library entry),
+  and the undo/redo stacks. It is built once at the app root and reaches the
+  rest of the shell through `src/app/AppStateProvider.tsx`, so a change to one
+  part of it — a connection notice, say — leaves everything reading the other
+  parts untouched.
 
 ### Changed
 
@@ -256,6 +264,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `ManufacturerHeaderError` and `SysExAddressRangeError` now carry their
   expected header / min-max bounds as structured constructor properties
   instead of baking them into the message string.
+- The connection bar, library pane and device pane now read and write the
+  shared application state instead of each keeping its own copy, so the state
+  survives a pane being unmounted and is visible to the panes that come next.
 
 ### Fixed
 

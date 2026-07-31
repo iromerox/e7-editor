@@ -1,14 +1,13 @@
 // Browsable list of stored library entries, filterable by kind and kept in step with the store.
 import type { JSX } from "solid-js";
-import type { LibraryDatabase, LibraryEntry, LibraryEntryKind } from "../store";
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import type { LibraryDatabase, LibraryEntry } from "../store";
+import type { LibraryKindFilter } from "./app-state";
+import { For, Show, createEffect, createMemo, onCleanup } from "solid-js";
 import { LIBRARY_ENTRY_KINDS, allEntries, entriesByKind } from "../store";
+import { useAppState } from "./AppStateProvider";
+import { EVERY_KIND } from "./app-state";
 
-const EVERY_KIND = "All kinds";
-
-type KindFilter = LibraryEntryKind | typeof EVERY_KIND;
-
-const KIND_FILTERS: readonly KindFilter[] = [EVERY_KIND, ...LIBRARY_ENTRY_KINDS];
+const KIND_FILTERS: readonly LibraryKindFilter[] = [EVERY_KIND, ...LIBRARY_ENTRY_KINDS];
 
 export interface LibraryPaneProps {
   readonly database: LibraryDatabase;
@@ -66,11 +65,10 @@ function EntryRow(props: { readonly entry: LibraryEntry }): JSX.Element {
 }
 
 export function LibraryPane(props: LibraryPaneProps): JSX.Element {
-  const [kind, setKind] = createSignal<KindFilter>(EVERY_KIND);
-  const [entries, setEntries] = createSignal<readonly LibraryEntry[]>();
+  const { state, selectLibraryKind, setLibraryEntries } = useAppState();
 
   const shown = createMemo(() => {
-    const selected = kind();
+    const selected = state.library.kind;
     return selected === EVERY_KIND
       ? allEntries(props.database)
       : entriesByKind(props.database, selected);
@@ -78,8 +76,8 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
 
   createEffect(() => {
     const observable = shown();
-    setEntries(undefined);
-    const subscription = observable.subscribe((found) => setEntries(found));
+    setLibraryEntries(undefined);
+    const subscription = observable.subscribe((found) => setLibraryEntries(found));
     onCleanup(() => subscription.unsubscribe());
   });
 
@@ -97,28 +95,28 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
         <label>
           Kind{" "}
           <select
-            value={kind()}
+            value={state.library.kind}
             onChange={(event) => {
               const next = KIND_FILTERS.find((option) => option === event.currentTarget.value);
               if (next !== undefined) {
-                setKind(next);
+                selectLibraryKind(next);
               }
             }}
           >
             <For each={KIND_FILTERS}>{(option) => <option value={option}>{option}</option>}</For>
           </select>
         </label>
-        <Show when={entries()}>{(found) => <span>{counted(found())}</span>}</Show>
+        <Show when={state.library.entries}>{(found) => <span>{counted(found())}</span>}</Show>
       </div>
-      <Show when={entries()} fallback={<p>Reading the library…</p>}>
+      <Show when={state.library.entries} fallback={<p>Reading the library…</p>}>
         {(found) => (
           <Show
             when={found().length > 0}
             fallback={
               <p>
                 <Show
-                  when={kind() === EVERY_KIND}
-                  fallback={`No ${kind()} entries in the library. Pick another kind to see the rest.`}
+                  when={state.library.kind === EVERY_KIND}
+                  fallback={`No ${state.library.kind} entries in the library. Pick another kind to see the rest.`}
                 >
                   The library is empty. Import a .syx file, or save a preset from the device, to
                   fill it.

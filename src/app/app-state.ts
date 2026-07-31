@@ -1,0 +1,185 @@
+// Central application state: connection, ports, library results, device slot cache, editor, and edit history.
+import type { PortInfo, PortLists } from "../midi";
+import type { SinglePreset } from "../protocol";
+import type { LibraryEntry, LibraryEntryKind } from "../store";
+import type { SlotAddress, SlotKind, SlotSummary } from "./device-slots";
+import { createStore, unwrap } from "solid-js/store";
+import { SINGLE_PRESET_BYTES, decodeSinglePreset } from "../protocol";
+import { BANKS_PER_KIND, slotKey } from "./device-slots";
+
+export type ConnectionStatus = "midi-disabled" | "disconnected" | "connecting" | "connected";
+
+export interface ConnectionState {
+  status: ConnectionStatus;
+  inputName: string;
+  outputName: string;
+  serialNumber: number | undefined;
+  notice: string;
+}
+
+export interface PortsState {
+  inputs: readonly PortInfo[];
+  outputs: readonly PortInfo[];
+}
+
+export const EVERY_KIND = "All kinds";
+
+export type LibraryKindFilter = LibraryEntryKind | typeof EVERY_KIND;
+
+export interface LibraryState {
+  kind: LibraryKindFilter;
+  entries: readonly LibraryEntry[] | undefined;
+}
+
+export type DeviceSlotState =
+  | { readonly status: "reading" }
+  | { readonly status: "read"; readonly summary: SlotSummary }
+  | { readonly status: "failed"; readonly reason: string };
+
+export interface DeviceState {
+  kind: SlotKind;
+  bank: number;
+  group: number;
+  slots: Record<string, DeviceSlotState>;
+}
+
+export type EditorSource =
+  | { readonly kind: "Empty" }
+  | { readonly kind: "DeviceSlot"; readonly address: SlotAddress }
+  | { readonly kind: "LibraryEntry"; readonly id: string };
+
+export interface EditorState {
+  source: EditorSource;
+  preset: SinglePreset;
+}
+
+export interface EditorEdit {
+  readonly cc: number;
+  readonly previousValue: number;
+  readonly nextValue: number;
+  readonly at: number;
+}
+
+export interface HistoryState {
+  undo: readonly EditorEdit[];
+  redo: readonly EditorEdit[];
+}
+
+export interface AppState {
+  connection: ConnectionState;
+  ports: PortsState;
+  library: LibraryState;
+  device: DeviceState;
+  editor: EditorState;
+  history: HistoryState;
+}
+
+export interface AppStateControls {
+  readonly state: AppState;
+  setPorts(ports: PortLists): void;
+  selectInputPort(name: string): void;
+  selectOutputPort(name: string): void;
+  setConnectionStatus(status: ConnectionStatus): void;
+  setSerialNumber(serialNumber: number | undefined): void;
+  setNotice(notice: string): void;
+  selectLibraryKind(kind: LibraryKindFilter): void;
+  setLibraryEntries(entries: readonly LibraryEntry[] | undefined): void;
+  selectSlotKind(kind: SlotKind): void;
+  selectBank(bank: number): void;
+  selectGroup(group: number): void;
+  setSlotState(address: SlotAddress, slot: DeviceSlotState): void;
+  loadEditor(preset: SinglePreset, source: EditorSource): void;
+  recordEdit(edit: EditorEdit): void;
+  takeUndo(): EditorEdit | undefined;
+  takeRedo(): EditorEdit | undefined;
+}
+
+export const EMPTY_PRESET: SinglePreset = decodeSinglePreset(new Uint8Array(SINGLE_PRESET_BYTES));
+
+export function initialAppState(): AppState {
+  return {
+    connection: {
+      status: "midi-disabled",
+      inputName: "",
+      outputName: "",
+      serialNumber: undefined,
+      notice: "",
+    },
+    ports: { inputs: [], outputs: [] },
+    library: { kind: EVERY_KIND, entries: undefined },
+    device: { kind: "Single", bank: 1, group: 1, slots: {} },
+    editor: { source: { kind: "Empty" }, preset: EMPTY_PRESET },
+    history: { undo: [], redo: [] },
+  };
+}
+
+export function createAppState(): AppStateControls {
+  const [state, setState] = createStore<AppState>(initialAppState());
+
+  return {
+    state,
+    setPorts(ports: PortLists): void {
+      setState("ports", { inputs: ports.inputs, outputs: ports.outputs });
+    },
+    selectInputPort(name: string): void {
+      setState("connection", "inputName", name);
+    },
+    selectOutputPort(name: string): void {
+      setState("connection", "outputName", name);
+    },
+    setConnectionStatus(status: ConnectionStatus): void {
+      setState("connection", "status", status);
+    },
+    setSerialNumber(serialNumber: number | undefined): void {
+      setState("connection", "serialNumber", serialNumber);
+    },
+    setNotice(notice: string): void {
+      setState("connection", "notice", notice);
+    },
+    selectLibraryKind(kind: LibraryKindFilter): void {
+      setState("library", "kind", kind);
+    },
+    setLibraryEntries(entries: readonly LibraryEntry[] | undefined): void {
+      setState("library", "entries", entries);
+    },
+    selectSlotKind(kind: SlotKind): void {
+      setState("device", (device) => ({
+        kind,
+        bank: device.bank > BANKS_PER_KIND[kind] ? 1 : device.bank,
+      }));
+    },
+    selectBank(bank: number): void {
+      setState("device", "bank", bank);
+    },
+    selectGroup(group: number): void {
+      setState("device", "group", group);
+    },
+    setSlotState(address: SlotAddress, slot: DeviceSlotState): void {
+      setState("device", "slots", slotKey(address), slot);
+    },
+    loadEditor(preset: SinglePreset, source: EditorSource): void {
+      setState("editor", { preset, source });
+    },
+    recordEdit(edit: EditorEdit): void {
+      setState("history", (history) => ({ undo: [...history.undo, edit], redo: [] }));
+    },
+    takeUndo(): EditorEdit | undefined {
+      const { undo, redo } = unwrap(state).history;
+      const entry = undo.at(-1);
+      if (entry === undefined) {
+        return undefined;
+      }
+      setState("history", { undo: undo.slice(0, -1), redo: [...redo, entry] });
+      return entry;
+    },
+    takeRedo(): EditorEdit | undefined {
+      const { undo, redo } = unwrap(state).history;
+      const entry = redo.at(-1);
+      if (entry === undefined) {
+        return undefined;
+      }
+      setState("history", { undo: [...undo, entry], redo: redo.slice(0, -1) });
+      return entry;
+    },
+  };
+}

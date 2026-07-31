@@ -12,6 +12,7 @@ import {
   requestResponse,
   watchPorts,
 } from "../midi";
+import { AppStateProvider } from "./AppStateProvider";
 import { ConnectionBar } from "./ConnectionBar";
 
 vi.mock("../midi", async (importOriginal) => {
@@ -73,6 +74,14 @@ const ONE_DEVICE: PortLists = {
 
 let announcePorts: (ports: PortLists) => void = () => {};
 
+function renderBar(): void {
+  render(() => (
+    <AppStateProvider>
+      <ConnectionBar />
+    </AppStateProvider>
+  ));
+}
+
 async function enable(): Promise<void> {
   await fireEvent.click(screen.getByRole("button", { name: "Enable MIDI" }));
 }
@@ -101,7 +110,7 @@ beforeEach(() => {
 describe("ConnectionBar", () => {
   it("offers the ports Web MIDI reports once access is granted", async () => {
     vi.mocked(listPorts).mockReturnValue(ONE_DEVICE);
-    render(() => <ConnectionBar />);
+    renderBar();
 
     expect(screen.queryByLabelText("Input")).not.toBeInTheDocument();
     await enable();
@@ -111,7 +120,7 @@ describe("ConnectionBar", () => {
   });
 
   it("picks up a device plugged in after the port list was read, without a manual refresh", async () => {
-    render(() => <ConnectionBar />);
+    renderBar();
     await enable();
     expect(optionNames("Input")).toEqual([]);
 
@@ -125,7 +134,7 @@ describe("ConnectionBar", () => {
 
   it("drops a selection whose port is unplugged, and says so", async () => {
     vi.mocked(listPorts).mockReturnValue(ONE_DEVICE);
-    render(() => <ConnectionBar />);
+    renderBar();
     await enable();
 
     vi.mocked(listPorts).mockReturnValue(NO_PORTS);
@@ -142,7 +151,7 @@ describe("ConnectionBar", () => {
     const connection = new FakeConnection();
     vi.mocked(listPorts).mockReturnValue(ONE_DEVICE);
     vi.mocked(openConnection).mockResolvedValue(connection);
-    render(() => <ConnectionBar />);
+    renderBar();
 
     await enable();
     await connect();
@@ -159,7 +168,7 @@ describe("ConnectionBar", () => {
   it("reports a port that vanished between selection and connect instead of staying silent", async () => {
     vi.mocked(listPorts).mockReturnValue(ONE_DEVICE);
     vi.mocked(openConnection).mockRejectedValue(new NoMatchingPortError("GS Music e7 IN"));
-    render(() => <ConnectionBar />);
+    renderBar();
 
     await enable();
     await connect();
@@ -178,7 +187,7 @@ describe("ConnectionBar", () => {
     vi.mocked(requestResponse).mockRejectedValue(
       new ResponseTimeoutError("read-serial-number", 1000, 0),
     );
-    render(() => <ConnectionBar />);
+    renderBar();
 
     await enable();
     await connect();
@@ -192,7 +201,7 @@ describe("ConnectionBar", () => {
     const connection = new FakeConnection();
     vi.mocked(listPorts).mockReturnValue(ONE_DEVICE);
     vi.mocked(openConnection).mockResolvedValue(connection);
-    render(() => <ConnectionBar />);
+    renderBar();
 
     await enable();
     await connect();
@@ -212,7 +221,7 @@ describe("ConnectionBar", () => {
       connection.unplug();
       return Promise.resolve({ kind: "serial-number", serialNumber: 361 });
     });
-    render(() => <ConnectionBar />);
+    renderBar();
 
     await enable();
     await connect();
@@ -226,7 +235,7 @@ describe("ConnectionBar", () => {
     const connection = new FakeConnection();
     vi.mocked(listPorts).mockReturnValue(ONE_DEVICE);
     vi.mocked(openConnection).mockResolvedValue(connection);
-    render(() => <ConnectionBar />);
+    renderBar();
 
     await enable();
     await connect();

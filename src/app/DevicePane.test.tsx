@@ -4,6 +4,7 @@ import { EMPTY } from "rxjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requestResponse } from "../midi";
 import { LOCK_BYTE_INDEX, NAME_OFFSET, SINGLE_PRESET_BYTES } from "../protocol";
+import { AppStateProvider } from "./AppStateProvider";
 import { DevicePane } from "./DevicePane";
 import { slotByteAddress } from "./device-slots";
 
@@ -53,6 +54,14 @@ function slotAt(bank: number, group: number, slot: number): number {
   return slotByteAddress({ kind: "Single", bank, group, slot });
 }
 
+function renderPane(active: Connection | undefined): void {
+  render(() => (
+    <AppStateProvider>
+      <DevicePane connection={active} />
+    </AppStateProvider>
+  ));
+}
+
 async function readSlot(name: string): Promise<void> {
   await fireEvent.click(screen.getByRole("button", { name }));
 }
@@ -75,7 +84,7 @@ beforeEach(() => {
 
 describe("DevicePane", () => {
   it("renders a group of eight slots under eight banks of eight groups", () => {
-    render(() => <DevicePane connection={connection} />);
+    renderPane(connection);
 
     expect(bankButtons()).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((bank) => `Bank ${bank}`));
     expect(screen.getAllByRole("listitem")).toHaveLength(8);
@@ -86,7 +95,7 @@ describe("DevicePane", () => {
   });
 
   it("offers only the two banks the multi range reaches", async () => {
-    render(() => <DevicePane connection={connection} />);
+    renderPane(connection);
 
     await fireEvent.click(screen.getByRole("tab", { name: "Multi" }));
 
@@ -96,7 +105,7 @@ describe("DevicePane", () => {
   });
 
   it("falls back to the first bank when the selected one is out of the multi range", async () => {
-    render(() => <DevicePane connection={connection} />);
+    renderPane(connection);
 
     await fireEvent.click(screen.getByRole("button", { name: "Bank 8" }));
     await fireEvent.click(screen.getByRole("tab", { name: "Multi" }));
@@ -106,7 +115,7 @@ describe("DevicePane", () => {
   });
 
   it("navigates to the slots of another bank and group", async () => {
-    render(() => <DevicePane connection={connection} />);
+    renderPane(connection);
 
     await fireEvent.click(screen.getByRole("button", { name: "Bank 3" }));
     await fireEvent.click(screen.getByRole("button", { name: "Group 5" }));
@@ -122,7 +131,7 @@ describe("DevicePane", () => {
         [slotAt(1, 1, 2), presetImage("Pulse Bass", 0)],
       ]),
     );
-    render(() => <DevicePane connection={connection} />);
+    renderPane(connection);
 
     await readSlot("Read Single 1.1.1");
     await readSlot("Read Single 1.1.2");
@@ -135,7 +144,7 @@ describe("DevicePane", () => {
   });
 
   it("says so when a slot carries no name", async () => {
-    render(() => <DevicePane connection={connection} />);
+    renderPane(connection);
 
     await readSlot("Read Single 1.1.1");
 
@@ -158,7 +167,7 @@ describe("DevicePane", () => {
       const offset = command.address - base;
       return { kind: "memory-data", data: image.slice(offset, offset + READ_BLOCK_BYTES) };
     });
-    render(() => <DevicePane connection={connection} />);
+    renderPane(connection);
 
     await readSlot("Read Single 1.1.1");
     expect(slotLabels()[0]).toContain("Reading…");
@@ -175,7 +184,7 @@ describe("DevicePane", () => {
 
   it("reports a slot the device never answers for, leaving the rest readable", async () => {
     vi.mocked(requestResponse).mockRejectedValue(new Error("no response"));
-    render(() => <DevicePane connection={connection} />);
+    renderPane(connection);
 
     await readSlot("Read Single 1.1.1");
 
@@ -184,7 +193,7 @@ describe("DevicePane", () => {
   });
 
   it("explains that reading needs a connection when there is none", () => {
-    render(() => <DevicePane connection={undefined} />);
+    renderPane(undefined);
 
     expect(screen.getByText(/Connect to a device/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Read Single 1.1.1" })).toBeDisabled();
