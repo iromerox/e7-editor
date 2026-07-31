@@ -230,6 +230,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   filter that matched nothing says that instead, and neither is confused with
   the library still being read. The library database is opened once at the app
   entry point and handed to the shell.
+- `src/app/DevicePane.tsx`: the shell's device browser — Single/Multi tabs over
+  a bank row, a group row and a grid of the eight slots they hold, with eight
+  banks for singles and the two the multi range reaches. Each slot has a Read
+  button that fetches its name and lock state from the device and caches them,
+  so a read started on one slot keeps filling in while navigation moves to
+  another bank or group, and a slot already read shows its name again without
+  a second trip to the hardware. Locked slots are marked as such and drawn
+  apart from unlocked ones. Reads are queued one at a time, since the SysEx
+  stream takes a single consumer, and a slot the device never answers for
+  reports the failure in place while the rest stay readable. With no device
+  connected the grid still navigates and says what a connection would add.
+  `src/app/device-slots.ts` backs it, resolving a slot to its memory address
+  and reading only the three 16-byte blocks the name and lock byte fall in.
+  The connection bar now reports the connection it opens or drops, so the
+  shell can hand it to the device pane.
 
 ### Changed
 

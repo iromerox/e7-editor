@@ -36,10 +36,16 @@ describe("App shell", () => {
     expect(readVariable("--e7-panel")).toBe("#294a7a");
   });
 
-  it("shows the library alongside the connection bar", () => {
+  it("shows the library and device panes alongside the connection bar", () => {
     render(() => <App database={database} />);
     expect(screen.getByRole("region", { name: "Library" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Device connection" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Device" })).toBeInTheDocument();
+  });
+
+  it("leaves the device pane unreadable until a device is connected", () => {
+    render(() => <App database={database} />);
+    expect(screen.getByRole("button", { name: "Read Single 1.1.1" })).toBeDisabled();
   });
 
   it("repaints the shell when a finish axis is changed", async () => {

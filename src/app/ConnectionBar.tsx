@@ -6,6 +6,10 @@ import { enableMidi, listPorts, openConnection, requestResponse, watchPorts } fr
 
 type ConnectionState = "midi-disabled" | "disconnected" | "connecting" | "connected";
 
+export interface ConnectionBarProps {
+  readonly onConnectionChange?: (connection: Connection | undefined) => void;
+}
+
 interface PortSelectProps {
   readonly label: string;
   readonly ports: readonly PortInfo[];
@@ -51,7 +55,7 @@ function PortSelect(props: PortSelectProps): JSX.Element {
   );
 }
 
-export function ConnectionBar(): JSX.Element {
+export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
   const [inputs, setInputs] = createSignal<readonly PortInfo[]>([]);
   const [outputs, setOutputs] = createSignal<readonly PortInfo[]>([]);
   const [inputName, setInputName] = createSignal("");
@@ -86,6 +90,7 @@ export function ConnectionBar(): JSX.Element {
     connection = undefined;
     setSerialNumber(undefined);
     setState("disconnected");
+    props.onConnectionChange?.(undefined);
   };
 
   const enable = async (): Promise<void> => {
@@ -110,6 +115,7 @@ export function ConnectionBar(): JSX.Element {
       connection = active;
       setSerialNumber(response.serialNumber);
       setState("connected");
+      props.onConnectionChange?.(active);
       const subscription = active.cc.subscribe({
         complete: () => {
           setNotice(`${active.inputName} was disconnected.`);
