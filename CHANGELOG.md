@@ -221,6 +221,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   returns the bar to its disconnected state instead of leaving a stale serial
   number on screen. `src/midi/ports.ts` gained `listPorts()` and
   `watchPorts()` to back it.
+- `src/app/LibraryPane.tsx`: the shell's library browser — every stored entry
+  with its name, kind, tags and the bank/group/slot it was captured from,
+  narrowable to one kind at a time through the store's indexed by-kind query.
+  The list follows the library itself, so an entry imported or removed while
+  the pane is open appears or disappears with no manual refresh, filter still
+  applied. A library with nothing in it says so and says how to fill it, a
+  filter that matched nothing says that instead, and neither is confused with
+  the library still being read. The library database is opened once at the app
+  entry point and handed to the shell.
 
 ### Changed
 
