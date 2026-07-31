@@ -9,7 +9,10 @@ export type StoreErrorCode =
   | "memory-block-alignment"
   | "memory-block-range"
   | "duplicate-memory-block"
-  | "incomplete-preset";
+  | "incomplete-preset"
+  | "malformed-backup"
+  | "incompatible-backup"
+  | "library-not-empty";
 
 export abstract class StoreError extends Error {
   abstract readonly code: StoreErrorCode;
@@ -117,5 +120,42 @@ export class IncompletePresetError extends StoreError {
       `the preset at ${hexAddress(start)} is partially written, ${hexAddress(missing)} is missing`,
     );
     this.name = "IncompletePresetError";
+  }
+}
+
+export class MalformedBackupError extends StoreError {
+  readonly code = "malformed-backup" as const;
+
+  constructor(readonly fault: string) {
+    super(`this is not a library backup: ${fault}`);
+    this.name = "MalformedBackupError";
+  }
+}
+
+export type BackupVersionMarker = "formatVersion" | "schemaVersion";
+
+export class IncompatibleBackupError extends StoreError {
+  readonly code = "incompatible-backup" as const;
+
+  constructor(
+    readonly marker: BackupVersionMarker,
+    readonly supported: number,
+    readonly found: number,
+  ) {
+    super(
+      `the backup's ${marker} is ${found}, and this build reads ${supported}${
+        found > supported ? " — it was written by a newer build" : ""
+      }`,
+    );
+    this.name = "IncompatibleBackupError";
+  }
+}
+
+export class LibraryNotEmptyError extends StoreError {
+  readonly code = "library-not-empty" as const;
+
+  constructor(readonly entries: number) {
+    super(`a backup restores only into an empty library, and this one holds ${entries} entries`);
+    this.name = "LibraryNotEmptyError";
   }
 }

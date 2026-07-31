@@ -51,7 +51,14 @@ RxDB-backed local preset library (IndexedDB via the Dexie storage plugin):
 schema for library entries (kind, name, originating slot, capture metadata,
 tags, hash, raw SysEx bytes, decoded snapshot), a `.syx` codec that
 classifies file contents by parsing frame addresses (never by filename), and
-JSON-dump backup/restore via `RxDBJsonDumpPlugin`. RxDB's reactive queries
+JSON-dump backup/restore via `RxDBJsonDumpPlugin`. A backup restores into an
+empty library only — it is refused outright against a library holding
+entries, rather than merging or overwriting, since RxDB's import writes
+straight to storage and a partial merge would be invisible after the fact.
+The dump is wrapped in an envelope carrying a format marker, a format
+version and the entry schema version, so a backup written by a newer build
+is rejected with a version error instead of failing on RxDB's opaque schema
+hash. RxDB's reactive queries
 drive UI updates directly — no filesystem watcher needed, since there's no
 filesystem to watch in the browser.
 
