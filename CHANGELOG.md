@@ -187,6 +187,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the file name otherwise, carries whichever of bank/group/slot its
   classification pins down, and stores the file verbatim, so exporting it
   again writes back a byte-identical `.syx`.
+- `src/store/queries.ts`: the library's reactive views — the whole library,
+  one kind, one bank and group, a single entry by id, and the entry count —
+  each an observable of plain typed entry data that re-emits on every insert,
+  edit and delete, so a pane subscribes once and never asks for a refresh.
+  The by-kind view resolves through the declared kind index and answers a
+  synthetic 500-entry library measurably faster than reading the collection
+  and filtering it. Bank-and-group filtering deliberately does not use an
+  index: Dexie storage cannot index an optional field, and an entry captured
+  from no slot has no bank or group to index.
 
 ### Changed
 

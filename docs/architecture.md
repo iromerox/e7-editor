@@ -62,6 +62,24 @@ hash. RxDB's reactive queries
 drive UI updates directly — no filesystem watcher needed, since there's no
 filesystem to watch in the browser.
 
+`queries.ts` exposes those queries as RxJS observables of plain entry data:
+the whole library, one kind, one bank and group, a single entry by id, and
+the entry count. A pane subscribes to a view and is never asked to refresh.
+Documents become plain objects at that boundary, so the UI holds data and
+writes go back through the collection rather than through a document handle
+the view is holding open.
+
+Filtering by kind is index-backed; filtering by bank and group is not. Dexie
+storage refuses to index a field that is not required, and an entry with no
+originating slot — a whole-instrument backup, a multi pack — has no bank or
+group, so those fields stay optional and their query walks the collection.
+At the scale the library actually reaches that walk costs about what the
+pane's own read of the collection costs. Indexing them would mean making the
+slot fields required with a sentinel for "no slot", trading an `undefined`
+the type checker enforces for a `0` it cannot — worth revisiting if the
+library ever grows well past the instrument that fills it, and cheap to do
+then through the migration path already in place.
+
 Single `.syx` files move in and out of the library through the File System
 Access API where the browser has it, and through a hidden file input (import)
 and an object-URL download (export) where it doesn't — Firefox has neither
