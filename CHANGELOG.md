@@ -155,6 +155,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   presets — never by filename or extension. The result carries the decoded
   presets and their bank/group/slot, so an entry can be stored without
   parsing the file a second time.
+- `src/store/errors.ts`: a typed `StoreError` hierarchy for library-side
+  failures, so a file with a `.syx` extension holding anything other than
+  writes to preset memory — another manufacturer's SysEx, a non-write-memory
+  command, an address outside preset memory, a duplicated or partly written
+  preset — is rejected with a specific error rather than misclassified.
 - `src/store/backup.ts`: `exportLibrary()`/`importLibrary()`, whole-library
   backup and restore over RxDB's JSON dump. The dump travels inside an
   envelope stamped with a format marker, a backup format version, the entry
@@ -168,11 +173,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   way to storage. Exporting a library and importing it into a fresh database
   reproduces every entry unchanged, raw SysEx base64 and decoded snapshot
   included.
-- `src/store/errors.ts`: a typed `StoreError` hierarchy for library-side
-  failures, so a file with a `.syx` extension holding anything other than
-  writes to preset memory — another manufacturer's SysEx, a non-write-memory
-  command, an address outside preset memory, a duplicated or partly written
-  preset — is rejected with a specific error rather than misclassified.
 
 ### Changed
 
