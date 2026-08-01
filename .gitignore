@@ -5,8 +5,10 @@ node_modules
 dist
 dist-ssr
 
-# Reference documents (download separately — see docs/reference/README.md)
+# Reference documents and panel photography (download separately — see
+# docs/reference/README.md)
 docs/reference/*.pdf
+docs/reference/panel/
 
 # Test/coverage artifacts
 coverage
