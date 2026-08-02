@@ -297,3 +297,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   turns out to accept pipelined requests; the outbound CC rate limit of 200Hz
   may be roughly 3x more permissive than a ~62.5Hz device cycle warrants; and
   every one of these findings holds for USB only, DIN MIDI being untested.
+- `docs/panel-layout.md`: the front panel derived once from the hardware
+  photography, so section work is checked against a written sheet rather than
+  against a photo. One table per section in physical control order, with the
+  primary silkscreen, the boxed shift-layer label, widget type, and the
+  `SinglePreset` field and/or CC each control resolves to. Records the
+  discrete counts exactly (5/5/4 LFO waveshape LEDs, 7 `VOICES` LEDs, 10
+  Presets LEDs) and the three places where LED count and enum-variant count
+  legitimately differ.
+- `docs/protocol-quirks.md` #5 reopened. The panel has exactly one
+  EG1-to-LFO knob, silkscreened on LFO 2, which is evidence the entry's
+  runtime-only reading of CC 67 didn't have — byte 55 and CC 67 may be the
+  same parameter with one document's LFO number wrong. The reading is now
+  marked contested and owned by a hardware task; CC 67 stays unmapped and
+  `lfo1.eg1Mod` unrenamed until it is answered. New open question #22 for the
+  Chorus and Delay enable LEDs, which no parameter accounts for, and a note
+  on #14 that global transpose has no panel control while OSC 1 Transpose
+  does — a hint about which field the device associates with CC 3.
+- Six findings from that pass, each raised rather than reconciled: the
+  panel's only EG1-to-LFO knob is silkscreened on LFO 2 while the byte map
+  names byte 55 LFO 1, which is new evidence against the reading that CC 67
+  is runtime-only; `Master Volume` is the one knob whose value is not part of
+  a preset; five parameters have a CC but no hardware control; and the Chorus
+  and Delay enable LEDs have no parameter behind them at all.

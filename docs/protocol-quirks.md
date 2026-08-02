@@ -41,12 +41,39 @@ The address-range table on p.24 lists Multi 2.8.8 at `0x01FD00–0x01FFFF`
 exactly filling the last 512 bytes of preset memory. The table is a typo;
 the formula is authoritative.
 
-## 5. LFO2 EG1 Mod is exposed as CC 67 but has no preset byte
+## 5. EG1 Mod: CC 67 and byte 55 disagree about which LFO — **open**
 
-The CC table (p.5) lists "LFO2 EG1 Mod" at CC 67, but the preset byte map
-(p.25) puts "LFO3 Aftertouch Mod" at byte 67 — there is no LFO2 EG1 Mod byte.
-Reading: LFO2 EG1 modulation depth is runtime-only (settable via CC, not
-persisted to flash).
+**This entry's reading is contested and is now owned by HW-08.** It stays
+numbered here rather than moving to the open-questions section below so the
+cross-references to "#5" keep resolving.
+
+The CC table (p.5) lists "LFO2 EG1 Mod" at CC 67, and the preset byte map
+(p.25) has no LFO2 EG1 Mod byte — byte 67 is LFO3 Aftertouch Mod, and the
+LFO 2 run's spare bytes (61-63) are reserved. The original reading was that
+LFO2 EG1 modulation depth is runtime-only: settable via CC, not persisted to
+flash. `src/protocol/cc-map.ts` leaves CC 67 unmapped on that basis.
+
+The panel photography contradicts it. The instrument has **exactly one**
+EG1-to-LFO control — `EG1 Mod`, the shift layer of the **LFO 2** `Rate` knob
+— and the LFO 1 block has none. The user manual (p.14) attributes it to
+LFO 2 too. Meanwhile the byte map names byte 55 "LFO1 EG1 Mod", and that
+byte is what `preset.ts` decodes as `lfo1.eg1Mod`.
+
+So there is one knob, one CC, and one byte, and the two documents disagree
+only about the LFO number. The simplest explanation is that all three are
+the same parameter — EG1 modulating LFO 2's rate, persisted at byte 55 — and
+that the byte map's "LFO1" prefix is the typo. Against that: byte 55 sits
+inside the LFO 1 run (53 shape, 54 rate, 55 this, 58 mode), which is
+self-consistent for LFO 1.
+
+Consequences either way. If the original reading holds, `lfo1.eg1Mod` is a
+preset byte no control can reach and the panel's knob writes a CC that maps
+to nothing. If the panel is right, a real persisted parameter is currently
+unreachable from the editor and the field is misnamed.
+
+Until HW-08 answers it: don't rename `lfo1.eg1Mod`, don't wire CC 67 into
+the CC↔field map, and don't remove either framing. See `panel-layout.md`
+Finding 1 for the four sources side by side.
 
 ## 6. Multitimbral preset structure typo on page 26
 
@@ -144,6 +171,14 @@ questions, not assumptions:
     Callers that know which control the user touched can still write either
     field directly with `writeField`. Don't collapse the pair to a single
     field until the hardware test resolves it.
+
+    The panel narrows the *inbound* half of this: global transpose has no
+    front-panel control at all — it is reachable only from the Preset Menu —
+    while OSC 1 Transpose is the shift layer of the `Tune` knob. So a CC 3
+    the device *transmits* during ordinary playing almost certainly comes
+    from that knob. That is a hint about which field the device associates
+    with CC 3, not an answer, and it says nothing about what an *inbound*
+    CC 3 does when the editor sends one. See `panel-layout.md` Finding 3.
 15. Whether other Read commands (Configuration, Autotuning, Lock echo, Write
     Memory echo) exhibit the same preview-frame prelude as Read Memory (#12)
     is still unconfirmed — the defensive handling should already be correct
@@ -196,6 +231,16 @@ questions, not assumptions:
     the latency in #19 could behave differently. Treat #12, #16, and #19 as
     settled for USB and open for DIN until someone runs the same page through
     a DIN interface.
+22. **Nothing accounts for the Chorus and Delay enable LEDs.** Both effect
+    sections carry an LED beside their title on the front panel, and there is
+    no on/off parameter behind either one: `Chorus` and `Delay` have no such
+    field, the CC table lists no enable, and neither `ChorusType`
+    (basic/ensemble) nor `DelayType` (four delay flavours) has an `off`
+    variant. Either the effect is switched by a panel gesture that isn't a
+    parameter, or the LED just tracks a non-zero `mix`. HW-09 owns this.
+    Until it answers, the effect sections have no toggle to bind — don't
+    invent an `enabled` field to back the indicator, because there is no byte
+    to persist it in. See `panel-layout.md` Finding 6.
 
 ---
 
