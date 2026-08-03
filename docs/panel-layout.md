@@ -56,12 +56,49 @@ shift label.
 
 | Widget | Description |
 |---|---|
-| Knob | Standard knob, white cap with a pointer, tick arc silkscreened around it. |
+| Knob | Standard knob, white cap with a pointer, tick arc silkscreened around it. A physical potentiometer with a fixed travel — not an endless encoder. See [Knobs are pots](#knobs-are-pots) for what that implies. |
 | Knob (large) | Physically larger cap — roughly 1.7x the standard cap diameter. Only two on the panel: Filter `Cutoff` and Output `Master Volume`. Signals prominence, not a different value range. Every other knob on the instrument is the same size, including the LFO `Rate` knobs, which read as larger in the fitted view and measure the same in a crop. |
 | Button + LED column | Momentary square button that steps through states; a column of LEDs beside it shows which state is current. |
 | Button + LED | Momentary square button with a single LED above or beside it. |
 | LED row | Indicator only — no button, nothing to press. |
 | Display | The small monochrome OLED. Not a control. |
+
+### Knobs are pots
+
+Every knob on the instrument is a **physical potentiometer** with a fixed
+travel and a pointer that means something — confirmed by the instrument's
+owner, and not stated in either document. That is worth writing down because
+it makes two things on this panel make sense:
+
+- **A pot can't represent two values, and 24 of the 48 knobs carry a shift
+  layer.**
+  When `Shift` is held, the pot's physical position has nothing to do with
+  the parameter it is now editing. Whether the instrument uses pickup /
+  soft-takeover for this — the parameter not moving until the pot passes
+  through its stored value — **is not known**, and neither document says.
+- **`Panel` mode exists for the same reason.** Loading a preset leaves every
+  pot pointing at the wrong value, so the instrument offers a mode
+  (Shift + button 7) where the sound follows the pot positions instead of
+  the stored preset. That is a pot problem being solved in the UI, not a
+  feature the editor needs an equivalent of.
+
+**None of this changes the editor's knob widget.** A widget bound to app
+state is absolute by construction and has no travel to run out of, so it
+never needs pickup. The open question only describes what the *hardware*
+does when someone touches it, and the editor observes that through the CCs
+the device sends — it doesn't have to model it.
+
+Two consequences it does have. First, if there is no pickup, nudging a
+hardware knob after loading a preset makes the value jump from wherever the
+pot happens to be sitting, and the editor will faithfully show that jump —
+worth knowing before treating it as a sync bug. Second, don't draw the
+editor's knobs as endless encoders: the pointer and the tick arc are real,
+and matching them keeps the two instruments legible side by side.
+
+Deliberately not raised as a task. Nothing in the code assumes an answer,
+which is the vault's own bar for tracking an open question, and it costs
+about a minute to settle during any hardware session — load a preset, nudge
+a knob, watch whether the value jumps or picks up.
 
 ---
 

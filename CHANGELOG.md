@@ -305,6 +305,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   discrete counts exactly (5/5/4 LFO waveshape LEDs, 7 `VOICES` LEDs, 10
   Presets LEDs) and the three places where LED count and enum-variant count
   legitimately differ.
+- Recorded that the e7's knobs are physical potentiometers, not endless
+  encoders — confirmed by the instrument's owner and absent from both
+  documents. Explains why 24 of the 48 knobs can carry a shift layer whose
+  value the pot's position cannot represent, and why the instrument has a
+  Panel mode at all. Whether it uses pickup/soft-takeover is still unknown;
+  the editor's knob widget is unaffected either way, being absolute by
+  construction.
 - `docs/protocol-quirks.md` #5 reopened. The panel has exactly one
   EG1-to-LFO knob, silkscreened on LFO 2, which is evidence the entry's
   runtime-only reading of CC 67 didn't have — byte 55 and CC 67 may be the
