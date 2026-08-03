@@ -360,3 +360,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   is runtime-only; `Master Volume` is the one knob whose value is not part of
   a preset; five parameters have a CC but no hardware control; and the Chorus
   and Delay enable LEDs have no parameter behind them at all.
+- `docs/panel-layout.md`: button and LED construction — the buttons take the
+  same finish colour as the knobs and never change appearance when pressed,
+  an unlit LED is the lit colour unlit rather than a neutral grey, and each
+  control's LEDs sit either in a column down the right of the cap, one
+  silkscreen per lens, or centred above it on the `PRESETS` row.

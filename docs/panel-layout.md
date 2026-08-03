@@ -58,8 +58,8 @@ shift label.
 |---|---|
 | Knob | Standard knob, tick arc silkscreened around it. Two concentric surfaces, not one — see [Knob construction](#knob-construction). A physical potentiometer with a fixed travel — not an endless encoder. See [Knobs are pots](#knobs-are-pots) for what that implies and [The tick arc](#the-tick-arc) for its measured geometry. |
 | Knob (large) | Physically larger cap — roughly 1.7x the standard cap diameter. Only two on the panel: Filter `Cutoff` and Output `Master Volume`. Signals prominence, not a different value range. Every other knob on the instrument is the same size, including the LFO `Rate` knobs, which read as larger in the fitted view and measure the same in a crop. The tick arc is identical on both sizes. |
-| Button + LED column | Momentary square button that steps through states; a column of LEDs beside it shows which state is current. |
-| Button + LED | Momentary square button with a single LED above or beside it. |
+| Button + LED column | Momentary square button that steps through states; a column of LEDs beside it shows which state is current. See [Button and LED construction](#button-and-led-construction). |
+| Button + LED | Momentary square button with a single LED above or beside it. Same construction, with a column of one. |
 | LED row | Indicator only — no button, nothing to press. |
 | Display | The small monochrome OLED. Not a control. |
 
@@ -99,6 +99,31 @@ inverts against it:
 The inlay is present on both. On the white knobs it is nearly the same value
 as the skirt and reads only as a subtle edge ring, which is why it is easy to
 miss at fitted scale.
+
+### Button and LED construction
+
+Every button on the panel is a **square cap with softly rounded corners**,
+separated from the chassis by a thin dark gap, and it **takes the same finish
+colour as the knobs** — black on `e7-black-front.webp`, white on
+`e7-blue-front.webp`. Nothing on the cap changes when the button is pressed
+or when its function is active; state is shown entirely by the LED beside or
+above it. A cap measures roughly 0.8x the diameter of a standard knob skirt.
+
+LEDs are **round lenses about a quarter of a cap's width**, and an unlit one
+is not grey — it is the lit colour, unlit: dark red lenses on the red-LED
+unit, dark cream on the white-LED one. A lit LED blooms visibly into the
+panel around it.
+
+Their arrangement is one of two, and which one is a panel fact per control:
+
+| Arrangement | Where | Detail |
+|---|---|---|
+| Column beside the cap | LFO 1/2/3 `Wave shape`, both oscillators' waveform and pulse buttons, the `Mode` block | LEDs run down the right side of the cap, one per state, each with its own silkscreen immediately right of the lens — a waveform glyph on the LFO and oscillator selectors, a word (`Poly`, `ST`, `MT`, `Unison`) on `Mode`. A single-LED button like the oscillators' pulse selector is the same arrangement with a column of one. |
+| Above the cap | All ten `PRESETS` buttons | One LED centred above the cap. The numbered buttons print their digit immediately left of the lens. |
+
+The editor's equivalent of a waveform glyph is the state's name in text —
+the panel can rely on a glyph beside a lens and a browser reads better with
+the word.
 
 ### The tick arc
 
