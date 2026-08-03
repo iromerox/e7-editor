@@ -1,39 +1,11 @@
 // Manual harness for the knob widget: every layout it supports, driveable by pointer and keyboard, across all finishes.
 import type { JSX } from "solid-js";
-import type { CapColor, LedColor, PanelTone } from "./theme";
-import { For, createSignal } from "solid-js";
+import { createSignal } from "solid-js";
+import { FinishPicker } from "./FinishPicker";
 import { Knob } from "./Knob";
-import { ThemeProvider, useTheme } from "./ThemeProvider";
-import { CAP_COLORS, LED_COLORS, PANEL_TONES } from "./theme";
-
-interface FinishSelectProps<T extends string> {
-  readonly label: string;
-  readonly options: readonly T[];
-  readonly value: T;
-  readonly onSelect: (value: T) => void;
-}
-
-function FinishSelect<T extends string>(props: FinishSelectProps<T>): JSX.Element {
-  return (
-    <label style={{ color: "var(--e7-label)" }}>
-      {props.label}{" "}
-      <select
-        value={props.value}
-        onChange={(event) => {
-          const next = props.options.find((option) => option === event.currentTarget.value);
-          if (next !== undefined) {
-            props.onSelect(next);
-          }
-        }}
-      >
-        <For each={props.options}>{(option) => <option value={option}>{option}</option>}</For>
-      </select>
-    </label>
-  );
-}
+import { ThemeProvider } from "./ThemeProvider";
 
 function Bench(): JSX.Element {
-  const { theme, setPanel, setLed, setCap } = useTheme();
   const [osc1, setOsc1] = createSignal(0);
   const [sub1, setSub1] = createSignal(64);
   const [cutoff, setCutoff] = createSignal(110);
@@ -55,27 +27,7 @@ function Bench(): JSX.Element {
       }}
     >
       <h1 style={{ "font-size": "1rem" }}>Knob widget</h1>
-      <fieldset style={{ "border-color": "var(--e7-silkscreen)", "margin-bottom": "1.5rem" }}>
-        <legend>Finish</legend>
-        <FinishSelect
-          label="Panel"
-          options={PANEL_TONES}
-          value={theme().panel}
-          onSelect={(tone: PanelTone) => setPanel(tone)}
-        />{" "}
-        <FinishSelect
-          label="LEDs"
-          options={LED_COLORS}
-          value={theme().led}
-          onSelect={(color: LedColor) => setLed(color)}
-        />{" "}
-        <FinishSelect
-          label="Knobs"
-          options={CAP_COLORS}
-          value={theme().cap}
-          onSelect={(color: CapColor) => setCap(color)}
-        />
-      </fieldset>
+      <FinishPicker />
 
       <section
         aria-label="Standard and large"
