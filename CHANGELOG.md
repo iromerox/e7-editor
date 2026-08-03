@@ -321,6 +321,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Chorus and Delay enable LEDs, which no parameter accounts for, and a note
   on #14 that global transpose has no panel control while OSC 1 Transpose
   does — a hint about which field the device associates with CC 3.
+- `src/app/Knob.tsx`: the rotary knob widget every editor section is built
+  from. Vertical pointer drag sets the value over 200px of travel and
+  horizontal movement is ignored outright; a drag emits once per value rather
+  than once per pointer event, so it hands the outbound CC rate limiter one
+  update per step instead of one per pixel. Focusable and driveable from the
+  keyboard — arrows nudge by one, PageUp/PageDown by ten, Home/End jump to
+  the ends — and it exposes itself as an ARIA slider with the parameter's own
+  formatted readout. Knobs that carry a silkscreened shift label take a
+  second layer with its own value, range and range formatting; the two labels
+  are both visible, the shift one in the panel's white-filled box, and
+  selecting one points the cap at that layer's value.
+- Knob rendering measured off the panel photography rather than assumed: a
+  300° tick arc from -150° to +150° with 21 ticks at 15°, long ticks at the
+  30° multiples and short ones between. The knob is drawn as the hardware is
+  built — a 7-lobe fluted skirt carrying the knob's colour, a brushed-metal
+  inlay disc set into its top, and the pointer on the skirt between the two,
+  where it inverts against the skirt. Turning the knob rotates the whole
+  body, lobes and mark together, leaving only the silkscreened tick arc
+  behind. Colours come entirely from the theme's custom properties.
+- `src/app/theme.ts`: `--e7-knob-inlay-top` and `--e7-knob-inlay-bottom` for
+  the knob's metal inlay disc, the one knob surface the finish variables did
+  not yet cover. Constant across all eight finish combinations — the inlay is
+  the same part on the white-knob and black-knob units, and only the skirt
+  beneath it changes colour.
 - `docs/panel-layout.md`: knob construction — the skirt/inlay/pointer split,
   which surface carries the finish colour, sampled values for each, and the
   7-lobe flute count. Records that measuring the flute count off the

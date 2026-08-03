@@ -43,6 +43,10 @@ const CAP_BOTTOM: Record<CapColor, string> = { white: "#c4beae", black: "#161412
 
 const KNOB_NOTCH: Record<CapColor, string> = { white: "#18181a", black: "#e0e0da" };
 
+const KNOB_INLAY_TOP = "#f7f4f0";
+
+const KNOB_INLAY_BOTTOM = "#d8d4cd";
+
 const MODIFIED_DOT = "#ffc100";
 
 export const THEME_VARIABLE_NAMES = [
@@ -56,6 +60,8 @@ export const THEME_VARIABLE_NAMES = [
   "--e7-led-halo",
   "--e7-cap-top",
   "--e7-cap-bottom",
+  "--e7-knob-inlay-top",
+  "--e7-knob-inlay-bottom",
   "--e7-knob-notch",
   "--e7-modified-dot",
 ] as const;
@@ -76,6 +82,8 @@ export function themeVariables(theme: Theme): ThemeVariables {
     "--e7-led-halo": LED_HALO[theme.led],
     "--e7-cap-top": CAP_TOP[theme.cap],
     "--e7-cap-bottom": CAP_BOTTOM[theme.cap],
+    "--e7-knob-inlay-top": KNOB_INLAY_TOP,
+    "--e7-knob-inlay-bottom": KNOB_INLAY_BOTTOM,
     "--e7-knob-notch": KNOB_NOTCH[theme.cap],
     "--e7-modified-dot": MODIFIED_DOT,
   };
