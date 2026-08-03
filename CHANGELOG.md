@@ -321,6 +321,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Chorus and Delay enable LEDs, which no parameter accounts for, and a note
   on #14 that global transpose has no panel control while OSC 1 Transpose
   does — a hint about which field the device associates with CC 3.
+- `docs/panel-layout.md`: knob construction — the skirt/inlay/pointer split,
+  which surface carries the finish colour, sampled values for each, and the
+  7-lobe flute count. Records that measuring the flute count off the
+  photography returns a confident and wrong answer of 12, because the scan
+  window reaches into the tick ring and locks onto its 15° pitch.
+- `docs/panel-layout.md`: the tick arc's measured geometry, recorded so it is
+  read once — including that angles have to be measured about the arc centre
+  found from the tick lines, not about the cap, whose projected centre is
+  displaced by parallax enough to make the spacing look uneven.
 - Six findings from that pass, each raised rather than reconciled: the
   panel's only EG1-to-LFO knob is silkscreened on LFO 2 while the byte map
   names byte 55 LFO 1, which is new evidence against the reading that CC 67

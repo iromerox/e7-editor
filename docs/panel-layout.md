@@ -56,12 +56,77 @@ shift label.
 
 | Widget | Description |
 |---|---|
-| Knob | Standard knob, white cap with a pointer, tick arc silkscreened around it. A physical potentiometer with a fixed travel — not an endless encoder. See [Knobs are pots](#knobs-are-pots) for what that implies. |
-| Knob (large) | Physically larger cap — roughly 1.7x the standard cap diameter. Only two on the panel: Filter `Cutoff` and Output `Master Volume`. Signals prominence, not a different value range. Every other knob on the instrument is the same size, including the LFO `Rate` knobs, which read as larger in the fitted view and measure the same in a crop. |
+| Knob | Standard knob, tick arc silkscreened around it. Two concentric surfaces, not one — see [Knob construction](#knob-construction). A physical potentiometer with a fixed travel — not an endless encoder. See [Knobs are pots](#knobs-are-pots) for what that implies and [The tick arc](#the-tick-arc) for its measured geometry. |
+| Knob (large) | Physically larger cap — roughly 1.7x the standard cap diameter. Only two on the panel: Filter `Cutoff` and Output `Master Volume`. Signals prominence, not a different value range. Every other knob on the instrument is the same size, including the LFO `Rate` knobs, which read as larger in the fitted view and measure the same in a crop. The tick arc is identical on both sizes. |
 | Button + LED column | Momentary square button that steps through states; a column of LEDs beside it shows which state is current. |
 | Button + LED | Momentary square button with a single LED above or beside it. |
 | LED row | Indicator only — no button, nothing to press. |
 | Display | The small monochrome OLED. Not a control. |
+
+### Knob construction
+
+Every knob is **two concentric surfaces**, and drawing it as a single disc
+gets it visibly wrong:
+
+| Surface | What it is |
+|---|---|
+| Skirt | The knob body — a fluted ring with **7 lobes**, and the part that carries the knob's colour. Broad rounded lobes with gentle valleys between, not sharp notches. |
+| Inlay | A brushed-metal disc set into the top of the skirt, about 60% of the skirt's diameter. Reads near-white under studio lighting (median `#f5f2ee` sampled off `Master Volume`). |
+| Pointer | A line **on the skirt**, aligned with a lobe, running from the inlay's edge outward to near the skirt's rim. It does not cross the inlay. |
+
+**The whole body turns.** Skirt, inlay and pointer rotate together with the
+value — the lobes travel with the mark. Only the tick arc stays put, because
+it is silkscreened on the panel rather than printed on the knob.
+
+**The lobe count is 7, confirmed on the instrument by its owner — do not try
+to re-derive it from the photographs.** An autocorrelation of the skirt
+silhouette in `e7-black-front.webp` returns a confident, clean answer of 12,
+on all three knobs measured, and it is wrong. The scan window reached past
+the skirt into the tick ring, so it locked onto the ticks' 15° pitch and its
+30° harmonic instead of the skirt's own profile. It is a convincing false
+positive: an isolated autocorrelation peak of 0.35-0.65 with every other
+pitch at or below zero. Any remeasurement has to stop the scan short of the
+tick ring, and should still be checked against the hardware.
+
+The two photographed finishes differ only in the skirt, and the pointer
+inverts against it:
+
+| Finish | Skirt | Pointer |
+|---|---|---|
+| Black unit (`e7-black-front.webp`) | Glossy black — flat regions sample `#0a0604` at the top, `#030301` at the bottom, with highlights to `#423935` | White |
+| Blue unit (`e7-blue-front.webp`) | White | Dark |
+
+The inlay is present on both. On the white knobs it is nearly the same value
+as the skirt and reads only as a subtle edge ring, which is why it is easy to
+miss at fitted scale.
+
+### The tick arc
+
+**The arc spans 300°, not the 270° a knob widget usually assumes.** Measured
+off `e7-black-front.webp` at full resolution, on three knobs independently —
+Mixer `OSC1` (standard), Filter `Cutoff` and Output `Master Volume` (both
+large):
+
+| Property | Value |
+|---|---|
+| Span | 300°, from -150° to +150° — 7 o'clock round the top to 5 o'clock |
+| Ticks | 21, evenly spaced at 15° |
+| Long ticks | 11, at the 30° multiples including both ends and 12 o'clock |
+| Short ticks | 10, one between each pair of long ones, about 60% the length |
+| Inner radius | All ticks start at the same radius, just outside the knob skirt |
+
+The three knobs agree to within a degree (mean tick spacing 14.95° / 15.01° /
+14.9°, standard deviation 0.19-0.34°), and the standard and large knobs carry
+the same 21-tick arc at different scales.
+
+Two cautions if this is ever remeasured. Angles must be taken about the arc's
+own centre, found by intersecting the tick lines — **not** about the cap,
+whose projected centre sits 8-11px away from it at 2400px, because the cap
+stands proud of the panel and the shot is only near-orthographic. Measuring
+about the cap makes the spacing appear to drift from 12° to 18° across the
+arc. Residual perspective still leaves each tick within about 2° of its
+nominal angle, worst on `Master Volume` at the far right of the panel; the
+underlying geometry is plainly the exact 15° grid.
 
 ### Knobs are pots
 
