@@ -111,6 +111,15 @@ describe("themeVariables", () => {
     }
   });
 
+  it("keeps each LED colour's unlit lens far darker than its lit one", () => {
+    for (const led of LED_COLORS) {
+      const variables = themeVariables(withTheme({ led }));
+      const lit = redChannel(variables["--e7-led-on"]);
+      const unlit = redChannel(variables["--e7-led-off"]);
+      expect(lit - unlit, led).toBeGreaterThan(100);
+    }
+  });
+
   it("inverts the knob notch against the cap so it stays readable", () => {
     const onWhite = redChannel(variableFor({ cap: "white" }, "--e7-knob-notch"));
     const onBlack = redChannel(variableFor({ cap: "black" }, "--e7-knob-notch"));

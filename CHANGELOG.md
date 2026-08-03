@@ -253,6 +253,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   rest of the shell through `src/app/AppStateProvider.tsx`, so a change to one
   part of it — a connection notice, say — leaves everything reading the other
   parts untouched.
+- `src/app/Led.tsx`: the panel's indicators — a single LED lens, `LedStack`
+  for the column beside a selector button, and `LedRow` for the horizontal
+  indicator row. Both take the number of LEDs as a prop, so the waveshape
+  selectors can differ (5 on LFO 1 and LFO 2, 4 on LFO 3, 3 on each
+  oscillator) and the `VOICES` row can be its own 7, and both accept a state
+  with no LED lit at all — the oscillators' pulse-only shape is one. Each LED
+  in a column can carry the state's name beside it, standing in for the
+  waveform glyph the panel silkscreens there. A group that carries a label
+  reads its lit state out to assistive technology ("VOICES: 1, 3, 5"); one
+  that doesn't is treated as decoration, because the control beside it
+  already says the same thing.
+- `src/app/ButtonLed.tsx`: the panel's cap buttons — `ButtonLed` for a
+  momentary button with a single LED above or beside it, and `DualButton` for
+  one that steps a column of LEDs, optionally carrying the panel's shift
+  layer as a second set of states with its own labels. Real buttons, so the
+  space and enter keys work, and the cap shows itself held down for either.
+  The accessible name carries the state the LEDs are showing ("Wave shape:
+  Square"). Both are presentational: they report that the button was pressed
+  and draw the state they are given, leaving what the next state is to the
+  caller that knows the parameter.
+- `src/app/LayerLabel.tsx`: the panel's silkscreen under a control, split out
+  of the knob so buttons carry it identically — the primary label plain, the
+  shift label in its white-filled box, and either selectable when a control
+  has both.
 
 ### Changed
 

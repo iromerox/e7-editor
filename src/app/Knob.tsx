@@ -1,6 +1,7 @@
 // Rotary knob: vertical-drag and keyboard value editing, drawn with the panel's pointer cap and 300-degree tick arc.
 import type { JSX } from "solid-js";
 import { For, Show, createSignal, createUniqueId, onCleanup } from "solid-js";
+import { LayerLabel } from "./LayerLabel";
 
 export type KnobSize = "standard" | "large";
 
@@ -117,37 +118,6 @@ function upperBound(layer: KnobLayer): number {
 
 function readout(layer: KnobLayer): string {
   return layer.format === undefined ? String(layer.value) : layer.format(layer.value);
-}
-
-interface LayerLabelProps {
-  readonly layer: KnobLayer;
-  readonly boxed: boolean;
-  readonly selectable: boolean;
-  readonly selected: boolean;
-  readonly onSelect: () => void;
-}
-
-function LayerLabel(props: LayerLabelProps): JSX.Element {
-  const styles = (): JSX.CSSProperties => ({
-    "font-size": "0.7rem",
-    "line-height": "1.2",
-    padding: props.boxed ? "0.05rem 0.3rem" : "0.05rem 0",
-    "border-radius": props.boxed ? "0.15rem" : "0",
-    background: props.boxed ? "var(--e7-silkscreen)" : "transparent",
-    color: props.boxed ? "var(--e7-panel)" : "var(--e7-label)",
-    opacity: props.selectable && !props.selected ? "0.55" : "1",
-    border: "none",
-    cursor: props.selectable ? "pointer" : "default",
-    "text-align": "center",
-  });
-
-  return (
-    <Show when={props.selectable} fallback={<span style={styles()}>{props.layer.label}</span>}>
-      <button type="button" aria-pressed={props.selected} onClick={props.onSelect} style={styles()}>
-        {props.layer.label}
-      </button>
-    </Show>
-  );
 }
 
 export function Knob(props: KnobProps): JSX.Element {
@@ -346,8 +316,7 @@ export function Knob(props: KnobProps): JSX.Element {
         </svg>
       </div>
       <LayerLabel
-        layer={props.primary}
-        boxed={false}
+        label={props.primary.label}
         selectable={props.shift !== undefined}
         selected={selected() === "primary"}
         onSelect={() => setSelected("primary")}
@@ -355,7 +324,7 @@ export function Knob(props: KnobProps): JSX.Element {
       <Show when={props.shift}>
         {(shift) => (
           <LayerLabel
-            layer={shift()}
+            label={shift().label}
             boxed={true}
             selectable={true}
             selected={selected() === "shift"}
