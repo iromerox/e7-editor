@@ -731,6 +731,10 @@ Before offering a control for anything in this table, check the manual for
 prose describing it. A byte and a CC are not evidence that a parameter
 exists.
 
+`off-panel-parameters.md` is the full inventory of what the panel gives no
+control for — this table, the menu-only parameters, the global configuration,
+and the device commands — with what reaches each one.
+
 Genuinely unreachable from the panel and from CC, for contrast:
 `part1Only.name`, `part1Only.lock`, the whole of `partSettings` (multi
 only), and global `transpose`. Those are SysEx or menu territory.

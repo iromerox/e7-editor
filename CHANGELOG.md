@@ -464,3 +464,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   an unlit LED is the lit colour unlit rather than a neutral grey, and each
   control's LEDs sit either in a column down the right of the cap, one
   silkscreen per lens, or centred above it on the `PRESETS` row.
+- `docs/off-panel-parameters.md`: the complement of the panel layout sheet —
+  every parameter, configuration value and device command the front panel
+  gives no control for, with what reaches each one and whether it is real,
+  menu-only, contested, or an address with nothing behind it. Written because
+  the MIDI implementation lists addresses and the user manual describes
+  controls, and an address the manual never mentions is not evidence that a
+  parameter exists. `docs/panel-layout.md` records the same distinction where
+  it bites: `LFO2 PWM` and `LFO3 PWM` have a byte and a CC apiece, no panel
+  control, no manual entry, and no effect on the instrument.
