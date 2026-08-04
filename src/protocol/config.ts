@@ -1,10 +1,24 @@
-// Bridges a Read Configuration response into a full Write Configuration
-// payload, filling in the two fields the read command never returns
-// (protocol-quirks.md #2).
+// Global configuration: the channel the device receives on, and the bridge from a Read Configuration response to a full Write Configuration payload.
 import type { ReadConfigurationFields, WriteConfigurationFields } from "./sysex";
 
 export type ReadConfigPayload = ReadConfigurationFields;
 export type Configuration = WriteConfigurationFields;
+
+export const OMNI_RECEIVE_CHANNEL = 16;
+
+export type ReceiveChannel =
+  | { readonly kind: "channel"; readonly channel: number }
+  | { readonly kind: "omni" }
+  | { readonly kind: "invalid"; readonly value: number };
+
+export function receiveChannel(value: number): ReceiveChannel {
+  if (value === OMNI_RECEIVE_CHANNEL) {
+    return { kind: "omni" };
+  }
+  return Number.isInteger(value) && value >= 0 && value < OMNI_RECEIVE_CHANNEL
+    ? { kind: "channel", channel: value + 1 }
+    : { kind: "invalid", value };
+}
 
 export function intoConfiguration(
   payload: ReadConfigPayload,

@@ -300,6 +300,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   an emitter that fires once per distinct value rather than once per pointer
   event. The knob and the envelope curve are both built on it, so the same
   field can be handed to either and behaves identically through both.
+- `src/app/EditorPane.tsx`: the first working editor view — the `OSCILLATORS`
+  and `MIXER` sections over the preset in hand, sized against each other the
+  way the panel sizes them, sharing its horizontal guides so a Mixer knob sits
+  on the same line as the Oscillator knob beside it, and reflowing to one
+  column when there is no room for two. Every OSC 1, OSC 2 and Mixer parameter
+  the instrument has is there; each edit reaches the device as a control
+  change the moment it happens, and a control change arriving from the device
+  moves the matching control. Saving to the library stays a separate,
+  explicit action — nothing here writes to it. CC 3 is left alone in the
+  inbound direction, since it names both OSC 1 Transpose and global Transpose,
+  while the OSC 1 knob still writes its own field outright; CC 71 is not sent
+  at all, since the device is not known to accept it.
+- `src/app/OscillatorsSection.tsx` and `src/app/MixerSection.tsx`: the two
+  sections themselves, laid out on CSS Grid in the panel's own control order
+  and carrying its shift labels — `Tune`/`Transpose`, `LFO1 Mod`/`EG1 Mod`,
+  `LFO2 Mod`/`LFO3 Mod`, and hard sync on the shift layer of OSC 2's pulse
+  button. Tune and Transpose read out in semitones from the spec's own tables
+  rather than as raw bytes, and what a panel label leaves unsaid — which
+  oscillator a sub follows, what plugging into External In does to the noise
+  generator — is said at the control. The waveform selector and the pulse
+  generator drive the one `shape` byte between them. `LFO2 PWM` and `LFO3 PWM`
+  get no control: they have a byte and a CC, but no panel control, no entry in
+  the user manual, and no effect on the instrument.
+- `src/app/PanelSection.tsx` and `src/app/panel-rows.ts`: the rounded, titled
+  box the panel draws around a group of controls, and the row and column
+  guides its sections share, so every section to come is framed and aligned
+  the same way.
+- `src/app/live-edit.ts`: the editor's live path — a preset field read as a
+  control value, the control change each edit sends, and the inbound control
+  change that moves it back. An edit always lands in the editor; whether it
+  also reaches the device depends on there being a connection, a channel to
+  address it on, and a CC the device accepts.
+- `src/protocol/enums.ts`: `oscShapeParts`/`oscShapeFromParts`, splitting
+  `OscShape` into the waveform and pulse-generator states the panel drives with
+  two separate buttons, and rejoining them.
+- `src/protocol/config.ts`: `receiveChannel`, reading the configuration's MIDI
+  Receive Channel byte as a one-based channel, as Omni, or as one of the values
+  the spec calls invalid — never silently as channel 1.
 
 ### Changed
 
@@ -314,6 +352,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The connection bar, library pane and device pane now read and write the
   shared application state instead of each keeping its own copy, so the state
   survives a pane being unmounted and is visible to the panes that come next.
+- Connecting now reads the device's configuration as well as its serial number,
+  so live edits go out on the channel the instrument is actually listening on.
+  A device that won't answer the configuration read stays connected and says
+  so, and edits keep working in the editor with nothing sent.
+- Panel controls can carry a description, shown at the control, for what its
+  label alone doesn't convey.
 
 ### Fixed
 

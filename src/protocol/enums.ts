@@ -31,6 +31,40 @@ export function oscShapeToCc(shape: OscShape): number {
   return encodeZoned(shape, OSC_SHAPE_ZONES);
 }
 
+export type OscWaveform = "triangle" | "saw-tri" | "sawtooth" | "none";
+
+export interface OscShapeParts {
+  readonly waveform: OscWaveform;
+  readonly pulse: boolean;
+}
+
+const OSC_SHAPE_PARTS: Readonly<Record<OscShape, OscShapeParts>> = {
+  triangle: { waveform: "triangle", pulse: false },
+  "saw-tri": { waveform: "saw-tri", pulse: false },
+  sawtooth: { waveform: "sawtooth", pulse: false },
+  off: { waveform: "none", pulse: false },
+  "triangle+pulse": { waveform: "triangle", pulse: true },
+  "saw-tri+pulse": { waveform: "saw-tri", pulse: true },
+  "sawtooth+pulse": { waveform: "sawtooth", pulse: true },
+  pulse: { waveform: "none", pulse: true },
+};
+
+const OSC_SHAPE_BY_PARTS: Readonly<Record<OscWaveform, readonly [OscShape, OscShape]>> = {
+  triangle: ["triangle", "triangle+pulse"],
+  "saw-tri": ["saw-tri", "saw-tri+pulse"],
+  sawtooth: ["sawtooth", "sawtooth+pulse"],
+  none: ["off", "pulse"],
+};
+
+export function oscShapeParts(shape: OscShape): OscShapeParts {
+  return OSC_SHAPE_PARTS[shape];
+}
+
+export function oscShapeFromParts(parts: OscShapeParts): OscShape {
+  const [withoutPulse, withPulse] = OSC_SHAPE_BY_PARTS[parts.waveform];
+  return parts.pulse ? withPulse : withoutPulse;
+}
+
 export type OscSync = "off" | "on";
 
 const OSC_SYNC_ZONES: readonly Zone<OscSync>[] = [

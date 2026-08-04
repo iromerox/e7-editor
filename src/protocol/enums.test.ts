@@ -21,6 +21,8 @@ import {
   lfoShapeFromCc,
   lfoShapeToCc,
   oscShapeFromCc,
+  oscShapeFromParts,
+  oscShapeParts,
   oscShapeToCc,
   oscSyncFromCc,
   oscSyncToCc,
@@ -54,6 +56,35 @@ describe("OscShape", () => {
       [112, 127, "pulse"],
     ];
     checkBoundaries(boundaries, oscShapeFromCc, oscShapeToCc);
+  });
+
+  it("splits into the waveform selector and the pulse generator the panel drives separately", () => {
+    expect(oscShapeParts("triangle")).toEqual({ waveform: "triangle", pulse: false });
+    expect(oscShapeParts("sawtooth+pulse")).toEqual({ waveform: "sawtooth", pulse: true });
+    expect(oscShapeParts("off")).toEqual({ waveform: "none", pulse: false });
+    expect(oscShapeParts("pulse")).toEqual({ waveform: "none", pulse: true });
+  });
+
+  it("rejoins every waveform and pulse combination into the shape that encodes it", () => {
+    const shapes: readonly OscShape[] = [
+      "triangle",
+      "saw-tri",
+      "sawtooth",
+      "off",
+      "triangle+pulse",
+      "saw-tri+pulse",
+      "sawtooth+pulse",
+      "pulse",
+    ];
+    for (const shape of shapes) {
+      expect(oscShapeFromParts(oscShapeParts(shape))).toBe(shape);
+    }
+  });
+
+  it("keeps the waveform when the pulse generator is switched, and the reverse", () => {
+    expect(oscShapeFromParts({ waveform: "saw-tri", pulse: true })).toBe("saw-tri+pulse");
+    expect(oscShapeFromParts({ waveform: "saw-tri", pulse: false })).toBe("saw-tri");
+    expect(oscShapeFromParts({ waveform: "none", pulse: true })).toBe("pulse");
   });
 });
 

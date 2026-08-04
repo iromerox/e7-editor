@@ -1,8 +1,9 @@
-// Port selection, connect/disconnect, and the serial number the connected device reports.
+// Port selection, connect/disconnect, and the serial number and receive channel the connected device reports.
 import type { JSX } from "solid-js";
 import type { Connection, PortInfo, PortLists } from "../midi";
 import { For, Show, onCleanup, onMount } from "solid-js";
 import { enableMidi, listPorts, openConnection, requestResponse, watchPorts } from "../midi";
+import { receiveChannel } from "../protocol";
 import { useAppState } from "./AppStateProvider";
 
 export interface ConnectionBarProps {
@@ -62,6 +63,7 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
     selectOutputPort,
     setConnectionStatus,
     setSerialNumber,
+    setReceiveChannel,
     setNotice,
   } = useAppState();
 
@@ -90,8 +92,18 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
     stopWatchingDevice = undefined;
     connection = undefined;
     setSerialNumber(undefined);
+    setReceiveChannel(undefined);
     setConnectionStatus("disconnected");
     props.onConnectionChange?.(undefined);
+  };
+
+  const readReceiveChannel = async (active: Connection): Promise<void> => {
+    try {
+      const configuration = await requestResponse(active, { kind: "read-configuration" });
+      setReceiveChannel(receiveChannel(configuration.rxChannel));
+    } catch (error) {
+      setNotice(`Could not read the device's receive channel. ${describe(error)}`);
+    }
   };
 
   const enable = async (): Promise<void> => {
@@ -127,6 +139,7 @@ export function ConnectionBar(props: ConnectionBarProps): JSX.Element {
         },
       });
       stopWatchingDevice = () => subscription.unsubscribe();
+      await readReceiveChannel(active);
     } catch (error) {
       setNotice(describe(error));
       setConnectionStatus("disconnected");

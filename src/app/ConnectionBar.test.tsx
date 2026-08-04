@@ -1,4 +1,5 @@
 import type { Observable } from "rxjs";
+import type { JSX } from "solid-js";
 import type { CcEvent, Connection, PortInfo, PortLists, SysExReassemblyStats } from "../midi";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { EMPTY, Subject } from "rxjs";
@@ -12,7 +13,7 @@ import {
   requestResponse,
   watchPorts,
 } from "../midi";
-import { AppStateProvider } from "./AppStateProvider";
+import { AppStateProvider, useAppState } from "./AppStateProvider";
 import { ConnectionBar } from "./ConnectionBar";
 
 vi.mock("../midi", async (importOriginal) => {
@@ -74,12 +75,38 @@ const ONE_DEVICE: PortLists = {
 
 let announcePorts: (ports: PortLists) => void = () => {};
 
+function ReceiveChannelProbe(): JSX.Element {
+  const { state } = useAppState();
+
+  return (
+    <span data-testid="receive-channel">{JSON.stringify(state.connection.receiveChannel)}</span>
+  );
+}
+
 function renderBar(): void {
   render(() => (
     <AppStateProvider>
       <ConnectionBar />
+      <ReceiveChannelProbe />
     </AppStateProvider>
   ));
+}
+
+function answerReads(rxChannel: number | undefined): void {
+  vi.mocked(requestResponse).mockImplementation((_connection, command) => {
+    if (command.kind !== "read-configuration") {
+      return Promise.resolve({ kind: "serial-number", serialNumber: 361 });
+    }
+    return rxChannel === undefined
+      ? Promise.reject(new ResponseTimeoutError("read-configuration", 1000, 0))
+      : Promise.resolve({
+          kind: "configuration",
+          rxChannel,
+          txChannel: 0,
+          filterMode: 0,
+          softThruMode: 0,
+        });
+  });
 }
 
 async function enable(): Promise<void> {
@@ -211,6 +238,44 @@ describe("ConnectionBar", () => {
     expect(screen.queryByText(/Serial number/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("reads the channel the device receives on, and forgets it on disconnect", async () => {
+    const connection = new FakeConnection();
+    vi.mocked(listPorts).mockReturnValue(ONE_DEVICE);
+    vi.mocked(openConnection).mockResolvedValue(connection);
+    answerReads(4);
+    renderBar();
+
+    await enable();
+    await connect();
+
+    expect(requestResponse).toHaveBeenCalledWith(connection, { kind: "read-configuration" });
+    await vi.waitFor(() =>
+      expect(screen.getByTestId("receive-channel")).toHaveTextContent(
+        '{"kind":"channel","channel":5}',
+      ),
+    );
+
+    await fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+
+    expect(screen.getByTestId("receive-channel")).toBeEmptyDOMElement();
+  });
+
+  it("stays connected when the device won't say which channel it receives on", async () => {
+    const connection = new FakeConnection();
+    vi.mocked(listPorts).mockReturnValue(ONE_DEVICE);
+    vi.mocked(openConnection).mockResolvedValue(connection);
+    answerReads(undefined);
+    renderBar();
+
+    await enable();
+    await connect();
+
+    expect(screen.getByText("Serial number 361")).toBeInTheDocument();
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("receive channel"));
+    expect(screen.getByTestId("receive-channel")).toBeEmptyDOMElement();
+    expect(connection.closeCalls).toBe(0);
   });
 
   it("never lands on connected when the device vanishes while the serial read is in flight", async () => {

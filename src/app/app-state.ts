@@ -1,10 +1,10 @@
 // Central application state: connection, ports, library results, device slot cache, editor, and edit history.
 import type { PortInfo, PortLists } from "../midi";
-import type { SinglePreset } from "../protocol";
+import type { CcField, ReceiveChannel, SinglePreset } from "../protocol";
 import type { LibraryEntry, LibraryEntryKind } from "../store";
 import type { SlotAddress, SlotKind, SlotSummary } from "./device-slots";
 import { createStore, unwrap } from "solid-js/store";
-import { SINGLE_PRESET_BYTES, decodeSinglePreset } from "../protocol";
+import { SINGLE_PRESET_BYTES, decodeSinglePreset, writeField } from "../protocol";
 import { BANKS_PER_KIND, slotKey } from "./device-slots";
 
 export type ConnectionStatus = "midi-disabled" | "disconnected" | "connecting" | "connected";
@@ -14,6 +14,7 @@ export interface ConnectionState {
   inputName: string;
   outputName: string;
   serialNumber: number | undefined;
+  receiveChannel: ReceiveChannel | undefined;
   notice: string;
 }
 
@@ -81,6 +82,7 @@ export interface AppStateControls {
   selectOutputPort(name: string): void;
   setConnectionStatus(status: ConnectionStatus): void;
   setSerialNumber(serialNumber: number | undefined): void;
+  setReceiveChannel(receiveChannel: ReceiveChannel | undefined): void;
   setNotice(notice: string): void;
   selectLibraryKind(kind: LibraryKindFilter): void;
   setLibraryEntries(entries: readonly LibraryEntry[] | undefined): void;
@@ -89,6 +91,7 @@ export interface AppStateControls {
   selectGroup(group: number): void;
   setSlotState(address: SlotAddress, slot: DeviceSlotState): void;
   loadEditor(preset: SinglePreset, source: EditorSource): void;
+  editField(field: CcField, value: number): void;
   recordEdit(edit: EditorEdit): void;
   takeUndo(): EditorEdit | undefined;
   takeRedo(): EditorEdit | undefined;
@@ -103,6 +106,7 @@ export function initialAppState(): AppState {
       inputName: "",
       outputName: "",
       serialNumber: undefined,
+      receiveChannel: undefined,
       notice: "",
     },
     ports: { inputs: [], outputs: [] },
@@ -133,6 +137,9 @@ export function createAppState(): AppStateControls {
     setSerialNumber(serialNumber: number | undefined): void {
       setState("connection", "serialNumber", serialNumber);
     },
+    setReceiveChannel(receiveChannel: ReceiveChannel | undefined): void {
+      setState("connection", "receiveChannel", receiveChannel);
+    },
     setNotice(notice: string): void {
       setState("connection", "notice", notice);
     },
@@ -159,6 +166,9 @@ export function createAppState(): AppStateControls {
     },
     loadEditor(preset: SinglePreset, source: EditorSource): void {
       setState("editor", { preset, source });
+    },
+    editField(field: CcField, value: number): void {
+      setState("editor", "preset", (preset) => writeField(unwrap(preset), field, value));
     },
     recordEdit(edit: EditorEdit): void {
       setState("history", (history) => ({ undo: [...history.undo, edit], redo: [] }));

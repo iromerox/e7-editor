@@ -1,6 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { intoConfiguration } from "./config";
+import { OMNI_RECEIVE_CHANNEL, intoConfiguration, receiveChannel } from "./config";
 import { decodeConfigurationResponse, encodeCommand } from "./sysex";
+
+describe("receiveChannel", () => {
+  it("reads the configuration byte as a one-based channel (p.27)", () => {
+    expect(receiveChannel(0)).toEqual({ kind: "channel", channel: 1 });
+    expect(receiveChannel(4)).toEqual({ kind: "channel", channel: 5 });
+    expect(receiveChannel(15)).toEqual({ kind: "channel", channel: 16 });
+  });
+
+  it("reports Omni as itself rather than as a channel number", () => {
+    expect(receiveChannel(OMNI_RECEIVE_CHANNEL)).toEqual({ kind: "omni" });
+  });
+
+  it("reports the values the spec calls invalid, carrying what it read", () => {
+    expect(receiveChannel(17)).toEqual({ kind: "invalid", value: 17 });
+    expect(receiveChannel(255)).toEqual({ kind: "invalid", value: 255 });
+    expect(receiveChannel(-1)).toEqual({ kind: "invalid", value: -1 });
+    expect(receiveChannel(1.5)).toEqual({ kind: "invalid", value: 1.5 });
+  });
+});
 
 describe("intoConfiguration", () => {
   it("bridges the spec's Read Configuration example into the Write Configuration payload (p.19, p.20)", () => {

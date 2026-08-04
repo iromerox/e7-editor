@@ -183,6 +183,7 @@ export function Knob(props: KnobProps): JSX.Element {
         aria-valuemax={upperBound(layer())}
         aria-valuenow={layer().value}
         aria-valuetext={readout(layer())}
+        title={layer().description}
         onPointerDown={beginDrag}
         onKeyDown={onKeyDown}
         style={{

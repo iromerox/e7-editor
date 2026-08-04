@@ -1,10 +1,10 @@
 // The value contract every panel control shares: bounds, readout, drag travel, keyboard steps, and one emission per distinct value.
-
 export interface ControlValue {
   readonly label: string;
   readonly value: number;
   readonly min?: number;
   readonly max?: number;
+  readonly description?: string;
   readonly format?: (value: number) => string;
   readonly onInput: (value: number) => void;
 }

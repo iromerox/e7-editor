@@ -16,6 +16,7 @@ export interface ButtonLedProps {
   readonly label: string;
   readonly lit: boolean;
   readonly placement?: LedPlacement;
+  readonly description?: string | undefined;
   readonly onPress: () => void;
 }
 
@@ -24,17 +25,19 @@ export interface ButtonLayer {
   readonly count: number;
   readonly active?: number | undefined;
   readonly names?: readonly string[] | undefined;
+  readonly description?: string | undefined;
   readonly onPress: () => void;
 }
 
 export interface DualButtonProps {
   readonly primary: ButtonLayer;
-  readonly shift?: ButtonLayer;
+  readonly shift?: ButtonLayer | undefined;
 }
 
 interface CapProps {
   readonly name: string;
   readonly pressed?: boolean;
+  readonly description?: string | undefined;
   readonly onPress: () => void;
 }
 
@@ -49,6 +52,7 @@ function Cap(props: CapProps): JSX.Element {
       type="button"
       aria-label={props.name}
       aria-pressed={props.pressed}
+      title={props.description}
       onClick={props.onPress}
       onPointerDown={() => setHeld(true)}
       onPointerUp={release}
@@ -101,7 +105,12 @@ export function ButtonLed(props: ButtonLedProps): JSX.Element {
         }}
       >
         <Led lit={props.lit} />
-        <Cap name={props.label} pressed={props.lit} onPress={props.onPress} />
+        <Cap
+          name={props.label}
+          pressed={props.lit}
+          description={props.description}
+          onPress={props.onPress}
+        />
       </div>
       <LayerLabel label={props.label} selectable={false} />
     </div>
@@ -126,14 +135,14 @@ export function DualButton(props: DualButtonProps): JSX.Element {
       style={{
         display: "flex",
         "flex-direction": "column",
-        "align-items": "center",
+        "align-items": "flex-start",
         gap: "0.2rem",
         color: "var(--e7-label)",
         "user-select": "none",
       }}
     >
       <div style={{ display: "flex", "align-items": "center", gap: "0.35rem" }}>
-        <Cap name={capName()} onPress={() => layer().onPress()} />
+        <Cap name={capName()} description={layer().description} onPress={() => layer().onPress()} />
         <LedStack count={layer().count} active={layer().active} names={layer().names} />
       </div>
       <LayerLabel

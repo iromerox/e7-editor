@@ -39,6 +39,7 @@ describe("createAppState", () => {
       inputName: "",
       outputName: "",
       serialNumber: undefined,
+      receiveChannel: undefined,
       notice: "",
     });
     expect(state.ports).toEqual({ inputs: [], outputs: [] });
@@ -85,6 +86,16 @@ describe("createAppState", () => {
 
     loadEditor(EMPTY_PRESET, { kind: "LibraryEntry", id: "entry-1" });
     expect(state.editor.source).toEqual({ kind: "LibraryEntry", id: "entry-1" });
+  });
+
+  it("edits one preset field at a time, leaving the rest of the preset as it was", () => {
+    const { state, editField } = createAppState();
+
+    editField("mixerOsc1Level", 77);
+
+    expect(state.editor.preset.mixer.osc1Level).toBe(77);
+    expect(state.editor.preset.mixer.sub1Level).toBe(0);
+    expect(state.editor.source).toEqual({ kind: "Empty" });
   });
 
   it("moves entries between the undo and redo stacks", () => {

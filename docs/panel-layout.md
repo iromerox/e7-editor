@@ -302,19 +302,34 @@ LFO 3 has no `Mode` control — the six sync modes are LFO 1/2 only, and
 
 ## Oscillators
 
-The `OSCILLATORS` box holds `OSC 1` (top) and `OSC 2` (bottom), separated by
-a dotted rule. The two are laid out identically: a two-button column on the
-left, then three knobs on the upper row and three on the lower row.
+The `OSCILLATORS` box holds `OSC 1` (top) and `OSC 2` (bottom). The two are
+laid out identically: a two-button column on the left, then three knobs on the
+upper row and three on the lower row.
+
+**The two rules in this box mean different things.** A **dotted** rule runs
+across each oscillator between its two knob rows, immediately under the upper
+row's shift labels (`Transpose` / `EG1 Mod` / `LFO3 Mod`); a **solid** rule
+separates `OSC 1` from `OSC 2`. An earlier reading of this sheet had the
+dotted rule between the oscillators, which is wrong in both places — checked
+against `e7-black-front.webp` at 3x.
 
 `OSC 1` and `OSC 2` differ in exactly one place — the shift label on the
 pulse button (`Autotuning` vs `Sync`).
+
+**Neither button is silkscreened**, so the editor takes their names from the
+user manual's own headings (p.7): `Waveform selector` and `Pulse generator`.
+The waveform selector's fourth state — no LED lit — has no name in either
+document; `OscWaveform`'s `none` variant is this project's word for it, not
+GS Music's. Nothing documents how the panel button reaches that state either;
+the editor cycles triangle → saw-tri → sawtooth → none, which is the only
+4-state cycle a single button can offer, but it is an inference.
 
 ### OSC 1
 
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
-| (waveform selector, unlabelled) | — | Button + LED column (3) | `osc1.shape` / CC 14 | Selects triangle / saw-tri / sawtooth. All three LEDs off is a valid state — pulse generator only (manual p.7). |
-| (pulse generator, unlabelled) | `Autotuning` | Button + LED | `osc1.shape` / CC 14 (same byte); shift: **not addressable** | The pulse LED and the three waveform LEDs both read from `shape`; `OscShape` encodes the combination in its upper 3 bits. Shift runs the ~2s oscillator auto-calibration — a device command with no preset byte and no CC. |
+| (waveform selector, unlabelled) | — | Button + LED column (3) | `osc1.shape` / CC 14 | Selects triangle / saw-tri / sawtooth. All three LEDs off is a valid state: no waveform selected (manual p.7). That alone is `off` (CC 48-63) and silent — pulse-generator-only is the same three LEDs off *with* the pulse LED lit, `pulse` (CC 112-127). |
+| (pulse generator, unlabelled) | `Autotuning` | Button + LED | `osc1.shape` / CC 14 (same byte); shift: **not addressable** | The pulse LED and the three waveform LEDs both read from `shape`; `OscShape` encodes the combination in its upper 3 bits — `oscShapeParts`/`oscShapeFromParts` split and rejoin the two buttons' states. Shift runs the ~2s oscillator auto-calibration — a device command with no preset byte, no CC, and no SysEx command either, so the editor has no equivalent of it. |
 | `Tune` | `Transpose` | Knob | `osc1.tune` / CC 9; shift: `osc1.transpose` / CC 3 | `Tune` is ±½ semitone via the 128-entry millisemitone table. `Transpose` is ±24 semitones via the 49-band `Transpose` lookup. **CC 3 is ambiguous** — see [Finding 3](#finding-3-cc-3-drives-either-osc-1-transpose-or-global-transpose). |
 | `LFO1 Mod` | `EG1 Mod` | Knob | `osc1.lfo1Mod` / CC 22; shift: `osc1.eg1Mod` / CC 25 | Pitch modulation depth. |
 | `LFO2 Mod` | `LFO3 Mod` | Knob | `osc1.lfo2Mod` / CC 23; shift: `osc1.lfo3Mod` / CC 24 | Pitch modulation depth. |
@@ -335,10 +350,13 @@ pulse button (`Autotuning` vs `Sync`).
 | `EG1 PWM` | — | Knob | `osc2.eg1Pwm` / CC 46 | |
 | `LFO1 PWM` | — | Knob | `osc2.lfo1Pwm` / CC 43 | |
 
-**`lfo2Pwm` and `lfo3Pwm` have no panel control on either oscillator.** Both
-fields exist, both have CCs (OSC 1: 27, 28; OSC 2: 44, 45), and neither is
-reachable from the hardware — see
-[Finding 5](#finding-5-five-parameters-have-a-cc-but-no-hardware-control).
+**`lfo2Pwm` and `lfo3Pwm` are not parameters this instrument has.** Both have
+a byte and a CC (OSC 1: 27, 28; OSC 2: 44, 45), and that is all they have: no
+panel control, and no entry in the user manual, which names EG1 and LFO1 as
+the only PWM sources (p.8). Confirmed by the instrument's owner — they do
+nothing. The editor gives them no control; the bytes still round-trip
+verbatim, as every byte in the layout does. See
+[Finding 5](#finding-5-parameters-with-a-cc-and-no-control-behind-it).
 
 ---
 
@@ -525,7 +543,7 @@ present it as one.
 
 **`portamento.on` (byte 48, CC 65) has no panel control.** There is no
 portamento on/off button — see
-[Finding 5](#finding-5-five-parameters-have-a-cc-but-no-hardware-control).
+[Finding 5](#finding-5-parameters-with-a-cc-and-no-control-behind-it).
 
 ---
 
@@ -685,22 +703,33 @@ do about that (disable it, mark it read-only, or write it and accept it may
 be ignored) rather than discovering it at the hardware. Don't remove the
 inbound-only framing while it is still unverified.
 
-### Finding 5: five parameters have a CC but no hardware control
+### Finding 5: parameters with a CC and no control behind it
 
 Fields with a byte, a CC, and no hardware control:
 
-| Field | CC | Why it's notable |
+| Field | CC | What it is |
 |---|---|---|
-| `osc1.lfo2Pwm` | 27 | The panel exposes `EG1 PWM` and `LFO1 PWM` only |
+| `osc1.lfo2Pwm` | 27 | **Not a parameter of this instrument** |
 | `osc1.lfo3Pwm` | 28 | " |
 | `osc2.lfo2Pwm` | 44 | " |
 | `osc2.lfo3Pwm` | 45 | " |
-| `portamento.on` | 65 | The panel has `Portamento Time` but no on/off |
+| `portamento.on` | 65 | Real, and only the panel is missing it |
 
-These are opportunities, not problems: the editor can offer what the front
-panel ran out of room for. Recorded so nobody building the Oscillator
-section from this sheet assumes six knobs per oscillator is the whole story,
-or treats a missing panel control as a missing parameter.
+**The two groups are not the same thing, and the difference is what the user
+manual says.** It describes `Portamento Time` with no on/off beside it, so
+`portamento.on` is a parameter the front panel simply has no button for — an
+opportunity the editor can take. It describes only EG1 and LFO1 as PWM
+sources (p.8), and the instrument's owner confirms `LFO2 PWM` and `LFO3 PWM`
+do nothing: those four are a byte map and a CC table reaching past the
+firmware, not a gap in the panel.
+
+So the editor gives the four no control at all, and the oscillator section
+has exactly the panel's six knobs and two buttons per oscillator. The bytes
+still round-trip, because every byte in the layout does.
+
+Before offering a control for anything in this table, check the manual for
+prose describing it. A byte and a CC are not evidence that a parameter
+exists.
 
 Genuinely unreachable from the panel and from CC, for contrast:
 `part1Only.name`, `part1Only.lock`, the whole of `partSettings` (multi
@@ -731,7 +760,7 @@ Every field in `SinglePreset`, and where it appears on this sheet:
 
 | Group | Panel controls | Fields with no panel control |
 |---|---|---|
-| `osc1`, `osc2` | 6 knobs + 2 buttons each | `lfo2Pwm`, `lfo3Pwm` (both oscillators) |
+| `osc1`, `osc2` | 6 knobs + 2 buttons each | `lfo2Pwm`, `lfo3Pwm` (both oscillators) — bytes only, not parameters, see Finding 5 |
 | `osc2Sync` | OSC 2 pulse button, shift | — |
 | `mixer` | 5 knobs | — |
 | `portamento` | `Portamento Time` | `on` |
