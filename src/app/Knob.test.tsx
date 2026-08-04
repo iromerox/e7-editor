@@ -1,13 +1,10 @@
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
+import { CONTROL_MAX, CONTROL_MIN, DRAG_TRAVEL_PX, PAGE_STEP } from "./control-value";
 import {
   ARC_SPAN_DEGREES,
   ARC_START_DEGREES,
-  DRAG_TRAVEL_PX,
-  KNOB_MAX,
-  KNOB_MIN,
   Knob,
-  PAGE_STEP,
   SKIRT_LOBES,
   TICK_COUNT,
   TICK_STEP_DEGREES,
@@ -81,14 +78,14 @@ describe("knobAngle", () => {
   });
 
   it("maps the value range onto the arc", () => {
-    expect(knobAngle(KNOB_MIN, KNOB_MIN, KNOB_MAX)).toBe(-150);
-    expect(knobAngle(KNOB_MAX, KNOB_MIN, KNOB_MAX)).toBe(150);
-    expect(knobAngle(63.5, KNOB_MIN, KNOB_MAX)).toBe(0);
+    expect(knobAngle(CONTROL_MIN, CONTROL_MIN, CONTROL_MAX)).toBe(-150);
+    expect(knobAngle(CONTROL_MAX, CONTROL_MIN, CONTROL_MAX)).toBe(150);
+    expect(knobAngle(63.5, CONTROL_MIN, CONTROL_MAX)).toBe(0);
   });
 
   it("clamps out-of-range values and tolerates an empty range", () => {
-    expect(knobAngle(-40, KNOB_MIN, KNOB_MAX)).toBe(-150);
-    expect(knobAngle(999, KNOB_MIN, KNOB_MAX)).toBe(150);
+    expect(knobAngle(-40, CONTROL_MIN, CONTROL_MAX)).toBe(-150);
+    expect(knobAngle(999, CONTROL_MIN, CONTROL_MAX)).toBe(150);
     expect(knobAngle(5, 5, 5)).toBe(-150);
   });
 });
@@ -162,13 +159,13 @@ describe("Knob rendering", () => {
 
   it("turns the whole knob body, flutes and all, not just the mark", () => {
     const { container: low } = render(() => (
-      <Knob primary={{ label: "OSC1", value: KNOB_MIN, onInput: () => {} }} />
+      <Knob primary={{ label: "OSC1", value: CONTROL_MIN, onInput: () => {} }} />
     ));
     const { container: mid } = render(() => (
       <Knob primary={{ label: "Sub1", value: 63.5, onInput: () => {} }} />
     ));
     const { container: high } = render(() => (
-      <Knob primary={{ label: "OSC2", value: KNOB_MAX, onInput: () => {} }} />
+      <Knob primary={{ label: "OSC2", value: CONTROL_MAX, onInput: () => {} }} />
     ));
 
     expect(bodyAngle(low)).toBe(ARC_START_DEGREES);
@@ -185,7 +182,7 @@ describe("Knob rendering", () => {
 
   it("leaves the silkscreened tick arc behind when the knob turns", () => {
     const { container } = render(() => (
-      <Knob primary={{ label: "OSC1", value: KNOB_MAX, onInput: () => {} }} />
+      <Knob primary={{ label: "OSC1", value: CONTROL_MAX, onInput: () => {} }} />
     ));
 
     const group = container.querySelector("g");
@@ -263,7 +260,7 @@ describe("Knob dragging", () => {
 
     drag(screen.getByRole("slider"), 100, [400]);
 
-    expect(onInput).toHaveBeenLastCalledWith(KNOB_MIN);
+    expect(onInput).toHaveBeenLastCalledWith(CONTROL_MIN);
   });
 
   it("ignores horizontal movement", () => {
@@ -355,14 +352,14 @@ describe("Knob keyboard control", () => {
     expect(onInput.mock.calls).toStrictEqual([
       [64 + PAGE_STEP],
       [64 - PAGE_STEP],
-      [KNOB_MIN],
-      [KNOB_MAX],
+      [CONTROL_MIN],
+      [CONTROL_MAX],
     ]);
   });
 
   it("does not emit when already at a bound", () => {
     const onInput = vi.fn();
-    render(() => <Knob primary={{ label: "Cutoff", value: KNOB_MAX, onInput }} />);
+    render(() => <Knob primary={{ label: "Cutoff", value: CONTROL_MAX, onInput }} />);
 
     fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowUp" });
 

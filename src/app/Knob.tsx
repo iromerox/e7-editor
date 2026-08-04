@@ -1,30 +1,29 @@
 // Rotary knob: vertical-drag and keyboard value editing, drawn with the panel's pointer cap and 300-degree tick arc.
 import type { JSX } from "solid-js";
+import type { ControlValue } from "./control-value";
 import { For, Show, createSignal, createUniqueId, onCleanup } from "solid-js";
+import {
+  clamp,
+  createEmitter,
+  draggedValue,
+  lowerBound,
+  nudgedValue,
+  readout,
+  upperBound,
+} from "./control-value";
 import { LayerLabel } from "./LayerLabel";
 
 export type KnobSize = "standard" | "large";
 
 export type KnobLayerName = "primary" | "shift";
 
-export interface KnobLayer {
-  readonly label: string;
-  readonly value: number;
-  readonly min?: number;
-  readonly max?: number;
-  readonly format?: (value: number) => string;
-  readonly onInput: (value: number) => void;
-}
+export type KnobLayer = ControlValue;
 
 export interface KnobProps {
   readonly primary: KnobLayer;
   readonly shift?: KnobLayer;
   readonly size?: KnobSize;
 }
-
-export const KNOB_MIN = 0;
-
-export const KNOB_MAX = 127;
 
 export const ARC_START_DEGREES = -150;
 
@@ -33,10 +32,6 @@ export const ARC_SPAN_DEGREES = 300;
 export const TICK_STEP_DEGREES = 15;
 
 export const TICK_COUNT = 21;
-
-export const DRAG_TRAVEL_PX = 200;
-
-export const PAGE_STEP = 10;
 
 export const SKIRT_LOBES = 7;
 
@@ -99,25 +94,9 @@ export function knobAngle(value: number, min: number, max: number): number {
   return ARC_START_DEGREES + fraction * ARC_SPAN_DEGREES;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 function polar(angle: number, radius: number): { readonly x: number; readonly y: number } {
   const radians = (angle * Math.PI) / 180;
   return { x: CENTRE + radius * Math.sin(radians), y: CENTRE - radius * Math.cos(radians) };
-}
-
-function lowerBound(layer: KnobLayer): number {
-  return layer.min ?? KNOB_MIN;
-}
-
-function upperBound(layer: KnobLayer): number {
-  return layer.max ?? KNOB_MAX;
-}
-
-function readout(layer: KnobLayer): string {
-  return layer.format === undefined ? String(layer.value) : layer.format(layer.value);
 }
 
 export function Knob(props: KnobProps): JSX.Element {
@@ -139,24 +118,13 @@ export function Knob(props: KnobProps): JSX.Element {
     return knobAngle(current.value, lowerBound(current), upperBound(current));
   };
 
+  const emitter = createEmitter();
   let startY = 0;
   let startValue = 0;
-  let lastEmitted = 0;
-
-  const emit = (next: number): void => {
-    if (next === lastEmitted) {
-      return;
-    }
-    lastEmitted = next;
-    layer().onInput(next);
-  };
 
   const onMove = (event: PointerEvent): void => {
     const current = layer();
-    const min = lowerBound(current);
-    const max = upperBound(current);
-    const travelled = (startY - event.clientY) / DRAG_TRAVEL_PX;
-    emit(clamp(Math.round(startValue + travelled * (max - min)), min, max));
+    emitter.emit(current, draggedValue(current, startValue, startY - event.clientY));
   };
 
   const endDrag = (): void => {
@@ -172,7 +140,7 @@ export function Knob(props: KnobProps): JSX.Element {
     }
     startY = event.clientY;
     startValue = layer().value;
-    lastEmitted = startValue;
+    emitter.begin(startValue);
     setDragging(true);
     event.preventDefault();
     event.currentTarget.focus();
@@ -181,39 +149,14 @@ export function Knob(props: KnobProps): JSX.Element {
     window.addEventListener("pointercancel", endDrag);
   };
 
-  const nudge = (delta: number): void => {
-    const current = layer();
-    const next = clamp(current.value + delta, lowerBound(current), upperBound(current));
-    if (next !== current.value) {
-      current.onInput(next);
-    }
-  };
-
   const onKeyDown = (event: KeyboardEvent): void => {
     const current = layer();
-    switch (event.key) {
-      case "ArrowUp":
-      case "ArrowRight":
-        nudge(1);
-        break;
-      case "ArrowDown":
-      case "ArrowLeft":
-        nudge(-1);
-        break;
-      case "PageUp":
-        nudge(PAGE_STEP);
-        break;
-      case "PageDown":
-        nudge(-PAGE_STEP);
-        break;
-      case "Home":
-        nudge(lowerBound(current) - current.value);
-        break;
-      case "End":
-        nudge(upperBound(current) - current.value);
-        break;
-      default:
-        return;
+    const next = nudgedValue(current, event.key);
+    if (next === undefined) {
+      return;
+    }
+    if (next !== current.value) {
+      current.onInput(next);
     }
     event.preventDefault();
   };

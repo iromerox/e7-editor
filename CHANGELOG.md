@@ -277,6 +277,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   of the knob so buttons carry it identically — the primary label plain, the
   shift label in its white-filled box, and either selectable when a control
   has both.
+- `src/app/control-value.ts`: the value contract every panel control shares —
+  bounds, formatted readout, the 200px drag travel, the keyboard steps, and
+  an emitter that fires once per distinct value rather than once per pointer
+  event. The knob and the envelope curve are both built on it, so the same
+  field can be handed to either and behaves identically through both.
 
 ### Changed
 
