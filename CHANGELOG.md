@@ -384,6 +384,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   is runtime-only; `Master Volume` is the one knob whose value is not part of
   a preset; five parameters have a CC but no hardware control; and the Chorus
   and Delay enable LEDs have no parameter behind them at all.
+- `docs/panel-layout.md`: the silkscreened ADSR curve under each Envelope
+  Generator — four equal bands split by five vertical dashed lines, four
+  straight segments rather than an exponential shape, and the dash geometry.
+  Corrects the sheet's earlier claim that the curve's segment boundaries line
+  up with the four knobs: measured against the photography, each knob is
+  centred over its own band to within 3px, so the dividers fall between the
+  knobs. Records that the panel has no gate-pulse trace — that is the user
+  manual's figure (p.12), not the instrument's silkscreen.
 - `docs/panel-layout.md`: button and LED construction — the buttons take the
   same finish colour as the knobs and never change appearance when pressed,
   an unlit LED is the lit colour unlit rather than a neutral grey, and each

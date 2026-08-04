@@ -423,8 +423,30 @@ inference, not an observation.
 
 ## Envelope Generator 1
 
-Four knobs in a row, with an ADSR curve silkscreened beneath them whose
-segment boundaries line up with the four knobs.
+Four knobs in a row, with an ADSR curve silkscreened beneath them.
+
+The curve is divided into four equal bands by five vertical dashed lines,
+one band per knob, and **each knob is centred over its own band — the
+dividers fall between the knobs, not under them**. Measured on
+`e7-black-front.webp`: dividers at x = 1164, 1282.5, 1402, 1521, 1639, so
+118.5-119.5px apart, against knob cap centres at 1223, 1345, 1462, 1581.5 —
+each within 3px of its band's centre, under 3% of a band width.
+
+The curve itself is **four straight segments**, not an exponential shape:
+it rises from the baseline to the peak across the Attack band, falls to the
+sustain level across the Decay band, holds flat across the Sustain band, and
+falls back to the baseline across the Release band. Every corner is a hard
+vertex on a divider. The silkscreen draws the sustain at roughly half the
+peak height (16px of 31px), which is illustrative — it is a fixed drawing,
+not a depiction of any stored value.
+
+Each dashed line runs the full height of the strip and overshoots the curve
+at both ends: from y = 1304, about 6px above the peak, to y = 1355, about
+14px below the baseline and level with the section's bottom border. Five
+dashes per line, roughly 4-5px long with 7px gaps.
+
+There is no gate-pulse trace under the panel's curve — that appears only in
+the user manual's envelope figure (p.12, labelled `ADSR` and `GATE PULSE`).
 
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
@@ -449,6 +471,13 @@ Identical layout and identical labels to EG1.
 
 `Envelope` is one shape used twice, so an `AdsrEditor` widget can be built
 once and bound to either `eg1` or `eg2`.
+
+What carries over to the editor is the straight-segment shape, the stage
+order, and the strip spanning the width of its section. What does not is the
+equal bands — a band's width is how the editor shows a time value, so the
+bands move — or the dashed dividers, whose job the draggable stage handles
+do instead. A stage at zero collapses its band to nothing and leaves a
+vertical edge, which the silkscreen's fixed drawing never has to show.
 
 ---
 
