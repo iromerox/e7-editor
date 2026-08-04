@@ -277,6 +277,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   of the knob so buttons carry it identically — the primary label plain, the
   shift label in its white-filled box, and either selectable when a control
   has both.
+- `src/app/AdsrEditor.tsx`: the envelope curve for one EG, spanning the width
+  of its section under the knob row where the panel silkscreens its own, with
+  the four stages draggable on the curve itself. Four straight segments
+  between hard vertices, as the silkscreened curve is drawn, so an instant
+  attack is a vertical edge rather than a steep ramp. Attack, decay and
+  release are dragged along the curve, sustain up and down it, and each one
+  ignores the other axis; the curve redraws from the values it is given, so
+  it follows the knobs and the hardware as readily as its own handles. Each
+  stage handle sits at the boundary that closes its stage, which puts the
+  sustain handle at the moment the key is released — the same point where the
+  gate pulse drawn beneath the curve, from the user manual's envelope figure,
+  falls. The plateau between the decay and the release is a fixed width for
+  that reason: it stands for "as long as the key is held", not for a value.
+  Every stage is a focusable ARIA slider with the same keys the knob answers
+  to. A stage at zero takes no width at all, so an instant attack rises
+  vertically and an instant decay drops straight back down from wherever the
+  attack ended; where that stacks two handles on one point, the later stage
+  is drawn on top and dragging it clear reveals the other.
 - `src/app/control-value.ts`: the value contract every panel control shares —
   bounds, formatted readout, the 200px drag travel, the keyboard steps, and
   an emitter that fires once per distinct value rather than once per pointer
