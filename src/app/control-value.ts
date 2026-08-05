@@ -1,4 +1,4 @@
-// The value contract every panel control shares: bounds, readout, drag travel, keyboard steps, and one emission per distinct value.
+// The value contract every panel control shares: bounds, readout, whether the value is the user's to set, drag travel, keyboard steps, and one emission per distinct value.
 export interface ControlValue {
   readonly label: string;
   readonly value: number;
@@ -6,6 +6,7 @@ export interface ControlValue {
   readonly max?: number;
   readonly description?: string;
   readonly format?: (value: number) => string;
+  readonly readOnly?: boolean;
   readonly onInput: (value: number) => void;
 }
 
@@ -38,6 +39,10 @@ export function fractionOf(control: ControlValue): number {
   const min = lowerBound(control);
   const max = upperBound(control);
   return max === min ? 0 : (clamp(control.value, min, max) - min) / (max - min);
+}
+
+export function isEditable(control: ControlValue): boolean {
+  return control.readOnly !== true;
 }
 
 export function readout(control: ControlValue): string {

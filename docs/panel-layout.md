@@ -378,7 +378,15 @@ order matches the field order in `Mixer`.
 ## Filter
 
 Four knobs on the top row (`Cutoff` is large and stands alone, left of a
-dotted rule), three on the bottom row.
+dotted rule), three on the bottom row, offset half a knob pitch to the left
+of the row above.
+
+The dotted rule is **stepped**, not a single straight line: it runs down
+between `Cutoff` and `EG1 Mod`, jogs one column to the right under the top
+row's shift labels, then runs down again between `Resonance` and `Keyboard
+tracking`. What it separates is the filter's own two parameters — `Cutoff`
+and `Resonance` — from the modulation depths and tracking that act on the
+cutoff.
 
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
@@ -386,7 +394,7 @@ dotted rule), three on the bottom row.
 | `EG1 Mod` | `Velocity EG1 Mod` | Knob | `filter.eg1Mod` / CC 89; shift: `filter.velocityEg1Mod` / CC 86 | EG1 is the filter-oriented envelope (manual p.9). |
 | `LFO1 Mod` | — | Knob | `filter.lfo1Mod` / CC 90 | The manual's LFO1 MOD entry on p.10 says "modulation from the EG1 to the cutoff frequency" — a copy-paste error in the document. It is LFO 1. |
 | `LFO2 Mod` | `LFO3 Mod` | Knob | `filter.lfo2Mod` / CC 91; shift: `filter.lfo3Mod` / CC 92 | |
-| `Resonance` | — | Knob | `filter.resonance` / CC 71 | **CC 71 is modelled inbound-only** (`ccDirection` in `src/protocol/cc.ts`) pending hardware confirmation: the device reports panel changes but may not accept outbound writes. A UI resonance knob may therefore not reach the device. See [Finding 4](#finding-4-the-resonance-knob-may-not-be-writable). |
+| `Resonance` | — | Knob | `filter.resonance` / CC 71 | **CC 71 is modelled inbound-only** (`ccDirection` in `src/protocol/cc.ts`) pending hardware confirmation: the device reports panel changes but may not accept outbound writes. The editor therefore draws this knob read-only until the hardware test settles it. See [Finding 4](#finding-4-the-resonance-knob-may-not-be-writable). |
 | `Keyboard tracking` | — | Knob | `filter.keyboardTracking` / CC 85 | |
 | `Mod Wheel` | `Aftertouch` | Knob | `filter.modWheelMod` / CC 88; shift: `filter.aftertouchMod` / CC 87 | |
 
@@ -698,10 +706,18 @@ unverified, pending HW-03.
 
 If it holds, a resonance knob in the editor updates the view and the library
 entry but never reaches the instrument — a knob that looks like every other
-knob and silently doesn't work. The Filter section needs to decide what to
-do about that (disable it, mark it read-only, or write it and accept it may
-be ignored) rather than discovering it at the hardware. Don't remove the
-inbound-only framing while it is still unverified.
+knob and silently doesn't work. Don't remove the inbound-only framing while
+it is still unverified.
+
+**Resolved for now: the knob is read-only.** The Filter section draws
+`Resonance` like every other knob, dimmed and not turnable, so it shows what
+the instrument reports and refuses the edit that would go nowhere. Any
+control bound to a CC `ccDirection` calls inbound-only comes out this way —
+the read-only flag is set where a field becomes a control value, not per
+section. The cost is that resonance can't be dialled in from the editor at
+all, including for a preset destined for the library; that is the deliberate
+trade against a knob that lies. Revisit when the hardware test resolves the
+directionality.
 
 ### Finding 5: parameters with a CC and no control behind it
 

@@ -1,4 +1,4 @@
-// The editor's live path: a preset field read as a control value, the control change each edit sends, and the inbound control change that moves it back.
+// The editor's live path: a preset field read as a control value, the control change each edit sends, the inbound control change that moves it back, and the fields the device only ever reports.
 import type { CcEvent, Connection } from "../midi";
 import type { CcField, ReceiveChannel } from "../protocol";
 import type { AppStateControls } from "./app-state";
@@ -67,6 +67,7 @@ export function createLiveEdit(
     control: (field, readout) => ({
       ...readout,
       value: value(field),
+      readOnly: ccDirection(fieldToCc(field)) === "inbound-only",
       onInput: (next: number) => write(field, next),
     }),
   };

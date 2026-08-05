@@ -6,6 +6,7 @@ import {
   clamp,
   createEmitter,
   draggedValue,
+  isEditable,
   lowerBound,
   nudgedValue,
   readout,
@@ -38,6 +39,8 @@ export const SKIRT_LOBES = 7;
 const LARGE_CAP_RATIO = 1.7;
 
 const STANDARD_CAP_REM = 3;
+
+const READ_ONLY_OPACITY = 0.7;
 
 const CENTRE = 50;
 
@@ -135,7 +138,7 @@ export function Knob(props: KnobProps): JSX.Element {
   };
 
   const beginDrag = (event: PointerEvent & { currentTarget: HTMLDivElement }): void => {
-    if (event.button !== 0) {
+    if (event.button !== 0 || !isEditable(layer())) {
       return;
     }
     startY = event.clientY;
@@ -151,6 +154,9 @@ export function Knob(props: KnobProps): JSX.Element {
 
   const onKeyDown = (event: KeyboardEvent): void => {
     const current = layer();
+    if (!isEditable(current)) {
+      return;
+    }
     const next = nudgedValue(current, event.key);
     if (next === undefined) {
       return;
@@ -183,6 +189,7 @@ export function Knob(props: KnobProps): JSX.Element {
         aria-valuemax={upperBound(layer())}
         aria-valuenow={layer().value}
         aria-valuetext={readout(layer())}
+        aria-readonly={!isEditable(layer())}
         title={layer().description}
         onPointerDown={beginDrag}
         onKeyDown={onKeyDown}
@@ -191,7 +198,8 @@ export function Knob(props: KnobProps): JSX.Element {
           height: diameter(),
           "touch-action": "none",
           "user-select": "none",
-          cursor: dragging() ? "grabbing" : "grab",
+          opacity: isEditable(layer()) ? "1" : String(READ_ONLY_OPACITY),
+          cursor: isEditable(layer()) ? (dragging() ? "grabbing" : "grab") : "default",
         }}
       >
         <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">

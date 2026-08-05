@@ -376,6 +376,41 @@ describe("Knob keyboard control", () => {
   });
 });
 
+describe("Knob read-only value", () => {
+  it("reads the value out but takes neither a drag nor a keypress", () => {
+    const onInput = vi.fn();
+    render(() => <Knob primary={{ label: "Resonance", value: 40, readOnly: true, onInput }} />);
+
+    const slider = screen.getByRole("slider");
+    drag(slider, 300, [100]);
+    fireEvent.keyDown(slider, { key: "ArrowUp" });
+
+    expect(onInput).not.toHaveBeenCalled();
+    expect(slider).toHaveAttribute("aria-readonly", "true");
+    expect(slider).toHaveAttribute("aria-valuenow", "40");
+  });
+
+  it("turns only the layer that is the user's to turn", () => {
+    const onPrimary = vi.fn();
+    const onShift = vi.fn();
+    render(() => (
+      <Knob
+        primary={{ label: "Resonance", value: 0, readOnly: true, onInput: onPrimary }}
+        shift={{ label: "Cutoff", value: 0, onInput: onShift }}
+      />
+    ));
+
+    const slider = screen.getByRole("slider");
+    fireEvent.keyDown(slider, { key: "ArrowUp" });
+    fireEvent.click(screen.getByRole("button", { name: "Cutoff" }));
+    fireEvent.keyDown(slider, { key: "ArrowUp" });
+
+    expect(onPrimary).not.toHaveBeenCalled();
+    expect(onShift).toHaveBeenCalledWith(1);
+    expect(slider).toHaveAttribute("aria-readonly", "false");
+  });
+});
+
 describe("Knob shift layer", () => {
   it("shows one plain label and no layer buttons when the panel has no shift label", () => {
     render(() => <Knob primary={{ label: "Sustain", value: 0, onInput: () => {} }} />);

@@ -118,6 +118,13 @@ describe("createLiveEdit", () => {
     expect(sent.map((cc) => cc.controller)).not.toContain(FILTER_RESONANCE);
   });
 
+  it("hands the UI a read-only control for a field the device only reports", () => {
+    const { live } = setUp({ kind: "channel", channel: 1 });
+
+    expect(live.control("filterResonance", { label: "Resonance" }).readOnly).toBe(true);
+    expect(live.control("filterCutoff", { label: "Cutoff" }).readOnly).toBe(false);
+  });
+
   it("applies an inbound control change to the field behind it", () => {
     const { controls, live } = setUp({ kind: "channel", channel: 1 });
 

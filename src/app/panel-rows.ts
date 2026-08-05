@@ -11,20 +11,29 @@ export const BUTTON_COLUMN = "6rem";
 
 export const KNOB_COLUMN = "minmax(4rem, 7rem)";
 
-const OSCILLATOR_ROWS = `${LEGEND_ROW} ${KNOB_ROW} ${RULE_ROW} ${KNOB_ROW}`;
+export const TOP_BAND_HALF_ROWS = `${LEGEND_ROW} ${KNOB_ROW} ${RULE_ROW} ${KNOB_ROW}`;
 
 export const OSCILLATOR_GRID_ROWS = `${KNOB_ROW} ${RULE_ROW} ${KNOB_ROW}`;
 
-export const TOP_BAND_ROWS = `${OSCILLATOR_ROWS} ${DIVIDER_ROW} ${OSCILLATOR_ROWS}`;
+export const TOP_BAND_ROWS = `${TOP_BAND_HALF_ROWS} ${DIVIDER_ROW} ${TOP_BAND_HALF_ROWS}`;
+
+export const HALF_BAND_ROW = {
+  legend: 1,
+  upper: 2,
+  rule: 3,
+  lower: 4,
+} as const;
+
+const SECOND_HALF = 5;
 
 export const TOP_BAND_ROW = {
-  osc1Legend: 1,
-  osc1Upper: 2,
-  osc1Rule: 3,
-  osc1Lower: 4,
-  divider: 5,
-  osc2Legend: 6,
-  osc2Upper: 7,
-  osc2Rule: 8,
-  osc2Lower: 9,
+  osc1Legend: HALF_BAND_ROW.legend,
+  osc1Upper: HALF_BAND_ROW.upper,
+  osc1Rule: HALF_BAND_ROW.rule,
+  osc1Lower: HALF_BAND_ROW.lower,
+  divider: SECOND_HALF,
+  osc2Legend: SECOND_HALF + HALF_BAND_ROW.legend,
+  osc2Upper: SECOND_HALF + HALF_BAND_ROW.upper,
+  osc2Rule: SECOND_HALF + HALF_BAND_ROW.rule,
+  osc2Lower: SECOND_HALF + HALF_BAND_ROW.lower,
 } as const;

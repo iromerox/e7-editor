@@ -2,7 +2,9 @@
 import type { JSX } from "solid-js";
 import type { Connection } from "../midi";
 import { Match, Switch, createEffect, onCleanup } from "solid-js";
+import { AmplifierSection } from "./AmplifierSection";
 import { useAppState } from "./AppStateProvider";
+import { FilterSection } from "./FilterSection";
 import { createLiveEdit, targetChannel } from "./live-edit";
 import { MixerSection } from "./MixerSection";
 import { OscillatorsSection } from "./OscillatorsSection";
@@ -71,6 +73,8 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
       >
         <OscillatorsSection live={live} />
         <MixerSection live={live} />
+        <FilterSection live={live} />
+        <AmplifierSection live={live} />
       </div>
     </section>
   );

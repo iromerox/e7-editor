@@ -323,6 +323,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   generator drive the one `shape` byte between them. `LFO2 PWM` and `LFO3 PWM`
   get no control: they have a byte and a CC, but no panel control, no entry in
   the user manual, and no effect on the instrument.
+- `src/app/FilterSection.tsx` and `src/app/AmplifierSection.tsx`: the `FILTER`
+  and `AMPLIFIER` sections, laid out on the same row guides the oscillators
+  and the mixer already share, so all four sections' knob rows line up.
+  `Cutoff` gets the larger cap the panel gives it, and the panel's stepped
+  dotted rule is drawn where it falls — around `Cutoff` and `Resonance`,
+  which it separates from the modulation depths and tracking. Every shift
+  label the two sections carry is there: `Velocity EG1 Mod`, `LFO3 Mod`,
+  `Aftertouch`, `Level`, and the stereo pair, `Stereo spread` and `Stereo
+  motion`, which a multi takes from part 1 for the whole instrument.
 - `src/app/PanelSection.tsx` and `src/app/panel-rows.ts`: the rounded, titled
   box the panel draws around a group of controls, and the row and column
   guides its sections share, so every section to come is framed and aligned
@@ -358,6 +367,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   so, and edits keep working in the editor with nothing sent.
 - Panel controls can carry a description, shown at the control, for what its
   label alone doesn't convey.
+- A control bound to a CC the device is not known to accept is now drawn
+  read-only — dimmed, and answering neither a drag nor a keypress — rather
+  than moving in the editor while nothing reaches the instrument. It still
+  follows what the device reports. Filter `Resonance` (CC 71) is the only
+  such control today, and stays that way until a hardware test settles the
+  direction.
 
 ### Fixed
 
@@ -464,6 +479,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   an unlit LED is the lit colour unlit rather than a neutral grey, and each
   control's LEDs sit either in a column down the right of the cap, one
   silkscreen per lens, or centred above it on the `PRESETS` row.
+- `docs/panel-layout.md`: the Filter's dotted rule is stepped rather than
+  straight — down between `Cutoff` and `EG1 Mod`, one column right, then down
+  again past `Resonance` — which is the panel grouping the filter's own two
+  parameters apart from the modulation depths and tracking. The sheet also
+  now records how the unwritable `Resonance` knob was resolved, and that the
+  section's bottom row is offset half a knob pitch from the row above.
 - `docs/off-panel-parameters.md`: the complement of the panel layout sheet —
   every parameter, configuration value and device command the front panel
   gives no control for, with what reaches each one and whether it is real,
