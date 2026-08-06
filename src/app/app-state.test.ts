@@ -1,7 +1,7 @@
 import type { EditorEdit } from "./app-state";
 import { createEffect, createRoot } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
-import { EMPTY_PRESET, createAppState } from "./app-state";
+import { createAppState, emptyPreset } from "./app-state";
 
 let dispose: (() => void) | undefined;
 
@@ -45,7 +45,7 @@ describe("createAppState", () => {
     expect(state.ports).toEqual({ inputs: [], outputs: [] });
     expect(state.library).toEqual({ kind: "All kinds", entries: undefined });
     expect(state.device).toEqual({ kind: "Single", bank: 1, group: 1, slots: {} });
-    expect(state.editor).toEqual({ source: { kind: "Empty" }, preset: EMPTY_PRESET });
+    expect(state.editor).toEqual({ source: { kind: "Empty" }, preset: emptyPreset() });
     expect(state.history).toEqual({ undo: [], redo: [] });
   });
 
@@ -81,10 +81,10 @@ describe("createAppState", () => {
     const { state, loadEditor } = createAppState();
     const address = { kind: "Multi", bank: 2, group: 3, slot: 4 } as const;
 
-    loadEditor(EMPTY_PRESET, { kind: "DeviceSlot", address });
+    loadEditor(emptyPreset(), { kind: "DeviceSlot", address });
     expect(state.editor.source).toEqual({ kind: "DeviceSlot", address });
 
-    loadEditor(EMPTY_PRESET, { kind: "LibraryEntry", id: "entry-1" });
+    loadEditor(emptyPreset(), { kind: "LibraryEntry", id: "entry-1" });
     expect(state.editor.source).toEqual({ kind: "LibraryEntry", id: "entry-1" });
   });
 
@@ -96,6 +96,15 @@ describe("createAppState", () => {
     expect(state.editor.preset.mixer.osc1Level).toBe(77);
     expect(state.editor.preset.mixer.sub1Level).toBe(0);
     expect(state.editor.source).toEqual({ kind: "Empty" });
+  });
+
+  it("starts each app state on a preset of its own, unmarked by any other's edits", () => {
+    const first = createAppState();
+
+    first.editField("eg1Attack", 42);
+
+    expect(createAppState().state.editor.preset.eg1.attack).toBe(0);
+    expect(emptyPreset().eg1.attack).toBe(0);
   });
 
   it("moves entries between the undo and redo stacks", () => {

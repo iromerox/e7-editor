@@ -379,6 +379,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Pinned TypeScript to `^6` — `dependency-cruiser` doesn't parse TS 7's
   (Go-ported compiler) output yet and silently cruises 0 modules against it.
   Revisit once dependency-cruiser publishes TS7 support.
+- Each application state now starts on a preset of its own. The empty preset
+  was a single shared value, and the store wrote edits through into it, so a
+  second application state began wherever the first had left off.
 
 ### Documentation
 

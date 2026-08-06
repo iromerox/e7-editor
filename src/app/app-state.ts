@@ -97,7 +97,9 @@ export interface AppStateControls {
   takeRedo(): EditorEdit | undefined;
 }
 
-export const EMPTY_PRESET: SinglePreset = decodeSinglePreset(new Uint8Array(SINGLE_PRESET_BYTES));
+export function emptyPreset(): SinglePreset {
+  return decodeSinglePreset(new Uint8Array(SINGLE_PRESET_BYTES));
+}
 
 export function initialAppState(): AppState {
   return {
@@ -112,7 +114,7 @@ export function initialAppState(): AppState {
     ports: { inputs: [], outputs: [] },
     library: { kind: EVERY_KIND, entries: undefined },
     device: { kind: "Single", bank: 1, group: 1, slots: {} },
-    editor: { source: { kind: "Empty" }, preset: EMPTY_PRESET },
+    editor: { source: { kind: "Empty" }, preset: emptyPreset() },
     history: { undo: [], redo: [] },
   };
 }
