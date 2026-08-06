@@ -347,6 +347,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `src/protocol/config.ts`: `receiveChannel`, reading the configuration's MIDI
   Receive Channel byte as a one-based channel, as Omni, or as one of the values
   the spec calls invalid — never silently as channel 1.
+- `src/app/EnvelopeSection.tsx`: the `ENVELOPE GENERATOR 1` and `ENVELOPE
+  GENERATOR 2` sections, one component pointed at either envelope rather than
+  two copies of the same layout. Each carries all seven of its parameters —
+  the four stages plus the shift layers `Attack velocity mod`, `Keyboard
+  tracking` and `Release velocity mod` — over the curve widget, so a stage can
+  be set from its knob or by dragging the curve, and the two envelopes stay
+  independent of each other. Keyboard tracking says at the control that it
+  moves attack, decay and release together despite sharing the decay knob, and
+  each velocity mod says which stage it belongs to, since the panel prints
+  both as `Velocity mod`.
 
 ### Changed
 
@@ -373,6 +383,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   follows what the device reports. Filter `Resonance` (CC 71) is the only
   such control today, and stays that way until a hardware test settles the
   direction.
+- The envelope curve is drawn as a wide, shallow band rather than a near-square
+  one, so a section reads as a row of knobs above a strip the way the panel's
+  silkscreen does. Its handles, stroke weights and readout are sized up to
+  stay legible and grabbable at the flatter scale.
 
 ### Fixed
 

@@ -42,15 +42,15 @@ export interface AdsrEditorProps {
   readonly release: ControlValue;
 }
 
-export const VIEW_WIDTH = 178;
+export const VIEW_WIDTH = 362;
 
 export const VIEW_HEIGHT = 80;
 
 export const EDGE = 8;
 
-export const TIME_SPAN = 44;
+export const TIME_SPAN = 96;
 
-export const SUSTAIN_SPAN = 30;
+export const SUSTAIN_SPAN = 58;
 
 export const PEAK_Y = 14;
 
@@ -60,13 +60,13 @@ const GATE_TOP = 70;
 
 export const GATE_BOTTOM = 76;
 
-const HANDLE_RADIUS = 3.4;
+const HANDLE_RADIUS = 5.5;
 
-const HANDLE_HIT_RADIUS = 8;
+const HANDLE_HIT_RADIUS = 13;
 
-const ACTIVE_HANDLE_RADIUS = 4.4;
+const ACTIVE_HANDLE_RADIUS = 7;
 
-const READOUT_OFFSET = 6;
+const READOUT_OFFSET = 9;
 
 const STAGE_ORDER: readonly StageName[] = ["attack", "decay", "sustain", "release"];
 
@@ -198,7 +198,7 @@ export function AdsrEditor(props: AdsrEditorProps): JSX.Element {
           d={gatePath(geometry())}
           fill="none"
           stroke="var(--e7-label-secondary)"
-          stroke-width="1"
+          stroke-width="1.5"
           stroke-linejoin="round"
           opacity="0.5"
         />
@@ -206,7 +206,7 @@ export function AdsrEditor(props: AdsrEditorProps): JSX.Element {
           d={adsrPath(geometry())}
           fill="none"
           stroke="var(--e7-silkscreen)"
-          stroke-width="2"
+          stroke-width="3"
           stroke-linecap="round"
           stroke-linejoin="round"
         />
@@ -243,14 +243,14 @@ export function AdsrEditor(props: AdsrEditorProps): JSX.Element {
                   r={active() === stage ? ACTIVE_HANDLE_RADIUS : HANDLE_RADIUS}
                   fill="var(--e7-cap-top)"
                   stroke="var(--e7-silkscreen)"
-                  stroke-width="1.2"
+                  stroke-width="1.8"
                 />
                 <Show when={active() === stage}>
                   <text
                     x={point().x}
                     y={point().y - READOUT_OFFSET}
                     text-anchor="middle"
-                    font-size="7"
+                    font-size="10"
                     fill="var(--e7-label-secondary)"
                   >
                     {readout(current())}
