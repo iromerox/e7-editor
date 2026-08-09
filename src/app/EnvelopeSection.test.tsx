@@ -1,3 +1,4 @@
+import type { BoundFunctions, queries } from "@solidjs/testing-library";
 import type { Connection } from "../midi";
 import type { CcField } from "../protocol";
 import type { AppStateControls } from "./app-state";
@@ -75,7 +76,7 @@ function box(envelope: EnvelopeName): HTMLElement {
   return screen.getByRole("region", { name: `ENVELOPE GENERATOR ${envelope.slice(2)}` });
 }
 
-function section(envelope: EnvelopeName): ReturnType<typeof within> {
+function section(envelope: EnvelopeName): BoundFunctions<typeof queries> {
   return within(box(envelope));
 }
 
