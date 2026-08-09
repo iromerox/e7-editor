@@ -3,9 +3,12 @@ import type { CcEvent, Connection } from "../midi";
 import type { CcField, ReceiveChannel } from "../protocol";
 import type { AppStateControls } from "./app-state";
 import type { ControlValue } from "./control-value";
-import { ccDirection, ccToFields, fieldToCc, readField } from "../protocol";
+import { ccDirection, ccToFields, fieldToCc, isPart1OnlyField, readField } from "../protocol";
 
 export const OMNI_TARGET_CHANNEL = 1;
+
+export const PART_1_ONLY_NOTE =
+  "A multi takes this parameter from part 1 alone, so it does nothing on the part loaded here.";
 
 export interface FieldReadout {
   readonly label: string;
@@ -18,6 +21,7 @@ export interface LiveEdit {
   readonly write: (field: CcField, value: number) => void;
   readonly receive: (event: CcEvent) => CcField | undefined;
   readonly control: (field: CcField, readout: FieldReadout) => ControlValue;
+  readonly applies: (field: CcField) => boolean;
 }
 
 export function targetChannel(setting: ReceiveChannel | undefined): number | undefined {
@@ -60,15 +64,32 @@ export function createLiveEdit(
     return field;
   };
 
+  const applies = (field: CcField): boolean => {
+    const part = controls.state.editor.part;
+    return part === undefined || part === 1 || !isPart1OnlyField(field);
+  };
+
+  const noted = (readout: FieldReadout): FieldReadout => ({
+    ...readout,
+    description:
+      readout.description === undefined
+        ? PART_1_ONLY_NOTE
+        : `${readout.description} ${PART_1_ONLY_NOTE}`,
+  });
+
   return {
     value,
     write,
     receive,
-    control: (field, readout) => ({
-      ...readout,
-      value: value(field),
-      readOnly: ccDirection(fieldToCc(field)) === "inbound-only",
-      onInput: (next: number) => write(field, next),
-    }),
+    applies,
+    control: (field, readout) => {
+      const editable = applies(field);
+      return {
+        ...(editable ? readout : noted(readout)),
+        value: value(field),
+        readOnly: !editable || ccDirection(fieldToCc(field)) === "inbound-only",
+        onInput: (next: number) => write(field, next),
+      };
+    },
   };
 }

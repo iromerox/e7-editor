@@ -357,6 +357,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   moves attack, decay and release together despite sharing the decay knob, and
   each velocity mod says which stage it belongs to, since the panel prints
   both as `Velocity mod`.
+- `src/app/ChorusSection.tsx` and `src/app/DelaySection.tsx`: the `CHORUS` and
+  `DELAY` sections, each three knobs with the effect's type on the first
+  knob's shift layer, where the panel puts it — Basic and Ensemble across the
+  chorus rate knob's travel, and Stereo, Ping-Pong and their two clock-synced
+  forms across the delay time knob's, each quarter naming the type it selects
+  as the knob passes through it. Each section carries the enable indicator the
+  panel prints beside its title, lit whenever Mix is above zero, which is all
+  the instrument gives it: there is no on/off parameter behind either effect.
+- `src/app/OutputSection.tsx`: the `OUTPUT` section and its Master Volume
+  knob. The one panel control with no preset field behind it — it sends and
+  follows CC 7 as an instrument level held apart from the preset, so loading
+  or saving a preset neither moves it nor captures it.
+- The editor now knows which part of a multi the preset in hand is. Chorus,
+  Delay and the Amplifier's Stereo spread and Stereo motion are drawn
+  read-only on parts 2-4, each saying that a multi takes it from part 1
+  alone, instead of accepting edits that reach nothing.
 
 ### Changed
 

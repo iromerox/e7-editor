@@ -10,7 +10,15 @@ import {
   OTHER_VOICES,
   VOLUME,
 } from "./cc";
-import { CC_FIELDS, applyCc, ccToFields, fieldToCc, readField, writeField } from "./cc-map";
+import {
+  CC_FIELDS,
+  applyCc,
+  ccToFields,
+  fieldToCc,
+  isPart1OnlyField,
+  readField,
+  writeField,
+} from "./cc-map";
 import { ReservedValue } from "./errors";
 import { SINGLE_PRESET_BYTES, decodeSinglePreset, encodeSinglePreset } from "./preset";
 
@@ -111,6 +119,21 @@ describe("cc-map", () => {
   it("maps Expression to Amplifier Level, the preset byte it drives", () => {
     expect(EXPRESSION).toBe(AMPLIFIER_LEVEL);
     expect(ccToFields(EXPRESSION)).toEqual(["amplifierLevel"]);
+  });
+
+  it("marks the fields a multi takes from part 1 alone, and only those", () => {
+    expect(CC_FIELDS.filter(isPart1OnlyField)).toEqual([
+      "stereoSpread",
+      "stereoMotion",
+      "chorusType",
+      "chorusRate",
+      "chorusDepth",
+      "chorusMix",
+      "delayType",
+      "delayTime",
+      "delayFeedback",
+      "delayMix",
+    ]);
   });
 
   it("leaves LFO2 EG1 Mod unmapped because it has no preset byte", () => {

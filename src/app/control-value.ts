@@ -27,6 +27,10 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+export function ccValue(value: number): number {
+  return clamp(Math.round(value), CONTROL_MIN, CONTROL_MAX);
+}
+
 export function lowerBound(control: ControlValue): number {
   return control.min ?? CONTROL_MIN;
 }

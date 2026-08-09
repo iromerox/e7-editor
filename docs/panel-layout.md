@@ -514,7 +514,7 @@ The section header carries an enable LED to the right of the `CHORUS` title.
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
 | (enable indicator) | — | LED (1) | **Nothing.** No field, no CC | There is no chorus on/off parameter anywhere — not in `Chorus`, not in the CC table, and `ChorusType` has only `basic` and `ensemble`, no `off`. See [Finding 6](#finding-6-the-chorus-and-delay-enable-leds-have-no-parameter-behind-them). |
-| `Rate` | `Type` | Knob | `part1Only.chorus.rate` / CC 114; shift: `part1Only.chorus.type` / CC 113 | `ChorusType`: 0-63 Basic, 64-127 Ensemble. Type is a two-way choice on a knob — render it as a toggle, not a continuous control. |
+| `Rate` | `Type` | Knob | `part1Only.chorus.rate` / CC 114; shift: `part1Only.chorus.type` / CC 113 | `ChorusType`: 0-63 Basic, 64-127 Ensemble — the two halves of one pot's travel. The editor keeps it on the knob's shift layer rather than substituting a toggle, and names the algorithm in the readout as the travel passes into it. |
 | `Depth` | — | Knob | `part1Only.chorus.depth` / CC 115 | |
 | `Mix` | — | Knob | `part1Only.chorus.mix` / CC 13 | Dry/wet. |
 
@@ -529,7 +529,7 @@ carrying the type on its shift layer.
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
 | (enable indicator) | — | LED (1) | **Nothing.** No field, no CC | Same as Chorus. See [Finding 6](#finding-6-the-chorus-and-delay-enable-leds-have-no-parameter-behind-them). |
-| `Delay Time` | `Type` | Knob | `part1Only.delay.time` / CC 111; shift: `part1Only.delay.type` / CC 110 | `DelayType`: stereo, ping-pong, stereo-sync, ping-pong-sync. In the two sync types the time value reads as a musical division (`DelayClockRate`), otherwise 50ms-1.35s. Four-way choice on a knob — render as a selector. |
+| `Delay Time` | `Type` | Knob | `part1Only.delay.time` / CC 111; shift: `part1Only.delay.type` / CC 110 | `DelayType`: stereo, ping-pong, stereo-sync, ping-pong-sync — four even quarters of one pot's travel (0-31, 32-63, 64-95, 96-127). Same treatment as the chorus type: it stays on the knob's shift layer, with the type's name as the readout. In the two sync types the time value reads as a musical division (`DelayClockRate`), otherwise 50ms-1.35s. |
 | `Feedback` | — | Knob | `part1Only.delay.feedback` / CC 112 | |
 | `Mix` | — | Knob | `part1Only.delay.mix` / CC 12 | Dry/wet. |
 
@@ -678,6 +678,22 @@ strip), not inside a preset editor section that gets swapped when the user
 loads a different sound. Writing to it is a device-level action with nothing
 to write back to the library.
 
+**Resolved for now: it is an `OUTPUT` section in the editor, where the panel
+puts it, and its value lives outside the preset.** What the note above is
+really guarding against is the value being conflated with a preset field,
+and that is settled by where the value is kept rather than by where the knob
+is drawn: master volume is its own slice of application state beside the
+preset, never a `CcField`, so loading or saving a preset cannot touch it and
+`CC_FIELDS` still has no entry for it. The editor's sections are not swapped
+when a preset is loaded either — the preset data behind them changes and the
+sections stay mounted — so the drift the note anticipated has nothing to act
+on. Drawing it anywhere but the panel's own `OUTPUT` box would cost the one
+thing the editor is trying to keep: a user finding a control where the
+instrument has it. The knob sends CC 7 as it moves and follows an inbound
+CC 7 if the instrument sends one; since nothing can read the level back, it
+starts at full and says at the control that it shows what the editor has
+sent.
+
 ### Finding 3: CC 3 drives either OSC 1 Transpose or global Transpose
 
 The `Tune`/`Transpose` knob's shift layer is `osc1.transpose` (byte 20).
@@ -771,6 +787,14 @@ For the editor this is a question about what to draw, not what to send: the
 effect sections have no toggle to bind. Either omit the indicator, or drive
 it from `mix > 0` and say so. Don't invent an `enabled` field to back it —
 there is no byte to persist it in.
+
+**Resolved for now: both sections draw the indicator, lit from `mix > 0`,
+and say so at the indicator itself.** It is an indicator on the hardware and
+it stays one here — nothing to press, no field behind it. Keeping it costs
+nothing and preserves the section's shape; the tooltip is what stops it
+reading as a parameter, since a lit LED that no byte backs is otherwise a
+claim the editor cannot support. If HW-09 turns up a real enable gesture,
+the indicator is already in place to bind to it.
 
 ---
 

@@ -2,7 +2,7 @@ import type { CcEvent, Connection } from "../midi";
 import { render, screen } from "@solidjs/testing-library";
 import { EMPTY, Subject } from "rxjs";
 import { describe, expect, it } from "vitest";
-import { MIXER_OSC1_LEVEL, OSC1_TRANSPOSE } from "../protocol";
+import { MIXER_OSC1_LEVEL, OSC1_TRANSPOSE, VOLUME } from "../protocol";
 import { AppStateProvider } from "./AppStateProvider";
 import { EditorPane } from "./EditorPane";
 
@@ -53,6 +53,15 @@ describe("EditorPane", () => {
     expect(screen.getAllByRole("slider", { name: "Tune" })[0]?.getAttribute("aria-valuenow")).toBe(
       "0",
     );
+  });
+
+  it("follows the master volume the device reports, which no preset field holds", () => {
+    const cc = new Subject<CcEvent>();
+    renderPane(stubConnection(cc));
+
+    cc.next({ channel: 1, controller: VOLUME, value: 12, timestamp: 0 });
+
+    expect(knob("Master Volume")).toBe("12");
   });
 
   it("says edits reach the editor only while nothing is connected", () => {

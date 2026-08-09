@@ -4,11 +4,15 @@ import type { Connection } from "../midi";
 import { Match, Switch, createEffect, onCleanup } from "solid-js";
 import { AmplifierSection } from "./AmplifierSection";
 import { useAppState } from "./AppStateProvider";
+import { ChorusSection } from "./ChorusSection";
+import { DelaySection } from "./DelaySection";
 import { EnvelopeSection } from "./EnvelopeSection";
 import { FilterSection } from "./FilterSection";
 import { createLiveEdit, targetChannel } from "./live-edit";
 import { MixerSection } from "./MixerSection";
+import { createMasterVolume } from "./master-volume";
 import { OscillatorsSection } from "./OscillatorsSection";
+import { OutputSection } from "./OutputSection";
 
 export interface EditorPaneProps {
   readonly connection: Connection | undefined;
@@ -17,6 +21,7 @@ export interface EditorPaneProps {
 export function EditorPane(props: EditorPaneProps): JSX.Element {
   const controls = useAppState();
   const live = createLiveEdit(controls, () => props.connection);
+  const volume = createMasterVolume(controls, () => props.connection);
 
   const channel = (): number | undefined => targetChannel(controls.state.connection.receiveChannel);
 
@@ -26,6 +31,9 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
       return;
     }
     const subscription = connection.cc.subscribe((event) => {
+      if (volume.receive(event)) {
+        return;
+      }
       live.receive(event);
     });
     onCleanup(() => subscription.unsubscribe());
@@ -85,6 +93,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           >
             <FilterSection live={live} />
             <AmplifierSection live={live} />
+            <OutputSection volume={volume} />
           </div>
           <div
             style={{
@@ -96,6 +105,17 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           >
             <EnvelopeSection live={live} envelope="eg1" />
             <EnvelopeSection live={live} envelope="eg2" />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              "flex-wrap": "wrap",
+              "align-items": "flex-start",
+              gap: "1rem",
+            }}
+          >
+            <ChorusSection live={live} />
+            <DelaySection live={live} />
           </div>
         </div>
       </div>

@@ -110,6 +110,7 @@ type NumericKey<Group> = {
 export interface CcAccessor {
   readonly read: (preset: SinglePreset) => number;
   readonly write: (preset: SinglePreset, value: number) => SinglePreset;
+  readonly part1Only?: boolean;
 }
 
 interface CcFieldEntry extends CcAccessor {
@@ -191,6 +192,7 @@ function amplifier(key: keyof Amplifier): CcAccessor {
 
 function delay(key: keyof Delay): CcAccessor {
   return {
+    part1Only: true,
     read: (preset) => preset.part1Only.delay[key],
     write: (preset, value) => ({
       ...preset,
@@ -204,6 +206,7 @@ function delay(key: keyof Delay): CcAccessor {
 
 function chorus(key: keyof Chorus): CcAccessor {
   return {
+    part1Only: true,
     read: (preset) => preset.part1Only.chorus[key],
     write: (preset, value) => ({
       ...preset,
@@ -217,6 +220,7 @@ function chorus(key: keyof Chorus): CcAccessor {
 
 function stereo(key: keyof Stereo): CcAccessor {
   return {
+    part1Only: true,
     read: (preset) => preset.part1Only.stereo[key],
     write: (preset, value) => ({
       ...preset,
@@ -447,6 +451,10 @@ export function ccToFields(cc: number): readonly CcField[] {
 
 export function fieldToCc(field: CcField): number {
   return ENTRIES[field].cc;
+}
+
+export function isPart1OnlyField(field: CcField): boolean {
+  return ENTRIES[field].part1Only === true;
 }
 
 export function readField(preset: SinglePreset, field: CcField): number {

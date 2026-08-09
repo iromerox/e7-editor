@@ -14,7 +14,7 @@ import {
   transposeFromCc,
 } from "../protocol";
 import { DualButton } from "./ButtonLed";
-import { CONTROL_MAX, CONTROL_MIN, clamp } from "./control-value";
+import { ccValue } from "./control-value";
 import { Knob } from "./Knob";
 import { PanelSection } from "./PanelSection";
 import {
@@ -89,10 +89,6 @@ const NEXT_WAVEFORM: Readonly<Record<OscWaveform, OscWaveform>> = {
 const TUNE_DECIMALS = 3;
 
 const COLUMNS = `${BUTTON_COLUMN} repeat(3, ${KNOB_COLUMN})`;
-
-function ccValue(value: number): number {
-  return clamp(Math.round(value), CONTROL_MIN, CONTROL_MAX);
-}
 
 export function tuneReadout(value: number): string {
   const semitones = Tune.fromCc(ccValue(value)).semitones();

@@ -11,8 +11,8 @@ import {
   OSC1_TRANSPOSE,
   readField,
 } from "../protocol";
-import { createAppState } from "./app-state";
-import { OMNI_TARGET_CHANNEL, createLiveEdit, targetChannel } from "./live-edit";
+import { createAppState, emptyPreset } from "./app-state";
+import { OMNI_TARGET_CHANNEL, PART_1_ONLY_NOTE, createLiveEdit, targetChannel } from "./live-edit";
 
 interface SentCc {
   readonly channel: number;
@@ -152,5 +152,32 @@ describe("createLiveEdit", () => {
     const { live } = setUp({ kind: "channel", channel: 1 });
 
     expect(live.receive(ccEvent(MOD_WHEEL, 64))).toBeUndefined();
+  });
+
+  it("holds every field live for a single preset and for part 1 of a multi", () => {
+    const { controls, live } = setUp({ kind: "channel", channel: 1 });
+
+    expect(live.applies("chorusMix")).toBe(true);
+
+    controls.loadEditor(emptyPreset(), { kind: "Empty" }, 1);
+
+    expect(live.applies("chorusMix")).toBe(true);
+    expect(live.control("chorusMix", { label: "Mix" }).readOnly).toBe(false);
+  });
+
+  it("hands back a read-only control that says why on a multi's parts 2-4", () => {
+    const { controls, live } = setUp({ kind: "channel", channel: 1 });
+    controls.loadEditor(emptyPreset(), { kind: "Empty" }, 4);
+
+    expect(live.applies("chorusMix")).toBe(false);
+    expect(live.applies("delayTime")).toBe(false);
+    expect(live.applies("stereoSpread")).toBe(false);
+    expect(live.applies("filterCutoff")).toBe(true);
+
+    const control = live.control("chorusMix", { label: "Mix", description: "Dry against wet." });
+
+    expect(control.readOnly).toBe(true);
+    expect(control.description).toBe(`Dry against wet. ${PART_1_ONLY_NOTE}`);
+    expect(live.control("delayTime", { label: "Delay Time" }).description).toBe(PART_1_ONLY_NOTE);
   });
 });

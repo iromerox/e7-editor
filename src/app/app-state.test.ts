@@ -1,7 +1,7 @@
 import type { EditorEdit } from "./app-state";
 import { createEffect, createRoot } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
-import { createAppState, emptyPreset } from "./app-state";
+import { FULL_MASTER_VOLUME, createAppState, emptyPreset } from "./app-state";
 
 let dispose: (() => void) | undefined;
 
@@ -45,7 +45,12 @@ describe("createAppState", () => {
     expect(state.ports).toEqual({ inputs: [], outputs: [] });
     expect(state.library).toEqual({ kind: "All kinds", entries: undefined });
     expect(state.device).toEqual({ kind: "Single", bank: 1, group: 1, slots: {} });
-    expect(state.editor).toEqual({ source: { kind: "Empty" }, preset: emptyPreset() });
+    expect(state.editor).toEqual({
+      source: { kind: "Empty" },
+      preset: emptyPreset(),
+      part: undefined,
+    });
+    expect(state.output).toEqual({ masterVolume: FULL_MASTER_VOLUME });
     expect(state.history).toEqual({ undo: [], redo: [] });
   });
 
@@ -86,6 +91,25 @@ describe("createAppState", () => {
 
     loadEditor(emptyPreset(), { kind: "LibraryEntry", id: "entry-1" });
     expect(state.editor.source).toEqual({ kind: "LibraryEntry", id: "entry-1" });
+  });
+
+  it("remembers which part of a multi the preset in hand is, and forgets it for a single", () => {
+    const { state, loadEditor } = createAppState();
+
+    loadEditor(emptyPreset(), { kind: "LibraryEntry", id: "multi-1" }, 3);
+    expect(state.editor.part).toBe(3);
+
+    loadEditor(emptyPreset(), { kind: "LibraryEntry", id: "entry-1" });
+    expect(state.editor.part).toBeUndefined();
+  });
+
+  it("keeps the master volume outside the preset the editor holds", () => {
+    const { state, setMasterVolume } = createAppState();
+
+    setMasterVolume(40);
+
+    expect(state.output.masterVolume).toBe(40);
+    expect(state.editor.preset).toEqual(emptyPreset());
   });
 
   it("edits one preset field at a time, leaving the rest of the preset as it was", () => {

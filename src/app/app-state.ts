@@ -49,9 +49,16 @@ export type EditorSource =
   | { readonly kind: "DeviceSlot"; readonly address: SlotAddress }
   | { readonly kind: "LibraryEntry"; readonly id: string };
 
+export type MultiPart = 1 | 2 | 3 | 4;
+
 export interface EditorState {
   source: EditorSource;
   preset: SinglePreset;
+  part: MultiPart | undefined;
+}
+
+export interface OutputState {
+  masterVolume: number;
 }
 
 export interface EditorEdit {
@@ -72,6 +79,7 @@ export interface AppState {
   library: LibraryState;
   device: DeviceState;
   editor: EditorState;
+  output: OutputState;
   history: HistoryState;
 }
 
@@ -90,12 +98,15 @@ export interface AppStateControls {
   selectBank(bank: number): void;
   selectGroup(group: number): void;
   setSlotState(address: SlotAddress, slot: DeviceSlotState): void;
-  loadEditor(preset: SinglePreset, source: EditorSource): void;
+  loadEditor(preset: SinglePreset, source: EditorSource, part?: MultiPart): void;
   editField(field: CcField, value: number): void;
+  setMasterVolume(value: number): void;
   recordEdit(edit: EditorEdit): void;
   takeUndo(): EditorEdit | undefined;
   takeRedo(): EditorEdit | undefined;
 }
+
+export const FULL_MASTER_VOLUME = 127;
 
 export function emptyPreset(): SinglePreset {
   return decodeSinglePreset(new Uint8Array(SINGLE_PRESET_BYTES));
@@ -114,7 +125,8 @@ export function initialAppState(): AppState {
     ports: { inputs: [], outputs: [] },
     library: { kind: EVERY_KIND, entries: undefined },
     device: { kind: "Single", bank: 1, group: 1, slots: {} },
-    editor: { source: { kind: "Empty" }, preset: emptyPreset() },
+    editor: { source: { kind: "Empty" }, preset: emptyPreset(), part: undefined },
+    output: { masterVolume: FULL_MASTER_VOLUME },
     history: { undo: [], redo: [] },
   };
 }
@@ -166,11 +178,14 @@ export function createAppState(): AppStateControls {
     setSlotState(address: SlotAddress, slot: DeviceSlotState): void {
       setState("device", "slots", slotKey(address), slot);
     },
-    loadEditor(preset: SinglePreset, source: EditorSource): void {
-      setState("editor", { preset, source });
+    loadEditor(preset: SinglePreset, source: EditorSource, part?: MultiPart): void {
+      setState("editor", { preset, source, part });
     },
     editField(field: CcField, value: number): void {
       setState("editor", "preset", (preset) => writeField(unwrap(preset), field, value));
+    },
+    setMasterVolume(value: number): void {
+      setState("output", "masterVolume", value);
     },
     recordEdit(edit: EditorEdit): void {
       setState("history", (history) => ({ undo: [...history.undo, edit], redo: [] }));
