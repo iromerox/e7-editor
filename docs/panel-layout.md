@@ -445,6 +445,25 @@ a poly option and a mono option — rather than trying to reproduce the LED
 row's logic. An `All`/`Free` preset presumably lights all seven; that is an
 inference, not an observation.
 
+**Built that way: two selectors, and no LED row at all.** The section draws
+`Polyphonic voices` and `Monophonic voice` as menu selectors, because that is
+what the parameter is — the panel's row is an output of the instrument's own
+voice allocation, and nothing in the protocol reports it. Drawing seven
+lenses lit from an inference would be the editor asserting something it
+cannot know. The section says so where the row would have been. If hardware
+work ever turns up a source for the row, the count to draw is 7.
+
+A reserved pair reaches the editor two ways, and both are handled where they
+arise rather than by relaxing `Voices`:
+
+- **From a preset.** Bytes 106/107 are read straight out of device memory, so
+  a preset holding `polyVoice` 6 makes even *reading* the field throw. The
+  section decodes through `unlessReserved`, shows neither selection, and says
+  the value is reserved; picking either selection replaces it.
+- **From a control change.** The editor's inbound path ignores a CC value the
+  field's own accessor rejects, rather than letting it through and failing
+  mid-update. CC 97 above 71 therefore leaves the editor where it was.
+
 ---
 
 ## Envelope Generator 1
@@ -553,6 +572,41 @@ present it as one.
 portamento on/off button — see
 [Finding 5](#finding-5-parameters-with-a-cc-and-no-control-behind-it).
 
+**The editor gives it no control either — the Time knob carries it.** A
+switch beside `Portamento Time` was built first and taken out again: it
+invents a second control where the instrument has one, and the two can only
+ever disagree in ways the user has to reason about (a glide time set with the
+switch off does nothing). Instead the knob writes both bytes — crossing off
+zero switches portamento on, returning to zero switches it off — so the
+control the panel has always means what it says. The switch is only written
+when the state actually changes, not on every step of a drag, and the knob's
+description says at the control that it does this.
+
+**What "on" is worth in that byte is an assumption, not a spec.** The MIDI
+implementation gives CC 65 no zone table and the byte map only names the byte
+`Portamento On`, so the editor writes 127 for on and 0 for off on the general
+MIDI switch convention. Open question #23 in `protocol-quirks.md` and the HW
+task behind it; a hardware session settles it by switching portamento from a
+MIDI controller and reading byte 48 back.
+
+Nothing reads byte 48 back into the UI, which is the deliberate half of this:
+a preset arriving with the byte and the time disagreeing is left alone until
+the user moves the knob, rather than the editor quietly rewriting a byte it
+cannot yet interpret.
+
+**The Mode button never writes the reserved range, and survives reading
+one.** `OtherMode` reserves CC 80-127 and `mode` is a plain byte, so a device
+or a preset can put a reserved value in front of the control. The section
+decodes through `unlessReserved`: no LED lights, the readout says `Reserved`,
+and the next press leaves it at `Polyphonic` — the first of the five zones —
+rather than stepping from a value that has no meaning. Presses always send a
+zone minimum (0, 16, 32, 48, 64).
+
+Unison's two modes light two LEDs, which is why `LedStack` takes a set of
+indexes rather than a single one. The full mode name sits under the button:
+the LED names are the panel's four abbreviations, and `MT, Unison` is not the
+same thing as reading `Unison, Multi Trigger`.
+
 ---
 
 ## Presets
@@ -579,6 +633,53 @@ Selecting a preset is Bank Select MSB/LSB + Program Change, resolved by
 Addresses are `X.Y.Z`, from `1.1.1` to `8.8.8` for singles (512) and `1.1.1`
 to `2.8.8` for multis (128). Factory presets occupy `1.1.1`-`1.7.8` (56) and
 cannot be overwritten, though they can be edited and saved elsewhere.
+
+**The editor draws no `PRESETS` box at all.** This is the one panel block
+with no section of its own, and the reason is that the app already has a
+better version of it. What the numbered buttons do is what the manual gives
+them (p.19): "Buttons 1 to 8 allow you to directly change Position" — a
+position within the bank already selected. The device browser is exactly that
+picker, with the kind, bank and group in front of it and, unlike eight
+silkscreened digits, the slot's **name** read off the instrument. A row of
+eight buttons in the editor would have been a strict subset of it, addressed
+into whichever bank the browser was on anyway.
+
+So the panel's function lives in the browser: every slot cell carries a
+`Select` that sends the Bank Select MSB/LSB and Program Change for its
+address, and the selected cell is marked.
+
+**Deliberately not drawn as cap buttons and LEDs.** Building the cells out
+of the panel's own widgets — a cap with its LED above and its position digit
+under it, the `PRESETS` row's construction — was tried and rejected: the
+device browser is a librarian view, not a picture of the panel, and putting
+panel hardware in it made a list of names look like an instrument without
+reading any better as either. The panel widgets belong in the editor's
+sections. This pane stays plain controls.
+
+The eight slots of the group in view are **read automatically** as soon as
+they are reachable, one at a time through the same queue a manual read used,
+and kept once read. A slot the device never answered for keeps a read of its
+own, so one failure is recoverable without putting a read button back on the
+other seven.
+
+Three things to keep true of it:
+
+- **It changes the instrument, not the editor.** The editor keeps the preset
+  it has; nothing is loaded from the slot selected. Loading is a separate,
+  explicit action and belongs to the preset-transfer work. The pane says so
+  above the slots.
+- **The marked slot is what the editor last selected, not what the instrument
+  is playing.** No command reports the current preset, and a press on the
+  hardware's own buttons is not transmitted. The mark clears when the browser
+  moves to a group that does not hold the selected address.
+- **Multi is the browser's kind.** With the browser on Multi the same action
+  addresses multis, which is Bank Select MSB 1 — the same distinction the
+  panel makes by entering Multitimbral Mode first, and a second reason the
+  browser is the right home for this: it already carries the kind.
+
+`Shift` and `Bank`/`Save` have no equivalent for the reasons in the table
+above. Their absence is the point: there is no shift layer to hold, and
+saving is a library action reached from the library, not a transport button.
 
 **The manual and the code split the three digits differently.** The manual
 (p.19) reads them as two parts: "The first two digits refer to the **Bank**
@@ -762,6 +863,13 @@ still round-trip, because every byte in the layout does.
 Before offering a control for anything in this table, check the manual for
 prose describing it. A byte and a CC are not evidence that a parameter
 exists.
+
+**`portamento.on` is written, without a control of its own.** The Portamento
+Time knob carries it: the byte goes on as the time leaves zero and off as it
+returns. It is the only row here the editor writes at all, and the only one
+the manual describes as a parameter. The value written rests on the general
+MIDI switch convention rather than on anything the e7's documents say — see
+the Portamento / Polyphony section and open question #23.
 
 `off-panel-parameters.md` is the full inventory of what the panel gives no
 control for — this table, the menu-only parameters, the global configuration,

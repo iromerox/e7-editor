@@ -280,6 +280,46 @@ describe("createConnection outbound control changes", () => {
   });
 });
 
+describe("createConnection program changes", () => {
+  it("selects a preset with both bank select halves ahead of the program, in that order", () => {
+    const { output, connection } = harness();
+
+    connection.sendProgramChange(3, { bankMsb: 0, bankLsb: 2, program: 36 });
+
+    expect(output.sent).toEqual([
+      Uint8Array.of(0xb2, 0, 0),
+      Uint8Array.of(0xb2, 32, 2),
+      Uint8Array.of(0xc2, 36),
+    ]);
+  });
+
+  it("writes the three messages as they are asked for, not through the coalescing rate limiter", () => {
+    const { output, connection } = harness();
+
+    connection.sendProgramChange(1, { bankMsb: 1, bankLsb: 0, program: 7 });
+    connection.sendProgramChange(1, { bankMsb: 1, bankLsb: 0, program: 9 });
+
+    expect(output.sent).toEqual([
+      Uint8Array.of(0xb0, 0, 1),
+      Uint8Array.of(0xb0, 32, 0),
+      Uint8Array.of(0xc0, 7),
+      Uint8Array.of(0xb0, 0, 1),
+      Uint8Array.of(0xb0, 32, 0),
+      Uint8Array.of(0xc0, 9),
+    ]);
+  });
+
+  it("rejects a program change after close instead of writing to a dead port", async () => {
+    const { connection } = harness();
+
+    await connection.close();
+
+    expect(() => connection.sendProgramChange(1, { bankMsb: 0, bankLsb: 0, program: 0 })).toThrow(
+      ConnectionClosedError,
+    );
+  });
+});
+
 describe("createConnection teardown", () => {
   it("completes both streams, unhooks the ports, and closes them", async () => {
     const { input, output, connection } = harness();

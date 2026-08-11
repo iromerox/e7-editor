@@ -18,6 +18,7 @@ function stubConnection(cc: Subject<CcEvent>): Connection {
     send: () => {},
     sendCommand: () => {},
     sendControlChange: () => {},
+    sendProgramChange: () => {},
     close: () => Promise.resolve(),
   };
 }

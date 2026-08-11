@@ -1,5 +1,6 @@
 // Slot addressing for the device browser, and the reads that fill in a slot's name and lock state.
 import type { Connection } from "../midi";
+import type { ProgramChangeMessage } from "../protocol";
 import { requestResponse } from "../midi";
 import {
   LOCK_BYTE_INDEX,
@@ -8,6 +9,7 @@ import {
   NAME_OFFSET,
   PresetSlot,
   READ_MEMORY_BLOCK_BYTES,
+  encodeProgramChange,
   isPresetLocked,
 } from "../protocol";
 
@@ -50,6 +52,15 @@ export function slotByteAddress(address: SlotAddress): number {
   return address.kind === "Single"
     ? new PresetSlot(bank, group, slot).byteAddress()
     : new MultiSlot(bank, group, slot).byteAddress();
+}
+
+export function slotProgramChange(address: SlotAddress): ProgramChangeMessage {
+  const { bank, group, slot } = address;
+  return encodeProgramChange(
+    address.kind === "Single"
+      ? { kind: "single", slot: new PresetSlot(bank, group, slot) }
+      : { kind: "multi", slot: new MultiSlot(bank, group, slot) },
+  );
 }
 
 export function slotLabel(address: SlotAddress): string {

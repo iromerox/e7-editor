@@ -1,9 +1,9 @@
-// Device browser: bank and group navigation over the e7's single and multi slots, with per-slot name and lock reads.
+// Device browser: bank and group navigation over the e7's single and multi slots, with per-slot name and lock reads, and the preset selection the panel's numbered buttons make.
 import type { JSX } from "solid-js";
 import type { Connection } from "../midi";
 import type { DeviceSlotState } from "./app-state";
 import type { SlotAddress, SlotSummary } from "./device-slots";
-import { For, Match, Show, Switch, createMemo } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo, untrack } from "solid-js";
 import { useAppState } from "./AppStateProvider";
 import {
   BANKS_PER_KIND,
@@ -14,12 +14,19 @@ import {
   slotKey,
   slotLabel,
 } from "./device-slots";
+import { createPresetSelection } from "./preset-select";
 
 export interface DevicePaneProps {
   readonly connection: Connection | undefined;
 }
 
 const UNNAMED = "(unnamed)";
+
+export const SELECTION_NOTE =
+  "A slot's button plays it on the instrument, as the panel's numbered buttons do. It does not load the preset into the editor, which keeps the one it has.";
+
+export const AUTO_READ_NOTE =
+  "The eight slots in view are read as you reach them, one at a time, and kept.";
 
 function describe(error: unknown): string {
   return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
@@ -91,8 +98,10 @@ function LockChip(props: { readonly locked: boolean }): JSX.Element {
 interface SlotCellProps {
   readonly address: SlotAddress;
   readonly state: DeviceSlotState | undefined;
-  readonly readable: boolean;
+  readonly selectable: boolean;
+  readonly selected: boolean;
   readonly onRead: (address: SlotAddress) => void;
+  readonly onSelect: (address: SlotAddress) => void;
 }
 
 function SlotCell(props: SlotCellProps): JSX.Element {
@@ -117,11 +126,14 @@ function SlotCell(props: SlotCellProps): JSX.Element {
         <span style={{ "font-weight": "bold" }}>{slotLabel(props.address)}</span>
         <button
           type="button"
-          aria-label={`Read ${props.address.kind} ${slotLabel(props.address)}`}
-          disabled={!props.readable || props.state?.status === "reading"}
-          onClick={() => props.onRead(props.address)}
+          aria-label={`Select ${props.address.kind} ${slotLabel(props.address)}`}
+          aria-pressed={props.selected}
+          disabled={!props.selectable}
+          title={SELECTION_NOTE}
+          onClick={() => props.onSelect(props.address)}
+          style={{ "font-weight": props.selected ? "bold" : "normal" }}
         >
-          Read
+          Select
         </button>
       </div>
       <Switch fallback={<span>Not read</span>}>
@@ -136,19 +148,39 @@ function SlotCell(props: SlotCellProps): JSX.Element {
             </div>
           )}
         </Match>
-        <Match when={failure()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
+        <Match when={failure()}>
+          {(reason) => (
+            <div style={{ display: "flex", "align-items": "baseline", gap: "0.5rem" }}>
+              <span role="alert">{reason()}</span>
+              <button
+                type="button"
+                aria-label={`Read ${props.address.kind} ${slotLabel(props.address)} again`}
+                onClick={() => props.onRead(props.address)}
+              >
+                Read again
+              </button>
+            </div>
+          )}
+        </Match>
       </Switch>
     </li>
   );
 }
 
 export function DevicePane(props: DevicePaneProps): JSX.Element {
-  const { state, selectSlotKind, selectBank, selectGroup, setSlotState } = useAppState();
+  const controls = useAppState();
+  const { state, selectSlotKind, selectBank, selectGroup, setSlotState } = controls;
+  const presets = createPresetSelection(controls, () => props.connection);
 
   const reader = createMemo(() => {
     const connection = props.connection;
     return connection === undefined ? undefined : createSlotReader(connection);
   });
+
+  const isSelected = (address: SlotAddress): boolean => {
+    const selected = presets.selected();
+    return selected !== undefined && slotKey(selected) === slotKey(address);
+  };
 
   const readSlot = (address: SlotAddress): void => {
     const reading = reader();
@@ -161,6 +193,22 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
       (error: unknown) => setSlotState(address, { status: "failed", reason: describe(error) }),
     );
   };
+
+  createEffect(() => {
+    const ready = reader() !== undefined;
+    const { kind, bank, group } = state.device;
+    if (!ready) {
+      return;
+    }
+    untrack(() => {
+      for (const slot of counting(SLOTS_PER_GROUP)) {
+        const address: SlotAddress = { kind, bank, group, slot };
+        if (state.device.slots[slotKey(address)] === undefined) {
+          readSlot(address);
+        }
+      }
+    });
+  });
 
   return (
     <section
@@ -210,7 +258,14 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
           onSelect={selectGroup}
         />
       </div>
-      <Show when={props.connection === undefined}>
+      <Show
+        when={props.connection === undefined}
+        fallback={
+          <p style={{ margin: "0 0 0.5rem" }}>
+            {AUTO_READ_NOTE} {SELECTION_NOTE}
+          </p>
+        }
+      >
         <p style={{ margin: "0 0 0.5rem" }}>
           Connect to a device to read the names and lock state of its slots.
         </p>
@@ -238,8 +293,10 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
                 <SlotCell
                   address={address()}
                   state={state.device.slots[slotKey(address())]}
-                  readable={props.connection !== undefined}
+                  selectable={presets.reachable()}
+                  selected={isSelected(address())}
                   onRead={readSlot}
+                  onSelect={presets.select}
                 />
               );
             }}

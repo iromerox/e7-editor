@@ -28,6 +28,7 @@ const connection: Connection = {
   send: () => {},
   sendCommand: () => {},
   sendControlChange: () => {},
+  sendProgramChange: () => {},
   close: () => Promise.resolve(),
 };
 

@@ -241,6 +241,25 @@ questions, not assumptions:
     Until it answers, the effect sections have no toggle to bind — don't
     invent an `enabled` field to back the indicator, because there is no byte
     to persist it in. See `panel-layout.md` Finding 6.
+23. **Nothing says what value byte 48 holds when portamento is on.** The CC
+    table lists CC 65 as `Portamento Switch` with no zone table — the only
+    switch-like entry in it that has none — and the byte map names byte 48
+    `Portamento On` without giving it values. The editor makes the
+    Portamento Time knob write it — on as the time leaves zero, off as it
+    returns — so it has to write *something*: 127 and 0, on the general MIDI
+    convention for switch controllers 64-69. That convention is the reason to
+    prefer those values and the only evidence for them. Nothing reads the
+    byte back into the UI, so a wrong guess costs a byte the editor
+    overwrites rather than a control that lies.
+
+    Settle it in a hardware session: switch portamento on from a MIDI
+    controller, read byte 48 of the edit buffer back, and record the value.
+    A second pass in the other direction — send CC 65 with 127, 64, 1 and 0
+    and listen for whether the glide engages — says whether the instrument
+    applies the same convention on input. The same session should answer
+    whether the panel's Time knob glides at all while byte 48 is 0, which is
+    what decides whether coupling the two was necessary or merely tidy.
+    HW-10 owns this.
 
 ---
 

@@ -373,6 +373,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Delay and the Amplifier's Stereo spread and Stereo motion are drawn
   read-only on parts 2-4, each saying that a multi takes it from part 1
   alone, instead of accepting edits that reach nothing.
+- `src/app/VoicesSection.tsx`: the `VOICES` section, as the two selections the
+  instrument's Preset Menu holds — which voices a polyphonic preset may use,
+  and which single voice a monophonic one takes — packed into and out of the
+  one control change that carries both. The panel's seven-LED row is not
+  rebuilt: the instrument never reports which voices are sounding, so the
+  section says that where the row would have been rather than lighting lenses
+  from a guess.
+- `src/app/PortamentoPolyphonySection.tsx`: the untitled block under the
+  Mixer — the Mode button stepping the five polyphony modes over four LEDs,
+  with Unison lighting alongside ST or MT as it does on the panel and the
+  full mode name read out beneath, and the Portamento Time knob carrying Bend
+  range on its shift layer. The section is titled from the user manual and
+  says so, because the panel prints no title over it.
+- The Portamento Time knob now carries the instrument's portamento on/off
+  parameter, which no panel control reaches: crossing off zero switches it
+  on, returning to zero switches it off, and the knob says so at the control.
+  The front panel has a time knob and no switch, so the editor keeps one
+  control rather than inventing a second that can contradict it. What value
+  counts as "on" follows the general MIDI switch convention and is recorded
+  as an open question rather than a fact.
+- The device browser can select a preset on the instrument: every slot has a
+  `Select` that sends the Bank Select and Program Change addressing it —
+  what the panel's numbered buttons do, from the one place in the app that
+  also knows the slot's name and lock state. It changes the sound the
+  instrument is making and nothing else; the editor keeps the preset it has,
+  and the pane says so.
+- `Connection.sendProgramChange`: Bank Select MSB and LSB followed by the
+  Program Change, written straight to the port rather than through the
+  control-change rate limiter, which coalesces and would be free to reorder
+  the bank select behind the program it selects.
 
 ### Changed
 
@@ -403,6 +433,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   one, so a section reads as a row of knobs above a strip the way the panel's
   silkscreen does. Its handles, stroke weights and readout are sized up to
   stay legible and grabbable at the flatter scale.
+- The device browser reads a group of slots by itself. Arriving at a group —
+  by connecting, or by moving to another bank, group or kind — reads its
+  eight slots one at a time and keeps the results, instead of waiting for
+  eight presses of a per-slot `Read`. A slot the device never answered for
+  keeps a read of its own to retry with.
 
 ### Fixed
 
@@ -412,6 +447,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Each application state now starts on a preset of its own. The empty preset
   was a single shared value, and the store wrote edits through into it, so a
   second application state began wherever the first had left off.
+- An inbound control change carrying a value the field's own table reserves
+  is ignored instead of taking the editor's update path down with it. CC 97
+  above 71 is the reachable case — the packed Voices accessor rejects such a
+  value on write — and it previously threw out of the control-change
+  subscription, ending live tracking for every other parameter too.
 
 ### Documentation
 
@@ -527,3 +567,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   parameter exists. `docs/panel-layout.md` records the same distinction where
   it bites: `LFO2 PWM` and `LFO3 PWM` have a byte and a CC apiece, no panel
   control, no manual entry, and no effect on the instrument.
+- `docs/panel-layout.md`: how the Voices and Portamento / Polyphony sections
+  were built and why each departs from the panel where it does — the
+  seven-LED voices row left undrawn for want of anything to drive it, the
+  portamento switch folded into the time knob rather than given a control of
+  its own, and the Mode button's handling of a reserved value. Records why
+  the `PRESETS` block is the one panel section with no box in the editor: the
+  device browser is the same picker with the slot names in it, so the panel's
+  numbered buttons became a `Select` action there.
+- `docs/protocol-quirks.md` open question #23: nothing in either document says
+  what value byte 48 holds when portamento is on. The editor writes 127 on the
+  general MIDI switch convention, which is the only evidence there is for it,
+  and the entry records the hardware check that would settle it.

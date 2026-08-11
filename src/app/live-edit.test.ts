@@ -9,6 +9,7 @@ import {
   MIXER_OSC1_LEVEL,
   MOD_WHEEL,
   OSC1_TRANSPOSE,
+  OTHER_VOICES,
   readField,
 } from "../protocol";
 import { createAppState, emptyPreset } from "./app-state";
@@ -32,6 +33,7 @@ function stubConnection(sent: SentCc[]): Connection {
     send: () => {},
     sendCommand: () => {},
     sendControlChange: (channel, controller, value) => sent.push({ channel, controller, value }),
+    sendProgramChange: () => {},
     close: () => Promise.resolve(),
   };
 }
@@ -152,6 +154,14 @@ describe("createLiveEdit", () => {
     const { live } = setUp({ kind: "channel", channel: 1 });
 
     expect(live.receive(ccEvent(MOD_WHEEL, 64))).toBeUndefined();
+  });
+
+  it("ignores an inbound value the field's own table reserves, rather than failing on it", () => {
+    const { controls, live } = setUp({ kind: "channel", channel: 1 });
+    live.receive(ccEvent(OTHER_VOICES, 34));
+
+    expect(live.receive(ccEvent(OTHER_VOICES, 100))).toBeUndefined();
+    expect(readField(controls.state.editor.preset, "voices")).toBe(34);
   });
 
   it("holds every field live for a single preset and for part 1 of a multi", () => {

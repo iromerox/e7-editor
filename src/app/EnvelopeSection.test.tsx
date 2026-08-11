@@ -31,6 +31,7 @@ const connection: Connection = {
   send: () => {},
   sendCommand: () => {},
   sendControlChange: (_channel, controller, value) => sent.push({ controller, value }),
+  sendProgramChange: () => {},
   close: () => Promise.resolve(),
 };
 
