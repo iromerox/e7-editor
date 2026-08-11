@@ -13,6 +13,8 @@ import { MixerSection } from "./MixerSection";
 import { createMasterVolume } from "./master-volume";
 import { OscillatorsSection } from "./OscillatorsSection";
 import { OutputSection } from "./OutputSection";
+import { PortamentoPolyphonySection } from "./PortamentoPolyphonySection";
+import { VoicesSection } from "./VoicesSection";
 
 export interface EditorPaneProps {
   readonly connection: Connection | undefined;
@@ -93,7 +95,10 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           >
             <FilterSection live={live} />
             <AmplifierSection live={live} />
-            <OutputSection volume={volume} />
+            <div style={{ display: "flex", "flex-direction": "column", gap: "1rem" }}>
+              <OutputSection volume={volume} />
+              <VoicesSection live={live} />
+            </div>
           </div>
           <div
             style={{
@@ -103,6 +108,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
               gap: "1rem",
             }}
           >
+            <PortamentoPolyphonySection live={live} />
             <EnvelopeSection live={live} envelope="eg1" />
             <EnvelopeSection live={live} envelope="eg2" />
           </div>

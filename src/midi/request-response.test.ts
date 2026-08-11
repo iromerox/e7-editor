@@ -1,4 +1,4 @@
-import type { SysExCommand } from "../protocol";
+import type { ProgramChangeMessage, SysExCommand } from "../protocol";
 import type { CcEvent, Connection } from "./connection";
 import { Observable, Subject } from "rxjs";
 import { describe, expect, it } from "vitest";
@@ -76,6 +76,9 @@ function harness(): Harness {
     },
     sendControlChange(channel: number, controller: number, value: number): void {
       send(Uint8Array.of(0xb0 | (channel - 1), controller, value));
+    },
+    sendProgramChange(channel: number, message: ProgramChangeMessage): void {
+      send(Uint8Array.of(0xc0 | (channel - 1), message.program));
     },
     close(): Promise<void> {
       open = false;

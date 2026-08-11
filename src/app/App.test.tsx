@@ -43,9 +43,9 @@ describe("App shell", () => {
     expect(screen.getByRole("region", { name: "Device" })).toBeInTheDocument();
   });
 
-  it("leaves the device pane unreadable until a device is connected", () => {
+  it("leaves the device pane inert until a device is connected", () => {
     render(() => <App database={database} />);
-    expect(screen.getByRole("button", { name: "Read Single 1.1.1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Select Single 1.1.1" })).toBeDisabled();
   });
 
   it("repaints the shell when a finish axis is changed", async () => {

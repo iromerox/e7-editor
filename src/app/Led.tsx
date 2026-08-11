@@ -19,9 +19,11 @@ export interface LedRowProps {
   readonly names?: readonly string[];
 }
 
+export type LedSelection = number | readonly number[];
+
 export interface LedStackProps {
   readonly count: number;
-  readonly active?: number | undefined;
+  readonly active?: LedSelection | undefined;
   readonly label?: string;
   readonly names?: readonly string[] | undefined;
 }
@@ -30,17 +32,21 @@ export function ledName(index: number, names?: readonly string[]): string {
   return names?.[index] ?? String(index + 1);
 }
 
-export function litIndex(count: number, active?: number): number | undefined {
+export function litIndexes(count: number, active?: LedSelection): readonly number[] {
   if (active === undefined) {
-    return undefined;
+    return [];
   }
-  const index = Math.trunc(active);
-  return index < 0 || index >= count ? undefined : index;
+  const wanted = typeof active === "number" ? [active] : active;
+  return wanted.map((index) => Math.trunc(index)).filter((index) => index >= 0 && index < count);
 }
 
-export function activeLedName(count: number, active?: number, names?: readonly string[]): string {
-  const index = litIndex(count, active);
-  return index === undefined ? NO_LED_LIT : ledName(index, names);
+export function activeLedName(
+  count: number,
+  active?: LedSelection,
+  names?: readonly string[],
+): string {
+  const lit = litIndexes(count, active);
+  return lit.length === 0 ? NO_LED_LIT : lit.map((index) => ledName(index, names)).join(", ");
 }
 
 function positions(count: number): readonly number[] {
@@ -93,7 +99,7 @@ export function LedRow(props: LedRowProps): JSX.Element {
 }
 
 export function LedStack(props: LedStackProps): JSX.Element {
-  const active = (): number | undefined => litIndex(props.count, props.active);
+  const lit = (): readonly number[] => litIndexes(props.count, props.active);
 
   const description = (): string =>
     `${props.label ?? ""}: ${activeLedName(props.count, props.active, props.names)}`;
@@ -113,7 +119,7 @@ export function LedStack(props: LedStackProps): JSX.Element {
       <For each={positions(props.count)}>
         {(index) => (
           <span style={{ display: "flex", "align-items": "center", gap: "0.3rem" }}>
-            <Led lit={index === active()} />
+            <Led lit={lit().includes(index)} />
             <Show when={props.names?.[index]}>
               {(name) => (
                 <span

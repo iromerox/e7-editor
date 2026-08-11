@@ -50,6 +50,8 @@ class FakeConnection implements Connection {
 
   sendControlChange(): void {}
 
+  sendProgramChange(): void {}
+
   close(): Promise<void> {
     this.closeCalls += 1;
     this.unplug();

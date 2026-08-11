@@ -1,5 +1,6 @@
 // Cap buttons: the momentary switch with its own LED, and the two-layer selector that steps an LED column.
 import type { JSX } from "solid-js";
+import type { LedSelection } from "./Led";
 import { Show, createSignal } from "solid-js";
 import { LayerLabel } from "./LayerLabel";
 import { LED_GAP_REM, Led, LedStack, activeLedName } from "./Led";
@@ -23,7 +24,7 @@ export interface ButtonLedProps {
 export interface ButtonLayer {
   readonly label: string;
   readonly count: number;
-  readonly active?: number | undefined;
+  readonly active?: LedSelection | undefined;
   readonly names?: readonly string[] | undefined;
   readonly description?: string | undefined;
   readonly onPress: () => void;

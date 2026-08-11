@@ -3,6 +3,7 @@ import type { JSX } from "solid-js";
 
 export interface PanelSectionProps {
   readonly title: string;
+  readonly note?: string;
   readonly indicator?: JSX.Element;
   readonly children: JSX.Element;
 }
@@ -31,6 +32,7 @@ export function PanelSection(props: PanelSectionProps): JSX.Element {
         }}
       >
         <h2
+          title={props.note}
           style={{
             margin: "0",
             "font-size": "0.85rem",

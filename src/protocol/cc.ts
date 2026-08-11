@@ -28,6 +28,9 @@ export function encodeZoned<Variant>(variant: Variant, zones: readonly Zone<Vari
   throw new Error(`variant not present in zones: ${String(variant)}`);
 }
 
+export const BANK_SELECT_MSB = 0;
+export const BANK_SELECT_LSB = 32;
+
 export const MOD_WHEEL = 1;
 export const PORTAMENTO_TIME = 5;
 export const VOLUME = 7;

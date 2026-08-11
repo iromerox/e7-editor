@@ -33,6 +33,7 @@ function stubConnection(sent: SentCc[]): Connection {
     send: () => {},
     sendCommand: () => {},
     sendControlChange: (channel, controller, value) => sent.push({ channel, controller, value }),
+    sendProgramChange: () => {},
     close: () => Promise.resolve(),
   };
 }

@@ -1,10 +1,10 @@
 // Bidirectional device connection exposing SysEx frames and CC events as independent streams.
 import type { ControlChangeMessageEvent, Input, MessageEvent, Output } from "webmidi";
-import type { SysExCommand } from "../protocol";
+import type { ProgramChangeMessage, SysExCommand } from "../protocol";
 import type { SysExReassemblyStats } from "./reassembly";
 import { Observable, Subject } from "rxjs";
 import { WebMidi } from "webmidi";
-import { encodeCommand } from "../protocol";
+import { BANK_SELECT_LSB, BANK_SELECT_MSB, encodeCommand } from "../protocol";
 import { createCcRateLimiter } from "./cc-rate-limit";
 import { ConnectionClosedError, NoMatchingPortError, SysExStreamBusyError } from "./errors";
 import { enableMidi, listInputPorts, listOutputPorts, resolvePort } from "./ports";
@@ -28,10 +28,13 @@ export interface Connection {
   send(bytes: Uint8Array): void;
   sendCommand(command: SysExCommand): void;
   sendControlChange(channel: number, controller: number, value: number): void;
+  sendProgramChange(channel: number, message: ProgramChangeMessage): void;
   close(): Promise<void>;
 }
 
 const CONTROL_CHANGE_STATUS = 0xb0;
+
+const PROGRAM_CHANGE_STATUS = 0xc0;
 
 export interface PortSpecifiers {
   readonly input: string;
@@ -128,6 +131,12 @@ export function createConnection(input: Input, output: Output): Connection {
         throw new ConnectionClosedError(input.name, output.name);
       }
       rateLimiter.send(channel, controller, value);
+    },
+    sendProgramChange(channel: number, message: ProgramChangeMessage): void {
+      const controlChange = CONTROL_CHANGE_STATUS | (channel - 1);
+      send(Uint8Array.of(controlChange, BANK_SELECT_MSB, message.bankMsb));
+      send(Uint8Array.of(controlChange, BANK_SELECT_LSB, message.bankLsb));
+      send(Uint8Array.of(PROGRAM_CHANGE_STATUS | (channel - 1), message.program));
     },
     async close(): Promise<void> {
       if (!open) {

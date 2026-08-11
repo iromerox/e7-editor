@@ -11,8 +11,11 @@ in the second is not automatically a parameter, and the difference decides
 whether the editor should offer a control for it. Each entry below therefore
 carries what it actually is, not just where it lives.
 
-The editor covers the panel first. Nothing here is built yet, and the four
-rows marked **not a parameter** should never be built.
+The editor covers the panel first. Two rows are reached already: the packed
+`monoVoice`/`polyVoice` pair, drawn as two selectors inside the `VOICES`
+section, and `portamento.on`, which has no control of its own — the
+`Portamento Time` knob writes it. The four rows marked **not a parameter**
+should never be built.
 
 ---
 
@@ -34,9 +37,9 @@ touches.
 
 | Field | Byte | CC | Reached from | Status |
 |---|---|---|---|---|
-| `portamento.on` | 48 | 65 | Nothing — the panel has `Portamento Time` and no on/off | Real |
+| `portamento.on` | 48 | 65 | Nothing — the panel has `Portamento Time` and no on/off | Real — **written by the `Portamento Time` knob**, on above zero |
 | `transpose` | 105 | 3 | Preset Menu (Shift + button 5) | Contested — see below |
-| `monoVoice` / `polyVoice` | 106 / 107 | 97, packed as `16*V1 + V2` | Preset Menu; the `VOICES` LED row is an indicator, not a control | Menu-only |
+| `monoVoice` / `polyVoice` | 106 / 107 | 97, packed as `16*V1 + V2` | Preset Menu; the `VOICES` LED row is an indicator, not a control | Menu-only — **built**, as the two selectors in `VOICES` |
 | `part1Only.name` | 0-19 | — | The save flow: `Bank`+`Shift`, then character entry on buttons 1-5 | Menu-only |
 | `part1Only.lock` | 127 | — | Not reachable from the panel at all — SysEx only | Real |
 | `partSettings.keyboardZoneLower` | 109 | — | Multitimbral mode (Shift + button 6) | Menu-only |

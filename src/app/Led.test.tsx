@@ -1,6 +1,6 @@
 import { render, screen } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
-import { Led, LedRow, LedStack, NO_LED_LIT, activeLedName, ledName, litIndex } from "./Led";
+import { Led, LedRow, LedStack, NO_LED_LIT, activeLedName, ledName, litIndexes } from "./Led";
 
 const LFO_SHAPES = ["Triangle", "Ramp up", "Ramp down", "Square", "S&H"] as const;
 
@@ -36,12 +36,20 @@ describe("led naming", () => {
   });
 
   it("treats an index outside the column as nothing lit", () => {
-    expect(litIndex(5, 4)).toBe(4);
-    expect(litIndex(5, 5)).toBeUndefined();
-    expect(litIndex(5, -1)).toBeUndefined();
-    expect(litIndex(5, undefined)).toBeUndefined();
+    expect(litIndexes(5, 4)).toStrictEqual([4]);
+    expect(litIndexes(5, 5)).toStrictEqual([]);
+    expect(litIndexes(5, -1)).toStrictEqual([]);
+    expect(litIndexes(5, undefined)).toStrictEqual([]);
     expect(activeLedName(3, undefined, OSC_SHAPES)).toBe(NO_LED_LIT);
     expect(activeLedName(3, 2, OSC_SHAPES)).toBe("Sawtooth");
+  });
+
+  it("takes a set of indexes, as the polyphony modes light Unison alongside ST or MT", () => {
+    expect(litIndexes(4, [2, 3])).toStrictEqual([2, 3]);
+    expect(litIndexes(4, [2, 9])).toStrictEqual([2]);
+    expect(litIndexes(4, [])).toStrictEqual([]);
+    expect(activeLedName(4, [2, 3], POLYPHONY_MODES)).toBe("MT, Unison");
+    expect(activeLedName(4, [], POLYPHONY_MODES)).toBe(NO_LED_LIT);
   });
 });
 
@@ -119,6 +127,15 @@ describe("LedStack", () => {
       expect(lensesOf(container)).toHaveLength(shapes.length);
       unmount();
     }
+  });
+
+  it("lights every LED a state names, not just one", () => {
+    const { container } = render(() => (
+      <LedStack count={POLYPHONY_MODES.length} active={[1, 3]} names={POLYPHONY_MODES} />
+    ));
+
+    const lit = lensesOf(container).map((lens) => backgroundOf(lens) === "var(--e7-led-on)");
+    expect(lit).toStrictEqual([false, true, false, true]);
   });
 
   it("lights exactly the active LED", () => {
