@@ -7,6 +7,7 @@ import { useAppState } from "./AppStateProvider";
 import { ChorusSection } from "./ChorusSection";
 import { DelaySection } from "./DelaySection";
 import { EnvelopeSection } from "./EnvelopeSection";
+import { historyShortcut } from "./edit-history";
 import { FilterSection } from "./FilterSection";
 import { createLiveEdit, targetChannel } from "./live-edit";
 import { MixerSection } from "./MixerSection";
@@ -20,12 +21,44 @@ export interface EditorPaneProps {
   readonly connection: Connection | undefined;
 }
 
+export const UNDO_HINT = "Undo the last edit, a knob drag counting as one — Ctrl+Z or ⌘Z.";
+
+export const REDO_HINT = "Redo the edit last undone — Ctrl+Shift+Z or ⌘⇧Z.";
+
+const TEXT_ENTRY_TAGS: ReadonlySet<string> = new Set(["INPUT", "TEXTAREA", "SELECT"]);
+
+function isTextEntry(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (TEXT_ENTRY_TAGS.has(target.tagName) || target.isContentEditable)
+  );
+}
+
 export function EditorPane(props: EditorPaneProps): JSX.Element {
   const controls = useAppState();
   const live = createLiveEdit(controls, () => props.connection);
   const volume = createMasterVolume(controls, () => props.connection);
 
   const channel = (): number | undefined => targetChannel(controls.state.connection.receiveChannel);
+
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (isTextEntry(event.target)) {
+      return;
+    }
+    const step = historyShortcut(event);
+    if (step === undefined) {
+      return;
+    }
+    event.preventDefault();
+    if (step === "undo") {
+      live.undo();
+    } else {
+      live.redo();
+    }
+  };
+
+  window.addEventListener("keydown", onKeyDown);
+  onCleanup(() => window.removeEventListener("keydown", onKeyDown));
 
   createEffect(() => {
     const connection = props.connection;
@@ -53,6 +86,14 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
     >
       <div style={{ display: "flex", "align-items": "baseline", gap: "0.75rem" }}>
         <h2 style={{ margin: "0" }}>Editor</h2>
+        <div style={{ display: "flex", gap: "0.25rem" }}>
+          <button type="button" title={UNDO_HINT} disabled={!live.undoable()} onClick={live.undo}>
+            Undo
+          </button>
+          <button type="button" title={REDO_HINT} disabled={!live.redoable()} onClick={live.redo}>
+            Redo
+          </button>
+        </div>
         <Switch>
           <Match when={props.connection === undefined}>
             <span style={{ color: "var(--e7-label-secondary)" }}>

@@ -1,7 +1,9 @@
-import type { EditorEdit } from "./app-state";
+import type { CcField } from "../protocol";
+import type { EditorEdit } from "./edit-history";
 import { createEffect, createRoot } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { FULL_MASTER_VOLUME, createAppState, emptyPreset } from "./app-state";
+import { COALESCE_WINDOW_MS } from "./edit-history";
 
 let dispose: (() => void) | undefined;
 
@@ -21,8 +23,8 @@ function watching<Counters>(build: () => Counters): Counters {
   });
 }
 
-function edit(cc: number, previousValue: number, nextValue: number): EditorEdit {
-  return { cc, previousValue, nextValue, at: 0 };
+function edit(field: CcField, previousValue: number, nextValue: number, at = 0): EditorEdit {
+  return { field, previousValue, nextValue, at };
 }
 
 afterEach(() => {
@@ -133,30 +135,53 @@ describe("createAppState", () => {
 
   it("moves entries between the undo and redo stacks", () => {
     const { state, recordEdit, takeUndo, takeRedo } = createAppState();
+    const first = edit("filterCutoff", 10, 20);
+    const second = edit("filterCutoff", 20, 30, COALESCE_WINDOW_MS);
 
     expect(takeUndo()).toBeUndefined();
     expect(takeRedo()).toBeUndefined();
 
-    recordEdit(edit(74, 10, 20));
-    recordEdit(edit(74, 20, 30));
-    expect(takeUndo()).toEqual(edit(74, 20, 30));
-    expect(state.history.undo).toEqual([edit(74, 10, 20)]);
-    expect(state.history.redo).toEqual([edit(74, 20, 30)]);
+    recordEdit(first);
+    recordEdit(second);
+    expect(takeUndo()).toEqual(second);
+    expect(state.history.undo).toEqual([first]);
+    expect(state.history.redo).toEqual([second]);
 
-    expect(takeRedo()).toEqual(edit(74, 20, 30));
-    expect(state.history.undo).toEqual([edit(74, 10, 20), edit(74, 20, 30)]);
+    expect(takeRedo()).toEqual(second);
+    expect(state.history.undo).toEqual([first, second]);
     expect(state.history.redo).toEqual([]);
   });
 
   it("drops the redo stack once a fresh edit is recorded", () => {
     const { state, recordEdit, takeUndo } = createAppState();
+    const fresh = edit("filterResonance", 0, 5);
 
-    recordEdit(edit(74, 10, 20));
+    recordEdit(edit("filterCutoff", 10, 20));
     takeUndo();
-    recordEdit(edit(71, 0, 5));
+    recordEdit(fresh);
 
-    expect(state.history.undo).toEqual([edit(71, 0, 5)]);
+    expect(state.history.undo).toEqual([fresh]);
     expect(state.history.redo).toEqual([]);
+  });
+
+  it("collapses successive edits to one field into a single entry", () => {
+    const { state, recordEdit } = createAppState();
+
+    recordEdit(edit("filterCutoff", 10, 20, 1000));
+    recordEdit(edit("filterCutoff", 20, 30, 1010));
+
+    expect(state.history.undo).toEqual([edit("filterCutoff", 10, 30, 1010)]);
+  });
+
+  it("forgets the history when another preset is loaded into the editor", () => {
+    const { state, recordEdit, takeUndo, loadEditor } = createAppState();
+
+    recordEdit(edit("filterCutoff", 10, 20));
+    recordEdit(edit("filterResonance", 0, 5, COALESCE_WINDOW_MS));
+    takeUndo();
+    loadEditor(emptyPreset(), { kind: "LibraryEntry", id: "entry-1" });
+
+    expect(state.history).toEqual({ undo: [], redo: [] });
   });
 });
 

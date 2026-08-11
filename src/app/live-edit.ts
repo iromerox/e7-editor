@@ -1,4 +1,4 @@
-// The editor's live path: a preset field read as a control value, the control change each edit sends, the inbound control change that moves it back, and the fields the device only ever reports.
+// The editor's live path: a preset field read as a control value, the control change each edit sends, the inbound control change that moves it back, the fields the device only ever reports, and the recorded steps undo and redo walk.
 import type { CcEvent, Connection } from "../midi";
 import type { CcField, ReceiveChannel } from "../protocol";
 import type { AppStateControls } from "./app-state";
@@ -23,6 +23,10 @@ export interface LiveEdit {
   readonly receive: (event: CcEvent) => CcField | undefined;
   readonly control: (field: CcField, readout: FieldReadout) => ControlValue;
   readonly applies: (field: CcField) => boolean;
+  readonly undo: () => void;
+  readonly redo: () => void;
+  readonly undoable: () => boolean;
+  readonly redoable: () => boolean;
 }
 
 export function targetChannel(setting: ReceiveChannel | undefined): number | undefined {
@@ -51,8 +55,7 @@ export function createLiveEdit(
       return true;
     }) ?? false;
 
-  const write = (field: CcField, next: number): void => {
-    controls.editField(field, next);
+  const send = (field: CcField, next: number): void => {
     const active = connection();
     const channel = targetChannel(controls.state.connection.receiveChannel);
     const cc = fieldToCc(field);
@@ -60,6 +63,34 @@ export function createLiveEdit(
       return;
     }
     active.sendControlChange(channel, cc, next);
+  };
+
+  const restore = (field: CcField, next: number): void => {
+    controls.editField(field, next);
+    send(field, next);
+  };
+
+  const write = (field: CcField, next: number): void => {
+    const previous = unlessReserved(() => value(field));
+    controls.editField(field, next);
+    if (previous !== undefined) {
+      controls.recordEdit({ field, previousValue: previous, nextValue: next, at: Date.now() });
+    }
+    send(field, next);
+  };
+
+  const undo = (): void => {
+    const entry = controls.takeUndo();
+    if (entry !== undefined) {
+      restore(entry.field, entry.previousValue);
+    }
+  };
+
+  const redo = (): void => {
+    const entry = controls.takeRedo();
+    if (entry !== undefined) {
+      restore(entry.field, entry.nextValue);
+    }
   };
 
   const receive = (event: CcEvent): CcField | undefined => {
@@ -88,6 +119,10 @@ export function createLiveEdit(
     write,
     receive,
     applies,
+    undo,
+    redo,
+    undoable: () => controls.state.history.undo.length > 0,
+    redoable: () => controls.state.history.redo.length > 0,
     control: (field, readout) => {
       const editable = applies(field);
       return {

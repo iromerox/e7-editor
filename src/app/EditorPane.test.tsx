@@ -1,5 +1,5 @@
 import type { CcEvent, Connection } from "../midi";
-import { render, screen } from "@solidjs/testing-library";
+import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { EMPTY, Subject } from "rxjs";
 import { describe, expect, it } from "vitest";
 import { MIXER_OSC1_LEVEL, OSC1_TRANSPOSE, VOLUME } from "../protocol";
@@ -33,6 +33,14 @@ function renderPane(connection: Connection | undefined): void {
 
 function knob(name: string): string {
   return screen.getByRole("slider", { name }).getAttribute("aria-valuenow") ?? "";
+}
+
+function nudge(name: string, key: string): void {
+  fireEvent.keyDown(screen.getByRole("slider", { name }), { key });
+}
+
+function step(button: string): HTMLElement {
+  return screen.getByRole("button", { name: button });
 }
 
 describe("EditorPane", () => {
@@ -75,5 +83,55 @@ describe("EditorPane", () => {
     renderPane(stubConnection(new Subject<CcEvent>()));
 
     expect(screen.getByRole("status")).toHaveTextContent("never reported a receive channel");
+  });
+
+  it("walks the editor's history from the header buttons", () => {
+    renderPane(stubConnection(new Subject<CcEvent>()));
+
+    expect(step("Undo")).toBeDisabled();
+    expect(step("Redo")).toBeDisabled();
+
+    nudge("OSC1", "PageUp");
+    expect(knob("OSC1")).toBe("10");
+
+    fireEvent.click(step("Undo"));
+    expect(knob("OSC1")).toBe("0");
+    expect(step("Undo")).toBeDisabled();
+
+    fireEvent.click(step("Redo"));
+    expect(knob("OSC1")).toBe("10");
+    expect(step("Redo")).toBeDisabled();
+  });
+
+  it("walks it from the keyboard as well", () => {
+    renderPane(stubConnection(new Subject<CcEvent>()));
+    nudge("OSC1", "PageUp");
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(knob("OSC1")).toBe("0");
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true, shiftKey: true });
+    expect(knob("OSC1")).toBe("10");
+  });
+
+  it("leaves the shortcut to a field being typed into", () => {
+    renderPane(stubConnection(new Subject<CcEvent>()));
+    nudge("OSC1", "PageUp");
+    const typed = document.createElement("input");
+    document.body.append(typed);
+
+    fireEvent.keyDown(typed, { key: "z", ctrlKey: true });
+
+    expect(knob("OSC1")).toBe("10");
+    typed.remove();
+  });
+
+  it("has nothing to undo for a control change the device sends", () => {
+    const cc = new Subject<CcEvent>();
+    renderPane(stubConnection(cc));
+
+    cc.next({ channel: 1, controller: MIXER_OSC1_LEVEL, value: 99, timestamp: 0 });
+
+    expect(step("Undo")).toBeDisabled();
   });
 });

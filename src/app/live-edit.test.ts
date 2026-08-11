@@ -3,8 +3,9 @@ import type { ReceiveChannel } from "../protocol";
 import type { AppStateControls } from "./app-state";
 import type { LiveEdit } from "./live-edit";
 import { EMPTY } from "rxjs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  FILTER_CUTOFF,
   FILTER_RESONANCE,
   MIXER_OSC1_LEVEL,
   MOD_WHEEL,
@@ -13,6 +14,7 @@ import {
   readField,
 } from "../protocol";
 import { createAppState, emptyPreset } from "./app-state";
+import { COALESCE_WINDOW_MS } from "./edit-history";
 import { OMNI_TARGET_CHANNEL, PART_1_ONLY_NOTE, createLiveEdit, targetChannel } from "./live-edit";
 
 interface SentCc {
@@ -189,5 +191,101 @@ describe("createLiveEdit", () => {
     expect(control.readOnly).toBe(true);
     expect(control.description).toBe(`Dry against wet. ${PART_1_ONLY_NOTE}`);
     expect(live.control("delayTime", { label: "Delay Time" }).description).toBe(PART_1_ONLY_NOTE);
+  });
+});
+
+describe("the editor's edit history", () => {
+  function drag(live: LiveEdit, from: number, to: number): void {
+    for (let value = from + 1; value <= to; value += 1) {
+      vi.advanceTimersByTime(5);
+      live.write("filterCutoff", value);
+    }
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("counts a knob drag as one step, however many values it passes through", () => {
+    vi.useFakeTimers();
+    const { controls, live } = setUp({ kind: "channel", channel: 1 });
+
+    drag(live, 0, 40);
+
+    expect(controls.state.history.undo).toMatchObject([
+      { field: "filterCutoff", previousValue: 0, nextValue: 40 },
+    ]);
+  });
+
+  it("leaves the drag that follows a pause a step of its own", () => {
+    vi.useFakeTimers();
+    const { controls, live } = setUp({ kind: "channel", channel: 1 });
+
+    drag(live, 0, 40);
+    vi.advanceTimersByTime(COALESCE_WINDOW_MS);
+    drag(live, 40, 45);
+
+    expect(controls.state.history.undo).toMatchObject([
+      { previousValue: 0, nextValue: 40 },
+      { previousValue: 40, nextValue: 45 },
+    ]);
+  });
+
+  it("puts the value back and re-sends it to the device on undo, and again on redo", () => {
+    const { controls, live, sent } = setUp({ kind: "channel", channel: 5 });
+    live.write("filterCutoff", 90);
+
+    live.undo();
+
+    expect(readField(controls.state.editor.preset, "filterCutoff")).toBe(0);
+    expect(sent.at(-1)).toEqual({ channel: 5, controller: FILTER_CUTOFF, value: 0 });
+
+    live.redo();
+
+    expect(readField(controls.state.editor.preset, "filterCutoff")).toBe(90);
+    expect(sent.at(-1)).toEqual({ channel: 5, controller: FILTER_CUTOFF, value: 90 });
+  });
+
+  it("has nothing left to redo once a fresh edit follows an undo", () => {
+    const { controls, live } = setUp({ kind: "channel", channel: 1 });
+
+    live.write("filterCutoff", 90);
+    live.undo();
+    expect(live.redoable()).toBe(true);
+
+    live.write("filterEg1Mod", 12);
+
+    expect(live.redoable()).toBe(false);
+    live.redo();
+    expect(readField(controls.state.editor.preset, "filterCutoff")).toBe(0);
+  });
+
+  it("has nothing to undo until an edit is made here", () => {
+    const { live } = setUp({ kind: "channel", channel: 1 });
+
+    expect(live.undoable()).toBe(false);
+    expect(live.redoable()).toBe(false);
+
+    live.write("filterCutoff", 90);
+
+    expect(live.undoable()).toBe(true);
+  });
+
+  it("keeps the control changes the device reports out of the history", () => {
+    const { live } = setUp({ kind: "channel", channel: 1 });
+
+    live.receive(ccEvent(MIXER_OSC1_LEVEL, 31));
+
+    expect(live.undoable()).toBe(false);
+  });
+
+  it("still edits a field whose current value the table reserves, recording no step for it", () => {
+    const { controls, live } = setUp({ kind: "channel", channel: 1 });
+    controls.loadEditor({ ...emptyPreset(), polyVoice: 6 }, { kind: "Empty" });
+
+    live.write("voices", 34);
+
+    expect(readField(controls.state.editor.preset, "voices")).toBe(34);
+    expect(live.undoable()).toBe(false);
   });
 });

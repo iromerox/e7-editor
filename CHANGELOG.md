@@ -403,6 +403,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Program Change, written straight to the port rather than through the
   control-change rate limiter, which coalesces and would be free to reorder
   the bank select behind the program it selects.
+- Undo and redo over the editor's own edits, from the header buttons or from
+  `Ctrl+Z` / `Ctrl+Shift+Z` (`Ctrl+Y` also redoes, and either modifier key
+  works). A knob drag is one step, not one per value it passes through:
+  successive edits to the same field within 300ms collapse into a single
+  entry. History is linear — a fresh edit after an undo drops what was
+  waiting to be redone — capped at 100 steps, and forgotten when another
+  preset is loaded into the editor. Stepping through it writes the value
+  back to the editor and sends the matching control change to the device,
+  the same as making the edit by hand. Control changes the device reports
+  are not recorded: the panel knob is where it is, and reversing it from
+  here would only argue with it.
 
 ### Changed
 

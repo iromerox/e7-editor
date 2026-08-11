@@ -3,9 +3,11 @@ import type { PortInfo, PortLists } from "../midi";
 import type { CcField, ReceiveChannel, SinglePreset } from "../protocol";
 import type { LibraryEntry, LibraryEntryKind } from "../store";
 import type { SlotAddress, SlotKind, SlotSummary } from "./device-slots";
+import type { EditorEdit, HistoryState } from "./edit-history";
 import { createStore, unwrap } from "solid-js/store";
 import { SINGLE_PRESET_BYTES, decodeSinglePreset, writeField } from "../protocol";
 import { BANKS_PER_KIND, slotKey } from "./device-slots";
+import { emptyHistory, recorded } from "./edit-history";
 
 export type ConnectionStatus = "midi-disabled" | "disconnected" | "connecting" | "connected";
 
@@ -59,18 +61,6 @@ export interface EditorState {
 
 export interface OutputState {
   masterVolume: number;
-}
-
-export interface EditorEdit {
-  readonly cc: number;
-  readonly previousValue: number;
-  readonly nextValue: number;
-  readonly at: number;
-}
-
-export interface HistoryState {
-  undo: readonly EditorEdit[];
-  redo: readonly EditorEdit[];
 }
 
 export interface AppState {
@@ -127,7 +117,7 @@ export function initialAppState(): AppState {
     device: { kind: "Single", bank: 1, group: 1, slots: {} },
     editor: { source: { kind: "Empty" }, preset: emptyPreset(), part: undefined },
     output: { masterVolume: FULL_MASTER_VOLUME },
-    history: { undo: [], redo: [] },
+    history: emptyHistory(),
   };
 }
 
@@ -180,6 +170,7 @@ export function createAppState(): AppStateControls {
     },
     loadEditor(preset: SinglePreset, source: EditorSource, part?: MultiPart): void {
       setState("editor", { preset, source, part });
+      setState("history", emptyHistory());
     },
     editField(field: CcField, value: number): void {
       setState("editor", "preset", (preset) => writeField(unwrap(preset), field, value));
@@ -188,7 +179,7 @@ export function createAppState(): AppStateControls {
       setState("output", "masterVolume", value);
     },
     recordEdit(edit: EditorEdit): void {
-      setState("history", (history) => ({ undo: [...history.undo, edit], redo: [] }));
+      setState("history", recorded(unwrap(state).history, edit));
     },
     takeUndo(): EditorEdit | undefined {
       const { undo, redo } = unwrap(state).history;
