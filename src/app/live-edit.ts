@@ -4,6 +4,7 @@ import type { CcField, ReceiveChannel } from "../protocol";
 import type { AppStateControls } from "./app-state";
 import type { ControlValue } from "./control-value";
 import { ccDirection, ccToFields, fieldToCc, isPart1OnlyField, readField } from "../protocol";
+import { unlessReserved } from "./reserved-values";
 
 export const OMNI_TARGET_CHANNEL = 1;
 
@@ -44,6 +45,12 @@ export function createLiveEdit(
 ): LiveEdit {
   const value = (field: CcField): number => readField(controls.state.editor.preset, field);
 
+  const applied = (field: CcField, next: number): boolean =>
+    unlessReserved(() => {
+      controls.editField(field, next);
+      return true;
+    }) ?? false;
+
   const write = (field: CcField, next: number): void => {
     controls.editField(field, next);
     const active = connection();
@@ -60,8 +67,7 @@ export function createLiveEdit(
     if (field === undefined || rest.length > 0) {
       return undefined;
     }
-    controls.editField(field, event.value);
-    return field;
+    return applied(field, event.value) ? field : undefined;
   };
 
   const applies = (field: CcField): boolean => {

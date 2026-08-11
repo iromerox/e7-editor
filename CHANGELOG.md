@@ -412,6 +412,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Each application state now starts on a preset of its own. The empty preset
   was a single shared value, and the store wrote edits through into it, so a
   second application state began wherever the first had left off.
+- An inbound control change carrying a value the field's own table reserves
+  is ignored instead of taking the editor's update path down with it. CC 97
+  above 71 is the reachable case — the packed Voices accessor rejects such a
+  value on write — and it previously threw out of the control-change
+  subscription, ending live tracking for every other parameter too.
 
 ### Documentation
 
