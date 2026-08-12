@@ -33,7 +33,7 @@ describe("App shell", () => {
 
   it("mounts inside a theme root carrying the default finish", () => {
     render(() => <App database={database} />);
-    expect(readVariable("--e7-panel")).toBe("#294a7a");
+    expect(readVariable("--e7-panel")).toBe("#0a4a72");
   });
 
   it("shows the library and device panes alongside the connection bar", () => {
@@ -52,10 +52,10 @@ describe("App shell", () => {
     render(() => <App database={database} />);
 
     await fireEvent.change(screen.getByLabelText("Panel"), { target: { value: "black" } });
-    expect(readVariable("--e7-panel")).toBe("#121214");
+    expect(readVariable("--e7-panel")).toBe("#3a2f2c");
 
     await fireEvent.change(screen.getByLabelText("Caps"), { target: { value: "black" } });
-    expect(readVariable("--e7-knob-notch")).toBe("#e0e0da");
-    expect(readVariable("--e7-panel")).toBe("#121214");
+    expect(readVariable("--e7-knob-notch")).toBe("#fcf5f0");
+    expect(readVariable("--e7-panel")).toBe("#3a2f2c");
   });
 });

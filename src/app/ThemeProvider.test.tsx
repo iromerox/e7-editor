@@ -50,9 +50,9 @@ describe("ThemeProvider", () => {
       </ThemeProvider>
     ));
 
-    expect(readVariable("--e7-panel")).toBe("#121214");
-    expect(readVariable("--e7-led-on")).toBe("#ff321f");
-    expect(readVariable("--e7-cap-top")).toBe("#f2eee3");
+    expect(readVariable("--e7-panel")).toBe("#3a2f2c");
+    expect(readVariable("--e7-led-on")).toBe("#ef2b1e");
+    expect(readVariable("--e7-cap-top")).toBe("#e5dddb");
   });
 
   it("updates the computed custom properties when the theme changes", async () => {
@@ -62,9 +62,9 @@ describe("ThemeProvider", () => {
       </ThemeProvider>
     ));
 
-    expect(readVariable("--e7-panel")).toBe("#294a7a");
+    expect(readVariable("--e7-panel")).toBe("#0a4a72");
     expect(readVariable("--e7-led-on")).toBe("#fefae6");
-    expect(readVariable("--e7-knob-notch")).toBe("#18181a");
+    expect(readVariable("--e7-knob-notch")).toBe("#040001");
 
     await fireEvent.click(screen.getByRole("button"));
 

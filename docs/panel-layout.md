@@ -103,16 +103,20 @@ miss at fitted scale.
 ### Button and LED construction
 
 Every button on the panel is a **square cap with softly rounded corners**,
-separated from the chassis by a thin dark gap, and it **takes the same finish
-colour as the knobs** — black on `e7-black-front.webp`, white on
-`e7-blue-front.webp`. Nothing on the cap changes when the button is pressed
+separated from the chassis by a thin dark gap. It takes a finish colour of
+its own, and **not necessarily the knobs'** — both front shots happen to
+pair them (black with black, white with white), but a close-up of a blue
+unit shows white buttons beside black knobs on the same instrument. Don't
+infer one from the other. Nothing on the cap changes when the button is pressed
 or when its function is active; state is shown entirely by the LED beside or
 above it. A cap measures roughly 0.8x the diameter of a standard knob skirt.
 
 LEDs are **round lenses about a quarter of a cap's width**, and an unlit one
-is not grey — it is the lit colour, unlit: dark red lenses on the red-LED
-unit, dark cream on the white-LED one. A lit LED blooms visibly into the
-panel around it.
+is not grey — it is the lit colour, unlit: the red-LED unit's unlit lenses
+measure a dark red (`#652e2a`), against `#ef2b1e` lit. A lit LED blooms
+visibly into the panel around it. Every close-up available here shows red
+LEDs, on both the black and the blue finish; see the white-LED note under
+[Finish colours](#finish-colours).
 
 Their arrangement is one of two, and which one is a panel fact per control:
 
@@ -124,6 +128,69 @@ Their arrangement is one of two, and which one is a panel fact per control:
 The editor's equivalent of a waveform glyph is the state's name in text —
 the panel can rely on a glyph beside a lens and a browser reads better with
 the word.
+
+### Finish colours
+
+The values in `src/app/theme.ts` are calibrated from the two front shots.
+Each is a median over many flat regions of the surface, never a single
+dropper hit: the panel figures come from every 9px patch across the panel
+face whose standard deviation is under 2, the knob figures from all 48
+knobs at once (found by their inlays, sampled as an upper and a lower
+sector of the skirt), and the LED figures from every lens on the panel,
+split into lit and unlit by whether the lens core clips.
+
+| Surface | Black unit | Blue unit |
+|---|---|---|
+| Panel | `#3a2f2c` (n=2679 patches) | `#016bad` (n=1394) |
+| Silkscreen ink | `#e8e1dc` | `#ece4dc` |
+| Skirt, upper / lower | `#140d0b` / `#080402` | `#e5dddb` / `#d1c8c5` |
+| Pointer | `#fcf5f0` | `#040001` |
+| Inlay | `#f6f3ef` median | `#faf8f5` median |
+| LED lit / unlit | `#ef2b1e` / `#652e2a` (red) | not sampled — see below |
+
+The inlay is the one surface that does not take the finish: it measures the
+same on both units, and near-flat, so a sector median cannot supply a
+gradient for it. `--e7-knob-inlay-top` / `--e7-knob-inlay-bottom` use the
+interquartile ends of its own spread instead (`#faf8f5` and `#f1ede9`,
+n=73530 pixels), which is what makes the brushed sheen read as the knob
+turns. The lit LED figure is a median over the lens pixels that are *not*
+clipped — 38% of a lit red lens is blown out in the photograph, so the real
+emission is at least that saturated.
+
+Three things the sampling settled that were previously assumed, and one it
+turned out not to be able to settle at all:
+
+- **The black unit has black skirts, not white ones.** Its knobs read as
+  light at fitted scale because of the near-white inlay in the middle of
+  each one, not because of the skirt.
+- **The white LED is not sampled from anything.** `#fefae6` / `#403d32` are
+  the hand-picked values the theme shipped with, kept deliberately. The
+  low-resolution blue shot does read cream at its lit lenses, but a close-up
+  of a blue unit shows red LEDs, so what that shot records is a small blown
+  lens with its chroma washed out, not a white one. No photograph available
+  here shows a white-LED instrument. Replace these the moment one does.
+- **The section boxes are outlines, not fills.** Sampling just inside and
+  just outside the same border, at the same height, puts the interior
+  1-5 luminance units *darker* than the exterior — border shading, not a
+  fill; there is one continuous panel surface behind everything.
+- **Both shots are saturation-boosted in post.** The same mahogany cheek
+  returns a blue channel of 3 in both, which no real wood does under
+  neutral light, and the blue panel's red channel is crushed to 1 for the
+  same reason.
+
+Two deliberate departures from the samples:
+
+- `--e7-section-background` is a small lift above `--e7-panel` rather than
+  the same value. The hardware delineates a section with a silkscreened
+  outline on a continuous surface; a 1px browser border does not group as
+  strongly at screen size, so the fill carries part of the work. The lift
+  is kept to +8 per channel so it stays a hint.
+- The blue panel ships at `#0a4a72`, not the sampled `#016bad`: the sample
+  desaturated 16% (see the saturation-boost point above) and taken to 72%
+  of its value. At the sampled value, `--e7-label-secondary` lands at
+  3.36:1 against the panel and fails WCAG AA for small text. Every
+  label/background pair now clears 4.5:1 on both finishes, the closest
+  being the secondary label on the blue section background at 4.76:1.
 
 ### The tick arc
 

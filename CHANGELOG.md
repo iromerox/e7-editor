@@ -449,6 +449,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   eight slots one at a time and keeps the results, instead of waiting for
   eight presses of a per-slot `Read`. A slot the device never answered for
   keeps a read of its own to retry with.
+- Every finish colour that a photograph can source is now calibrated against
+  the hardware photography instead of hand-picked: panel and section
+  background per finish, skirt, pointer and inlay per cap colour, and the lit
+  and unlit lens of the red LED. The white LED keeps its hand-picked values.
+  The black panel is a warm near-black rather than a cool one, the blue is a
+  deeper and more saturated azure, and black caps are near-black with a
+  bright inlay rather than the mid-grey they were. Both label colours now
+  clear WCAG AA against both backgrounds on both finishes; the secondary
+  label previously fell to 4.44:1 on the blue section background.
 
 ### Fixed
 
@@ -590,3 +599,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   what value byte 48 holds when portamento is on. The editor writes 127 on the
   general MIDI switch convention, which is the only evidence there is for it,
   and the entry records the hardware check that would settle it.
+- `docs/panel-layout.md`: the finish colours behind `src/app/theme.ts`, how
+  each was sampled, and what the sampling settled — the black unit has black
+  skirts rather than white ones, a section box is an outline and not a fill,
+  and both photographs are saturation-boosted in post. Records the two places
+  the shipped theme departs from its samples, that a button's finish colour
+  is independent of the knobs', and that the white LED is the one value no
+  available photograph can source.

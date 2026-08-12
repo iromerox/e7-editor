@@ -23,29 +23,29 @@ export const THEME_COMBINATIONS: readonly Theme[] = PANEL_TONES.flatMap((panel) 
   LED_COLORS.flatMap((led) => CAP_COLORS.map((cap) => ({ panel, led, cap }))),
 );
 
-const PANEL_COLOR: Record<PanelTone, string> = { blue: "#294a7a", black: "#121214" };
+const PANEL_COLOR: Record<PanelTone, string> = { blue: "#0a4a72", black: "#3a2f2c" };
 
-const SECTION_BACKGROUND: Record<PanelTone, string> = { blue: "#33588c", black: "#1a1a1c" };
+const SECTION_BACKGROUND: Record<PanelTone, string> = { blue: "#12527a", black: "#423734" };
 
-const SILKSCREEN: Record<PanelTone, string> = { blue: "#e9ecf0", black: "#c9c9cc" };
+const SILKSCREEN: Record<PanelTone, string> = { blue: "#ece4dc", black: "#e8e1dc" };
 
-const SILKSCREEN_SECONDARY: Record<PanelTone, string> = { blue: "#e9ecf0c8", black: "#c9c9ccc8" };
+const SILKSCREEN_SECONDARY: Record<PanelTone, string> = { blue: "#ece4dcc8", black: "#e8e1dcc8" };
 
-const LED_ON: Record<LedColor, string> = { white: "#fefae6", red: "#ff321f" };
+const LED_ON: Record<LedColor, string> = { white: "#fefae6", red: "#ef2b1e" };
 
-const LED_OFF: Record<LedColor, string> = { white: "#403d32", red: "#44100a" };
+const LED_OFF: Record<LedColor, string> = { white: "#403d32", red: "#652e2a" };
 
-const LED_HALO: Record<LedColor, string> = { white: "#fefae628", red: "#ff321f28" };
+const LED_HALO: Record<LedColor, string> = { white: "#fefae628", red: "#ef2b1e28" };
 
-const CAP_TOP: Record<CapColor, string> = { white: "#f2eee3", black: "#32302c" };
+const CAP_TOP: Record<CapColor, string> = { white: "#e5dddb", black: "#140d0b" };
 
-const CAP_BOTTOM: Record<CapColor, string> = { white: "#c4beae", black: "#161412" };
+const CAP_BOTTOM: Record<CapColor, string> = { white: "#d1c8c5", black: "#080402" };
 
-const KNOB_NOTCH: Record<CapColor, string> = { white: "#18181a", black: "#e0e0da" };
+const KNOB_NOTCH: Record<CapColor, string> = { white: "#040001", black: "#fcf5f0" };
 
-const KNOB_INLAY_TOP = "#f7f4f0";
+const KNOB_INLAY_TOP = "#faf8f5";
 
-const KNOB_INLAY_BOTTOM = "#d8d4cd";
+const KNOB_INLAY_BOTTOM = "#f1ede9";
 
 const MODIFIED_DOT = "#ffc100";
 
