@@ -1,11 +1,20 @@
 // Cap buttons: the momentary switch with its own LED, and the two-layer selector that steps an LED column.
 import type { JSX } from "solid-js";
 import type { LedSelection } from "./Led";
-import { Show, createSignal } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
+import { STANDARD_CAP_REM } from "./Knob";
 import { LayerLabel } from "./LayerLabel";
-import { LED_GAP_REM, Led, LedStack, activeLedName } from "./Led";
+import { LED_GAP_REM, Led, LedStack, activeLedName, ledStackHeightRem, litIndexes } from "./Led";
 
 export const CAP_REM = 1.5;
+
+export const CAP_ROW_OFFSET_REM = (STANDARD_CAP_REM - CAP_REM) / 2;
+
+export const READOUT_WIDTH_REM = 5.5;
+
+const LED_COLUMN_GAP_REM = 0.35;
+
+const READOUT_LINE_REM = 0.9;
 
 const ACTIVATION_KEYS: ReadonlySet<string> = new Set([" ", "Enter"]);
 
@@ -26,6 +35,7 @@ export interface ButtonLayer {
   readonly count: number;
   readonly active?: LedSelection | undefined;
   readonly names?: readonly string[] | undefined;
+  readonly readout?: string | undefined;
   readonly description?: string | undefined;
   readonly onPress: () => void;
 }
@@ -121,15 +131,36 @@ export function ButtonLed(props: ButtonLedProps): JSX.Element {
 export function DualButton(props: DualButtonProps): JSX.Element {
   const [selected, setSelected] = createSignal<ButtonLayerName>("primary");
 
-  const layer = (): ButtonLayer => {
+  const layerOf = (name: ButtonLayerName): ButtonLayer => {
     const shift = props.shift;
-    return selected() === "shift" && shift !== undefined ? shift : props.primary;
+    return name === "shift" && shift !== undefined ? shift : props.primary;
   };
+
+  const showing = (): ButtonLayerName => (props.shift === undefined ? "primary" : selected());
+
+  const names = (): readonly ButtonLayerName[] =>
+    props.shift === undefined ? ["primary"] : ["primary", "shift"];
+
+  const layer = (): ButtonLayer => layerOf(showing());
+
+  const lensesOf = (): ButtonLayerName => (layer().count > 0 ? showing() : "primary");
 
   const capName = (): string => {
     const current = layer();
-    return `${current.label}: ${activeLedName(current.count, current.active, current.names)}`;
+    return `${current.label}: ${current.readout ?? activeLedName(current.count, current.active, current.names)}`;
   };
+
+  const spelledOut = (): string | undefined => {
+    const current = layer();
+    return litIndexes(current.count, current.active).length === 0 ? current.readout : undefined;
+  };
+
+  const overhangRem = (): number =>
+    names().reduce((deepest, name) => {
+      const current = layerOf(name);
+      const column = ledStackHeightRem(current.count, current.names !== undefined);
+      return Math.max(deepest, (column - CAP_REM) / 2);
+    }, 0);
 
   return (
     <div
@@ -138,31 +169,80 @@ export function DualButton(props: DualButtonProps): JSX.Element {
         "flex-direction": "column",
         "align-items": "flex-start",
         gap: "0.2rem",
+        "padding-top": `${CAP_ROW_OFFSET_REM}rem`,
         color: "var(--e7-label)",
         "user-select": "none",
       }}
     >
-      <div style={{ display: "flex", "align-items": "center", gap: "0.35rem" }}>
+      <div
+        style={{
+          display: "flex",
+          "align-items": "center",
+          gap: `${LED_COLUMN_GAP_REM}rem`,
+          height: `${CAP_REM}rem`,
+        }}
+      >
         <Cap name={capName()} description={layer().description} onPress={() => layer().onPress()} />
-        <LedStack count={layer().count} active={layer().active} names={layer().names} />
+        <div style={{ display: "grid" }}>
+          <For each={names()}>
+            {(name) => (
+              <div
+                style={{
+                  "grid-area": "1 / 1",
+                  visibility: name === lensesOf() ? "visible" : "hidden",
+                }}
+              >
+                <LedStack
+                  count={layerOf(name).count}
+                  active={layerOf(name).active}
+                  names={layerOf(name).names}
+                />
+              </div>
+            )}
+          </For>
+        </div>
       </div>
-      <LayerLabel
-        label={props.primary.label}
-        selectable={props.shift !== undefined}
-        selected={selected() === "primary"}
-        onSelect={() => setSelected("primary")}
-      />
-      <Show when={props.shift}>
-        {(shift) => (
-          <LayerLabel
-            label={shift().label}
-            boxed={true}
-            selectable={true}
-            selected={selected() === "shift"}
-            onSelect={() => setSelected("shift")}
-          />
-        )}
-      </Show>
+      <div
+        style={{
+          display: "flex",
+          "flex-direction": "column",
+          "align-items": "flex-start",
+          gap: "0.2rem",
+          "margin-top": `${overhangRem()}rem`,
+        }}
+      >
+        <LayerLabel
+          label={props.primary.label}
+          selectable={props.shift !== undefined}
+          selected={selected() === "primary"}
+          onSelect={() => setSelected("primary")}
+        />
+        <Show when={props.shift}>
+          {(shift) => (
+            <LayerLabel
+              label={shift().label}
+              boxed={true}
+              selectable={true}
+              selected={selected() === "shift"}
+              onSelect={() => setSelected("shift")}
+            />
+          )}
+        </Show>
+        <Show when={spelledOut()}>
+          {(text) => (
+            <span
+              style={{
+                "max-width": `${READOUT_WIDTH_REM}rem`,
+                "font-size": "0.7rem",
+                "line-height": `${READOUT_LINE_REM}rem`,
+                color: "var(--e7-label-secondary)",
+              }}
+            >
+              {text()}
+            </span>
+          )}
+        </Show>
+      </div>
     </div>
   );
 }

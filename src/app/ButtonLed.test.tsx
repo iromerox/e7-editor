@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
-import { ButtonLed, CAP_REM, DualButton } from "./ButtonLed";
+import { ButtonLed, CAP_REM, CAP_ROW_OFFSET_REM, DualButton, READOUT_WIDTH_REM } from "./ButtonLed";
 
 const LFO_SHAPES = ["Triangle", "Ramp up", "Ramp down", "Square", "S&H"] as const;
 
@@ -15,9 +15,18 @@ const LFO_MODES = [
 
 const OSC_SHAPES = ["Triangle", "Saw-tri", "Sawtooth"] as const;
 
+function shown(element: HTMLElement): boolean {
+  for (let node: HTMLElement | null = element; node !== null; node = node.parentElement) {
+    if (node.style.visibility === "hidden") {
+      return false;
+    }
+  }
+  return true;
+}
+
 function litLensesOf(container: HTMLElement): readonly HTMLElement[] {
   return [...container.querySelectorAll("span")].filter(
-    (span) => span.style.background === "var(--e7-led-on)",
+    (span) => span.style.background === "var(--e7-led-on)" && shown(span),
   );
 }
 
@@ -176,6 +185,102 @@ describe("DualButton", () => {
     expect(capOf("Wave shape: none")).toBeInTheDocument();
   });
 
+  it("spells the state out under the button only while no lens is lit", () => {
+    const { container, unmount } = render(() => (
+      <DualButton
+        primary={{
+          label: "Wave shape",
+          count: LFO_SHAPES.length,
+          active: 4,
+          names: LFO_SHAPES,
+          readout: "Sample and hold",
+          onPress: () => {},
+        }}
+      />
+    ));
+
+    expect(container.textContent).not.toContain("Sample and hold");
+    unmount();
+
+    const { container: dark } = render(() => (
+      <DualButton
+        primary={{
+          label: "Wave shape",
+          count: LFO_SHAPES.length,
+          names: LFO_SHAPES,
+          readout: "S&H (LED off)",
+          onPress: () => {},
+        }}
+      />
+    ));
+
+    expect(dark.textContent).toContain("S&H (LED off)");
+    expect(capOf("Wave shape: S&H (LED off)")).toBeInTheDocument();
+  });
+
+  it("spells out a layer the panel gives no lenses at all", () => {
+    const { container } = render(() => (
+      <DualButton
+        primary={{ label: "Wave shape", count: 5, active: 0, onPress: () => {} }}
+        shift={{ label: "Mode", count: 0, readout: "Clock Sync", onPress: () => {} }}
+      />
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Mode" }));
+
+    expect(container.textContent).toContain("Clock Sync");
+    expect(capOf("Mode: Clock Sync")).toBeInTheDocument();
+  });
+
+  it("drops the cap onto the centre line of the knobs beside it, whatever its column holds", () => {
+    const { container, unmount } = render(() => (
+      <DualButton primary={{ label: "Wave shape", count: 5, active: 0, onPress: () => {} }} />
+    ));
+
+    const group = capGroupOf(container);
+    expect(group.style.height).toBe(`${CAP_REM}rem`);
+    expect(group.style.alignItems).toBe("center");
+    expect((group.parentElement as HTMLElement).style.paddingTop).toBe(`${CAP_ROW_OFFSET_REM}rem`);
+    unmount();
+
+    const { container: short } = render(() => (
+      <DualButton primary={{ label: "Pulse", count: 1, active: 0, onPress: () => {} }} />
+    ));
+    expect((capGroupOf(short).parentElement as HTMLElement).style.paddingTop).toBe(
+      `${CAP_ROW_OFFSET_REM}rem`,
+    );
+  });
+
+  it("clears the column's overhang before the labels under a tall one", () => {
+    const labelBlockOf = (container: HTMLElement): HTMLElement => {
+      const block = capGroupOf(container).nextElementSibling;
+      if (!(block instanceof HTMLElement)) {
+        throw new Error("no label block rendered");
+      }
+      return block;
+    };
+
+    const { container: tall, unmount } = render(() => (
+      <DualButton
+        primary={{
+          label: "Wave shape",
+          count: LFO_SHAPES.length,
+          active: 0,
+          names: LFO_SHAPES,
+          onPress: () => {},
+        }}
+      />
+    ));
+
+    expect(Number.parseFloat(labelBlockOf(tall).style.marginTop)).toBeGreaterThan(0);
+    unmount();
+
+    const { container: none } = render(() => (
+      <DualButton primary={{ label: "Mode", count: 0, readout: "Clock Sync", onPress: () => {} }} />
+    ));
+    expect(labelBlockOf(none).style.marginTop).toBe("0rem");
+  });
+
   it("shows one plain label and no layer buttons when the panel has no shift label", () => {
     render(() => (
       <DualButton primary={{ label: "Wave shape", count: 4, active: 0, onPress: () => {} }} />
@@ -232,7 +337,7 @@ describe("DualButton", () => {
     expect(onShape).toHaveBeenCalledTimes(1);
   });
 
-  it("swaps the LED column for the selected layer's own length", () => {
+  it("swaps the LED column for the selected layer's own length, keeping both columns' space", () => {
     const { container } = render(() => (
       <DualButton
         primary={{ label: "Wave shape", count: 5, active: 0, onPress: () => {} }}
@@ -240,14 +345,57 @@ describe("DualButton", () => {
       />
     ));
 
-    const lensCount = (): number =>
+    const lenses = (): readonly HTMLElement[] =>
       [...container.querySelectorAll("span")].filter((span) =>
         span.style.background.startsWith("var(--e7-led-"),
-      ).length;
+      );
+    const lensCount = (): number => lenses().filter(shown).length;
 
     expect(lensCount()).toBe(5);
+    expect(lenses()).toHaveLength(11);
+
     fireEvent.click(screen.getByRole("button", { name: "Mode" }));
+
     expect(lensCount()).toBe(6);
+    expect(lenses()).toHaveLength(11);
+  });
+
+  it("keeps the primary column lit under a shift layer that has no lenses of its own", () => {
+    const { container } = render(() => (
+      <DualButton
+        primary={{
+          label: "Wave shape",
+          count: LFO_SHAPES.length,
+          active: 1,
+          names: LFO_SHAPES,
+          onPress: () => {},
+        }}
+        shift={{ label: "Mode", count: 0, readout: "Clock Sync", onPress: () => {} }}
+      />
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Mode" }));
+
+    expect(litLensesOf(container)).toHaveLength(1);
+    expect(container.textContent).toContain("Ramp up");
+    expect(container.textContent).toContain("Clock Sync");
+  });
+
+  it("wraps a long spelled-out state rather than widening the button under it", () => {
+    const { container } = render(() => (
+      <DualButton
+        primary={{ label: "Wave shape", count: 5, active: 0, onPress: () => {} }}
+        shift={{ label: "Mode", count: 0, readout: "Keyboard + Clock Sync", onPress: () => {} }}
+      />
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Mode" }));
+
+    const line = [...container.querySelectorAll("span")].find(
+      (span) => span.textContent === "Keyboard + Clock Sync",
+    );
+    expect(line?.style.maxWidth).toBe(`${READOUT_WIDTH_REM}rem`);
+    expect(line?.style.whiteSpace).toBe("");
   });
 
   it("marks the selected layer for assistive technology", () => {

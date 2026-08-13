@@ -6,6 +6,8 @@ export const LED_DIAMETER_REM = 0.5;
 
 export const LED_GAP_REM = 0.25;
 
+export const LED_NAME_REM = 0.65;
+
 export const NO_LED_LIT = "none";
 
 export interface LedProps {
@@ -51,6 +53,15 @@ export function activeLedName(
 
 function positions(count: number): readonly number[] {
   return Array.from({ length: Math.max(0, Math.trunc(count)) }, (_, index) => index);
+}
+
+export function ledStackHeightRem(count: number, named: boolean): number {
+  const rows = positions(count).length;
+  if (rows === 0) {
+    return 0;
+  }
+  const row = named ? Math.max(LED_DIAMETER_REM, LED_NAME_REM) : LED_DIAMETER_REM;
+  return rows * row + (rows - 1) * LED_GAP_REM;
 }
 
 export function Led(props: LedProps): JSX.Element {
@@ -124,7 +135,7 @@ export function LedStack(props: LedStackProps): JSX.Element {
               {(name) => (
                 <span
                   style={{
-                    "font-size": "0.65rem",
+                    "font-size": `${LED_NAME_REM}rem`,
                     "line-height": "1",
                     color: "var(--e7-silkscreen)",
                   }}

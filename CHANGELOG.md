@@ -414,6 +414,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the same as making the edit by hand. Control changes the device reports
   are not recorded: the panel knob is where it is, and reversing it from
   here would only argue with it.
+- `src/app/LfoSection.tsx`: the `LFO` box at the far left of the panel's top
+  band — LFO 1 over LFO 2, each a `Wave shape` button stepping its five-lens
+  column over a `Rate` knob, with `Mode` on the button's shift layer as the
+  panel silkscreens it. Each half is a single centred column on the same row
+  guides as the Oscillators beside them, so the caps, the knobs and the
+  dividing rule all line up across the two boxes. The
+  sixth wave shape — the sample-and-hold value the panel button never reaches
+  and the instrument can still report — reads as `S&H (LED off)` with the
+  column dark, and pressing from it rejoins the cycle at `Triangle`. `Mode`
+  lights no lens, since the instrument shows it on the display and the
+  button's lenses belong to `Wave shape`; the mode's name reads under the
+  button instead.
+- A selector button spells its state out in words under the button whenever
+  no lens is lit, and leaves a lit lens to name its own state. The two states
+  that need the words are a layer with no LED column at all, such as the
+  LFOs' `Mode`, and the LFO wave shape the instrument reports with the column
+  dark. A button reserves the space every layer's column needs and caps the
+  width of those words, wrapping a long one onto a second line, so neither
+  stepping through values nor switching layers moves the cap. Selecting a
+  shift layer that has no lenses of its own — the LFOs' `Mode` — leaves the
+  primary layer's column lit rather than blanking it, since those lenses are
+  physical and still show the waveform.
+- LFO 2's `Rate` knob carries no `EG1 Mod` shift layer, and says so in a line
+  under the knob: the user manual gives that parameter to LFO 2 and the
+  preset byte map gives it to LFO 1, so a knob there would write to whichever
+  of the two is the mistake. It waits on a check against the instrument, and
+  the knob's own description carries the whole disagreement.
 
 ### Changed
 
@@ -458,6 +485,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   bright inlay rather than the mid-grey they were. Both label colours now
   clear WCAG AA against both backgrounds on both finishes; the secondary
   label previously fell to 4.44:1 on the blue section background.
+- A selector button's cap now sits on the centre line of the knobs in its
+  row, with its LED column centred on the cap instead of the other way
+  round. Letting the column place the cap made a button's height depend on
+  how many lenses it had, so buttons sharing a row with each other and with
+  the knobs beside them sat at three different heights, and a button moved
+  when its shift layer changed the column's length.
 
 ### Fixed
 
@@ -606,3 +639,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the shipped theme departs from its samples, that a button's finish colour
   is independent of the knobs', and that the white LED is the one value no
   available photograph can source.
+- `docs/panel-layout.md`: how the LFO 1 / LFO 2 box was built and where it
+  departs from the panel — the unbuilt `EG1 Mod` shift layer and the sentence
+  standing in for it, the `Mode` layer that lights nothing because the
+  instrument shows the mode on its display, the sixth wave shape named rather
+  than left as a dark column, and the empty lower row each half keeps to stay
+  on the Oscillators' row guides.

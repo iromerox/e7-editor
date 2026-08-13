@@ -129,6 +129,31 @@ The editor's equivalent of a waveform glyph is the state's name in text —
 the panel can rely on a glyph beside a lens and a browser reads better with
 the word.
 
+**The cap is the anchor, not the column.** A cap sits on the centre line of
+the knobs in its row — the same line the knob caps' centres sit on — and its
+LED column is centred on the cap, overhanging above and below when the
+column is taller than the cap. The reverse, letting the column place the
+cap, makes a cap's height depend on how many lenses it has: LFO 1's
+five-lens button hung 14px below OSC 1's three-lens button on the same row,
+and a button's own cap moved when its shift layer swapped one column length
+for another.
+
+Two consequences worth knowing before adding a selector: the labels under a
+button clear the column's lower overhang rather than the cap's bottom edge,
+and a column tall enough reaches into the row above, so check it against
+whatever that row holds. On the LFO box that row holds the half's name, and
+the two clear each other only because the button is centred in a column
+wider than itself.
+
+**A button holds still.** A button centred in its column walks sideways if
+its own footprint changes with what it is showing, and two things made it:
+switching layers swapped one LED column for another of a different length,
+and the spelled-out state under it grew and shrank with the value. So a
+button now reserves the space every layer's column needs, and the
+spelled-out line is capped at a width narrower than that column and wraps
+past it. Keep a state's name short enough to sit on one line — the wrap is
+there so a long one costs a line rather than a jump sideways.
+
 ### Finish colours
 
 The values in `src/app/theme.ts` are calibrated from the two front shots.
@@ -350,6 +375,64 @@ Bottom half of the `LFO` box.
 |---|---|---|---|---|
 | `Wave shape` | `Mode` | Button + LED column (5) | `lfo2.shape` / CC 61; shift: `lfo2.mode` / CC 70 | Same five LEDs and same enums as LFO 1. |
 | `Rate` | `EG1 Mod` | Knob | `lfo2.rate` / CC 62; shift: **contested** — CC 67, and either `lfo1.eg1Mod` (byte 55) or nothing persisted | The shift layer is the panel's only EG1→LFO modulation control. Manual p.14 attributes it to LFO 2. See [Finding 1](#finding-1-eg1-mod-is-silkscreened-on-lfo-2-but-the-byte-is-named-lfo-1) before wiring this knob. |
+
+### How the box was built, and where it departs from the panel
+
+The `EG1 Mod` shift layer is **not built**. The knob carries `Rate` alone,
+and a line beside it says the user manual and the byte map name different
+LFOs, with the whole disagreement in the knob's own description. A knob that
+moves nothing teaches the user nothing; a sentence where the knob would be
+tells them what the instrument's own documents disagree about.
+
+`Mode` lights no LEDs of its own. The five lenses on this button belong to
+`Wave shape`, and the mode is on the instrument's display, so the shift
+layer reads the mode's name under the button rather than inventing a
+six-lens column the hardware does not have. The shape's column stays lit
+underneath it: the lenses are physical, and holding a shift layer over them
+is no reason for the instrument to appear to forget its waveform. A layer
+with lenses of its own still shows them — the fallback is to the primary
+column, not to it always. The names are the manual's, in its own
+abbreviated forms — `KB Tracking` and `KB Sync` are the parenthesised short
+names it gives on p.14, and `KB + Clock Sync` follows them — because a name
+wider than the button's column costs a second line under it. The full six
+are spelled out in the button's description.
+
+**A selector spells its state out only when no lens is lit.** `ButtonLayer`
+grew an optional `readout` — always the cap's accessible name, and printed
+under the button only while the column is dark. A lit lens already names its
+own state, since each has its silkscreen beside it, so printing the value
+again beneath is duplication. The two states that need words are the `Mode`
+layer, which has no lenses at all, and the sixth `LfoShape`: `S&H (LED off)`
+reads under a dark column, which is what the instrument does, and pressing
+from there rejoins the cycle at `Triangle`, the button's own cycle being the
+five lit positions. Without the words, that state and a column that happens
+to be dark would look alike.
+
+**Every cap in the editor moved onto its row's knob centre line** because of
+this box: the LFO's five-lens column made the mismatch visible where the
+Oscillators' three-lens one had hidden it. See
+[Button and LED construction](#button-and-led-construction) for the rule
+that replaced it.
+
+**The `Rate` knob sits under its button, not beside it.** The panel puts the
+two side by side, but the editor's box is a column two rows deep like the
+Oscillators beside it, and stacking them puts each control on a guide the
+neighbouring section already uses: the `Wave shape` cap on the centre line
+of the oscillator knobs in the upper row, the `Rate` knob on the lower row
+with `Pulse Width` and the two PWM knobs. Side by side, the knob had a row
+of its own and lined up with nothing.
+
+Stacked, each half is a **single centred column** and the box is the
+narrowest in the top band, which is the proportion the panel has. Prose does
+not fit a column that narrow beside a control, so the `EG1 Mod` line sits in
+a row of its own below the knob, and the box runs taller than the
+Oscillators by roughly the height of those few lines. The line is kept short
+for that reason; the knob's own description carries the full disagreement.
+
+Each half is named at the left, in the same legend row as `OSC 1` and
+`OSC 2` beside it. The five-lens column overhangs into that row, and clears
+the name only because centring the button in a column wider than itself
+moves the lenses to the right of it.
 
 ## LFO 3
 
@@ -833,6 +916,10 @@ preset byte no control can touch. **HW-08 owns this** — send CC 67, then
 read the preset back and watch byte 55. Until it is answered, don't rename
 `lfo1.eg1Mod` and don't wire the knob to CC 67. Recorded as
 protocol-quirks #5, whose runtime-only reading this pass contests.
+
+The LFO section built to that instruction leaves the shift layer off the
+knob entirely and puts the disagreement in a sentence under it, rather than
+drawing a layer that writes nowhere.
 
 ### Finding 2: Master Volume is a control with no preset field
 

@@ -38,7 +38,7 @@ export const SKIRT_LOBES = 7;
 
 const LARGE_CAP_RATIO = 1.7;
 
-const STANDARD_CAP_REM = 3;
+export const STANDARD_CAP_REM = 3;
 
 const READ_ONLY_OPACITY = 0.7;
 

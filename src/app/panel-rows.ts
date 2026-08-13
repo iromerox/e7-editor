@@ -15,6 +15,16 @@ export const TOP_BAND_HALF_ROWS = `${LEGEND_ROW} ${KNOB_ROW} ${RULE_ROW} ${KNOB_
 
 export const OSCILLATOR_GRID_ROWS = `${KNOB_ROW} ${RULE_ROW} ${KNOB_ROW}`;
 
+export const NOTED_GRID_ROWS = `${OSCILLATOR_GRID_ROWS} auto`;
+
+export const OSCILLATOR_GRID_ROW = {
+  upper: 1,
+  rule: 2,
+  lower: 3,
+} as const;
+
+export const NOTE_ROW = OSCILLATOR_GRID_ROW.lower + 1;
+
 export const TOP_BAND_ROWS = `${TOP_BAND_HALF_ROWS} ${DIVIDER_ROW} ${TOP_BAND_HALF_ROWS}`;
 
 export const HALF_BAND_ROW = {

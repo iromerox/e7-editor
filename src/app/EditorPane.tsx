@@ -9,6 +9,7 @@ import { DelaySection } from "./DelaySection";
 import { EnvelopeSection } from "./EnvelopeSection";
 import { historyShortcut } from "./edit-history";
 import { FilterSection } from "./FilterSection";
+import { LfoSection } from "./LfoSection";
 import { createLiveEdit, targetChannel } from "./live-edit";
 import { MixerSection } from "./MixerSection";
 import { createMasterVolume } from "./master-volume";
@@ -123,6 +124,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           gap: "1rem",
         }}
       >
+        <LfoSection live={live} />
         <OscillatorsSection live={live} />
         <MixerSection live={live} />
         <div style={{ display: "flex", "flex-direction": "column", gap: "1rem" }}>
