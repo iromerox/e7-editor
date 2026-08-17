@@ -12,6 +12,14 @@ export function overwriteQuestion(name: string): string {
   return `Saving replaces what “${name}” stores with the preset in the editor. What it stores now is not kept.`;
 }
 
+export function writeQuestion(slot: string): string {
+  return `Writing replaces what ${slot} holds on the instrument with the preset in the editor. What it holds now is not kept.`;
+}
+
+export function writtenNote(slot: string): string {
+  return `Written to ${slot}.`;
+}
+
 export function savedNote(name: string): string {
   return `Saved to the library as “${name}”.`;
 }

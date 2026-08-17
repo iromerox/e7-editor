@@ -1,13 +1,13 @@
-// Moving a device slot's preset off the instrument: into the editor, or into the library as a device dump, with the per-slot progress and the gate that protects unsaved edits.
+// Moving a preset between a device slot and the rest of the app: a slot read into the editor or into the library as a device dump, and the editor's preset written back to a slot, with the per-slot progress and the gates that protect unsaved edits and the instrument's memory.
 import type { LibraryDatabase } from "../store";
 import type { AppStateControls, MultiPart } from "./app-state";
-import type { SlotAddress, SlotContents, SlotReader } from "./device-slots";
+import type { SlotAccess, SlotAddress, SlotContents } from "./device-slots";
 import { createStore } from "solid-js/store";
 import { storeDeviceDump } from "../store";
-import { slotByteAddress, slotKey } from "./device-slots";
-import { describeFailure, savedNote } from "./transfer";
+import { isFactorySlot, slotByteAddress, slotKey, unlockedPresetImage } from "./device-slots";
+import { describeFailure, savedNote, writtenNote } from "./transfer";
 
-export type SlotTransferTask = "load" | "save";
+export type SlotTransferTask = "load" | "save" | "write";
 
 export type SlotTransferState =
   | { readonly status: "confirming"; readonly task: SlotTransferTask }
@@ -23,6 +23,7 @@ export interface SlotTransfers {
   readonly editorPart: () => MultiPart | undefined;
   readonly load: (address: SlotAddress) => void;
   readonly save: (address: SlotAddress) => void;
+  readonly write: (address: SlotAddress) => void;
   readonly proceed: (address: SlotAddress) => void;
   readonly cancel: (address: SlotAddress) => void;
 }
@@ -33,9 +34,31 @@ export const LOAD_NOTE =
 export const SAVE_NOTE =
   "Save to library stores this slot's preset as a new library entry. The editor keeps the preset it has.";
 
+export const WRITE_NOTE =
+  "Write sends the preset in the editor to this slot, replacing what the instrument holds there. The library keeps the entries it has.";
+
+export function factorySlotRefusal(slot: string): string {
+  return `${slot} is a factory preset, and the instrument keeps those. Slots from 1.8.1 on are the ones a preset can be written to.`;
+}
+
+export function multiSlotRefusal(slot: string): string {
+  return `${slot} holds four presets and the editor holds one, so a write here would leave the other three unaddressed. Write to a single slot.`;
+}
+
+export function lockedSlotRefusal(slot: string): string {
+  return `${slot} is locked on the instrument, so nothing was written to it. A locked slot has to be unlocked before anything can replace what it holds.`;
+}
+
+export function writeRefusal(address: SlotAddress): string | undefined {
+  if (address.kind === "Multi") {
+    return multiSlotRefusal(slotKey(address));
+  }
+  return isFactorySlot(address) ? factorySlotRefusal(slotKey(address)) : undefined;
+}
+
 export function createSlotTransfers(
   controls: AppStateControls,
-  reader: () => SlotReader | undefined,
+  access: () => SlotAccess | undefined,
   database: LibraryDatabase,
 ): SlotTransfers {
   const [transfers, setTransfers] = createStore<Record<string, SlotTransferState | undefined>>({});
@@ -59,12 +82,35 @@ export function createSlotTransfers(
     return savedNote(entry.name);
   };
 
+  const resummarize = async (address: SlotAddress, slots: SlotAccess): Promise<void> => {
+    await slots.read(address).then(
+      (summary) => controls.setSlotState(address, { status: "read", summary }),
+      (error: unknown) =>
+        controls.setSlotState(address, { status: "failed", reason: describeFailure(error) }),
+    );
+  };
+
+  const ontoDevice = async (
+    address: SlotAddress,
+    slots: SlotAccess,
+  ): Promise<SlotTransferState> => {
+    if (await slots.readLocked(address)) {
+      return { status: "failed", task: "write", reason: lockedSlotRefusal(slotKey(address)) };
+    }
+    await slots.write(address, unlockedPresetImage(controls.state.editor.preset));
+    await resummarize(address, slots);
+    return { status: "done", task: "write", note: writtenNote(slotKey(address)) };
+  };
+
   const run = async (
     task: SlotTransferTask,
     address: SlotAddress,
-    reading: SlotReader,
+    slots: SlotAccess,
   ): Promise<SlotTransferState | undefined> => {
-    const contents = await reading.readContents(address);
+    if (task === "write") {
+      return ontoDevice(address, slots);
+    }
+    const contents = await slots.readContents(address);
     if (task === "load") {
       intoEditor(address, contents);
       return undefined;
@@ -73,19 +119,19 @@ export function createSlotTransfers(
   };
 
   const start = (task: SlotTransferTask, address: SlotAddress): void => {
-    const reading = reader();
-    if (reading === undefined) {
+    const slots = access();
+    if (slots === undefined) {
       return;
     }
     set(address, { status: "running", task });
-    void run(task, address, reading).then(
+    void run(task, address, slots).then(
       (next) => set(address, next),
       (error: unknown) => set(address, { status: "failed", task, reason: describeFailure(error) }),
     );
   };
 
   return {
-    reachable: () => reader() !== undefined,
+    reachable: () => access() !== undefined,
     state: (address) => transfers[slotKey(address)],
     unsavedEdits: () => controls.state.history.undo.length,
     inEditor(address: SlotAddress): boolean {
@@ -102,6 +148,14 @@ export function createSlotTransfers(
     },
     save(address: SlotAddress): void {
       start("save", address);
+    },
+    write(address: SlotAddress): void {
+      const refusal = writeRefusal(address);
+      if (refusal !== undefined) {
+        set(address, { status: "failed", task: "write", reason: refusal });
+        return;
+      }
+      set(address, { status: "confirming", task: "write" });
     },
     proceed(address: SlotAddress): void {
       const pending = transfers[slotKey(address)];

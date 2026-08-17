@@ -1,4 +1,4 @@
-// Typed error hierarchies for the memory-block reads that assemble a device slot, and for putting a stored library entry in the editor.
+// Typed error hierarchies for the memory-block reads that assemble a device slot, the writes that put one back, and putting a stored library entry in the editor.
 import type { LibraryEntryKind } from "../store";
 
 export type DeviceReadErrorCode = "slot-block-length" | "slot-block-unanswered";
@@ -39,6 +39,60 @@ export class SlotBlockUnansweredError extends DeviceReadError {
       cause: reason,
     });
     this.name = "SlotBlockUnansweredError";
+  }
+}
+
+export type DeviceWriteErrorCode =
+  | "slot-image-length"
+  | "slot-block-unacknowledged"
+  | "slot-block-echoed-otherwise";
+
+export abstract class DeviceWriteError extends Error {
+  abstract readonly code: DeviceWriteErrorCode;
+}
+
+function stoppedAt(address: number, block: number, blocks: number): string {
+  return `write of ${hexAddress(address)} stopped at block ${block} of ${blocks}`;
+}
+
+export class SlotImageLengthError extends DeviceWriteError {
+  readonly code = "slot-image-length" as const;
+
+  constructor(
+    readonly expected: number,
+    readonly actual: number,
+  ) {
+    super(`a slot write takes ${expected} bytes, not ${actual}`);
+    this.name = "SlotImageLengthError";
+  }
+}
+
+export class SlotBlockUnacknowledgedError extends DeviceWriteError {
+  readonly code = "slot-block-unacknowledged" as const;
+
+  constructor(
+    readonly address: number,
+    readonly block: number,
+    readonly blocks: number,
+    readonly reason: unknown,
+  ) {
+    super(`${stoppedAt(address, block, blocks)}: ${describeReason(reason)}`, { cause: reason });
+    this.name = "SlotBlockUnacknowledgedError";
+  }
+}
+
+export class SlotBlockEchoedOtherwiseError extends DeviceWriteError {
+  readonly code = "slot-block-echoed-otherwise" as const;
+
+  constructor(
+    readonly address: number,
+    readonly block: number,
+    readonly blocks: number,
+  ) {
+    super(
+      `${stoppedAt(address, block, blocks)}: the device echoed back other bytes than it was sent`,
+    );
+    this.name = "SlotBlockEchoedOtherwiseError";
   }
 }
 

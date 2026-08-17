@@ -46,6 +46,8 @@ interface SentProgramChange extends ProgramChangeMessage {
 
 const selected: SentProgramChange[] = [];
 
+const written: number[] = [];
+
 function presetImage(name: string, lockByte: number): Uint8Array {
   const bytes = new Uint8Array(SINGLE_PRESET_BYTES);
   for (const [index, character] of [...name].entries()) {
@@ -86,8 +88,47 @@ function serveSlots(images: ReadonlyMap<number, Uint8Array>): void {
   });
 }
 
+function storeBlock(
+  images: ReadonlyMap<number, Uint8Array>,
+  address: number,
+  data: Uint8Array,
+): void {
+  for (const [base, image] of images) {
+    if (address >= base && address < base + image.length) {
+      image.set(data, address - base);
+      return;
+    }
+  }
+}
+
+function serveDevice(images: ReadonlyMap<number, Uint8Array>): void {
+  vi.mocked(requestResponse).mockImplementation((_connection, command) => {
+    if (command.kind === "read-memory") {
+      return Promise.resolve({ kind: "memory-data", data: blockOf(images, command.address) });
+    }
+    if (command.kind !== "write-memory") {
+      throw new Error(`unexpected command ${command.kind}`);
+    }
+    written.push(command.address);
+    storeBlock(images, command.address, command.data);
+    return Promise.resolve({ kind: "memory-data", data: command.data });
+  });
+}
+
+function imageAt(images: ReadonlyMap<number, Uint8Array>, base: number): Uint8Array {
+  const image = images.get(base);
+  if (image === undefined) {
+    throw new Error(`nothing served at ${base}`);
+  }
+  return image;
+}
+
 function slotAt(bank: number, group: number, slot: number): number {
   return slotByteAddress({ kind: "Single", bank, group, slot });
+}
+
+function blockAddresses(base: number, blocks: number): number[] {
+  return Array.from({ length: blocks }, (_, index) => base + index * READ_BLOCK_BYTES);
 }
 
 function renderPane(active: Connection | undefined): AppStateControls {
@@ -135,6 +176,7 @@ beforeEach(async () => {
   vi.mocked(requestResponse).mockReset();
   serveSlots(new Map());
   selected.length = 0;
+  written.length = 0;
   library = await createLibraryDatabase({
     name: `device-pane-${Math.random().toString(36).slice(2)}`,
   });
@@ -476,12 +518,165 @@ describe("DevicePane transfers", () => {
     expect(controls.state.editor.source).toEqual({ kind: "Empty" });
   });
 
-  it("offers neither transfer while there is no connection", () => {
+  it("offers no transfer at all while there is no connection", () => {
     renderPane(undefined);
 
     expect(
       screen.getByRole("button", { name: "Load Single 1.1.1 into the editor" }),
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save Single 1.1.1 to the library" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Write the editor's preset to Single 1.1.1" }),
+    ).toBeDisabled();
+  });
+});
+
+describe("DevicePane writes", () => {
+  async function editing(
+    images: ReadonlyMap<number, Uint8Array>,
+    from: string,
+  ): Promise<AppStateControls> {
+    serveDevice(images);
+    const controls = renderPane(connection);
+    await fireEvent.click(screen.getByRole("button", { name: "Group 8" }));
+    await settled();
+    await fireEvent.click(screen.getByRole("button", { name: `Load ${from} into the editor` }));
+    await vi.waitFor(() => expect(controls.state.editor.source).not.toEqual({ kind: "Empty" }));
+    return controls;
+  }
+
+  async function write(target: string, confirm: boolean): Promise<void> {
+    await fireEvent.click(
+      screen.getByRole("button", { name: `Write the editor's preset to ${target}` }),
+    );
+    if (confirm) {
+      await fireEvent.click(
+        screen.getByRole("button", { name: `Write the editor's preset to ${target} anyway` }),
+      );
+    }
+  }
+
+  it("asks before it writes, naming the slot, and sends nothing until it is told to", async () => {
+    const images = new Map([
+      [slotAt(1, 8, 3), slotFixture("Fat Brass")],
+      [slotAt(1, 8, 5), new Uint8Array(SINGLE_PRESET_BYTES)],
+    ]);
+    const controls = await editing(images, "Single 1.8.3");
+
+    await write("Single 1.8.5", false);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Writing replaces what Single 1.8.5 holds on the instrument",
+    );
+    expect(written).toEqual([]);
+
+    await fireEvent.click(
+      screen.getByRole("button", {
+        name: "Keep what is stored, leaving Single 1.8.5 as the instrument has it",
+      }),
+    );
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(written).toEqual([]);
+
+    await write("Single 1.8.5", true);
+
+    await vi.waitFor(() =>
+      expect(screen.getByText("Written to Single 1.8.5.")).toBeInTheDocument(),
+    );
+    expect(written).toEqual(blockAddresses(slotAt(1, 8, 5), 8));
+    expect(decodeSinglePreset(imageAt(images, slotAt(1, 8, 5)))).toEqual(
+      controls.state.editor.preset,
+    );
+    expect(slotLabels()[4]).toContain("Fat Brass");
+  });
+
+  it("writes the preset unlocked, so a preset taken from a locked slot cannot lock the slot it lands in", async () => {
+    const source = slotFixture("Opening Pad");
+    source[LOCK_BYTE_INDEX] = 1;
+    const images = new Map([
+      [slotAt(1, 8, 1), source],
+      [slotAt(1, 8, 6), new Uint8Array(SINGLE_PRESET_BYTES)],
+    ]);
+    await editing(images, "Single 1.8.1");
+
+    await write("Single 1.8.6", true);
+
+    await vi.waitFor(() =>
+      expect(screen.getByText("Written to Single 1.8.6.")).toBeInTheDocument(),
+    );
+    const landed = imageAt(images, slotAt(1, 8, 6));
+    expect(landed[LOCK_BYTE_INDEX]).toBe(0);
+    expect(landed.subarray(0, LOCK_BYTE_INDEX)).toEqual(source.subarray(0, LOCK_BYTE_INDEX));
+  });
+
+  it("refuses the factory range, with the reason at the slot and nothing on the wire", async () => {
+    serveDevice(new Map());
+    renderPane(connection);
+    await settled();
+
+    await write("Single 1.1.1", false);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Single 1.1.1 is a factory preset");
+    expect(written).toEqual([]);
+    expect(
+      screen.queryByRole("button", { name: "Write the editor's preset to Single 1.1.1 anyway" }),
+    ).toBeNull();
+  });
+
+  it("refuses a multi slot, which the editor's one preset cannot fill", async () => {
+    serveDevice(new Map());
+    renderPane(connection);
+    await fireEvent.click(screen.getByRole("tab", { name: "Multi" }));
+    await settled();
+
+    await write("Multi 1.1.1", false);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Multi 1.1.1 holds four presets");
+    expect(written).toEqual([]);
+  });
+
+  it("reads the target's lock byte itself, refusing a slot locked since the cell was read", async () => {
+    const target = slotFixture("Opening Pad");
+    const images = new Map([
+      [slotAt(1, 8, 1), slotFixture("Fat Brass")],
+      [slotAt(1, 8, 2), target],
+    ]);
+    await editing(images, "Single 1.8.1");
+    expect(slotLabels()[1]).toContain("Unlocked");
+
+    target[LOCK_BYTE_INDEX] = 1;
+    await write("Single 1.8.2", true);
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Single 1.8.2 is locked on the instrument",
+      ),
+    );
+    expect(written).toEqual([]);
+  });
+
+  it("reports the block a write stopped at rather than reporting a write", async () => {
+    const base = slotAt(1, 8, 4);
+    const images = new Map([
+      [slotAt(1, 8, 1), slotFixture("Fat Brass")],
+      [base, new Uint8Array(SINGLE_PRESET_BYTES)],
+    ]);
+    await editing(images, "Single 1.8.1");
+    const serving = vi.mocked(requestResponse).getMockImplementation();
+    vi.mocked(requestResponse).mockImplementation((sent, command) => {
+      if (command.kind === "write-memory" && command.address === base + 3 * READ_BLOCK_BYTES) {
+        return Promise.reject(new Error("no write-memory response parsed within 1000ms"));
+      }
+      return serving?.(sent, command) ?? Promise.reject(new Error("nothing served"));
+    });
+
+    await write("Single 1.8.4", true);
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("stopped at block 4 of 8"),
+    );
+    expect(screen.queryByText(/^Written to/)).toBeNull();
+    expect(written).toEqual(blockAddresses(base, 3));
   });
 });

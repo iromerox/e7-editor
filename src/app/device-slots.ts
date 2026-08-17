@@ -1,4 +1,4 @@
-// Slot addressing for the device browser, and the reads that fill in a slot's name, lock state and full contents.
+// Slot addressing for the device browser, the reads that fill in a slot's name, lock state and full contents, and the write that puts a preset back into one.
 import type { Connection } from "../midi";
 import type {
   MemoryDataResponse,
@@ -12,15 +12,23 @@ import {
   MultiSlot,
   NAME_BYTES,
   NAME_OFFSET,
+  PRESET_UNLOCKED,
   PresetSlot,
   READ_MEMORY_BLOCK_BYTES,
   decodeMultiPreset,
   decodeSinglePreset,
   encodeProgramChange,
+  encodeSinglePreset,
   isPresetLocked,
 } from "../protocol";
 import { MULTI_PRESET_BLOCKS, SINGLE_PRESET_BLOCKS } from "../store";
-import { SlotBlockLengthError, SlotBlockUnansweredError } from "./errors";
+import {
+  SlotBlockEchoedOtherwiseError,
+  SlotBlockLengthError,
+  SlotBlockUnacknowledgedError,
+  SlotBlockUnansweredError,
+  SlotImageLengthError,
+} from "./errors";
 
 export type SlotKind = "Single" | "Multi";
 
@@ -31,6 +39,10 @@ export const BANKS_PER_KIND: Readonly<Record<SlotKind, number>> = { Single: 8, M
 export const GROUPS_PER_BANK = 8;
 
 export const SLOTS_PER_GROUP = 8;
+
+export const FACTORY_BANK = 1;
+
+export const LAST_FACTORY_GROUP = 7;
 
 export interface SlotAddress {
   readonly kind: SlotKind;
@@ -58,9 +70,11 @@ export interface SlotMulti {
 
 export type SlotContents = SlotSingle | SlotMulti;
 
-export interface SlotReader {
+export interface SlotAccess {
   read(address: SlotAddress): Promise<SlotSummary>;
   readContents(address: SlotAddress): Promise<SlotContents>;
+  readLocked(address: SlotAddress): Promise<boolean>;
+  write(address: SlotAddress, bytes: Uint8Array): Promise<void>;
 }
 
 export const BLOCKS_PER_SLOT: Readonly<Record<SlotKind, number>> = {
@@ -81,6 +95,14 @@ export function slotByteAddress(address: SlotAddress): number {
   return address.kind === "Single"
     ? new PresetSlot(bank, group, slot).byteAddress()
     : new MultiSlot(bank, group, slot).byteAddress();
+}
+
+export function isFactorySlot(address: SlotAddress): boolean {
+  return (
+    address.kind === "Single" &&
+    address.bank === FACTORY_BANK &&
+    address.group <= LAST_FACTORY_GROUP
+  );
 }
 
 export function slotProgramChange(address: SlotAddress): ProgramChangeMessage {
@@ -129,6 +151,24 @@ async function readBlock(connection: Connection, address: number): Promise<Uint8
   return response.data;
 }
 
+async function writeBlock(
+  connection: Connection,
+  address: number,
+  data: Uint8Array,
+  block: number,
+  blocks: number,
+): Promise<void> {
+  let echo: MemoryDataResponse;
+  try {
+    echo = await requestResponse(connection, { kind: "write-memory", address, data });
+  } catch (reason) {
+    throw new SlotBlockUnacknowledgedError(address, block, blocks, reason);
+  }
+  if (echo.data.length !== data.length || data.some((byte, index) => echo.data[index] !== byte)) {
+    throw new SlotBlockEchoedOtherwiseError(address, block, blocks);
+  }
+}
+
 export async function readSlotSummary(
   connection: Connection,
   address: SlotAddress,
@@ -146,6 +186,14 @@ export async function readSlotSummary(
   };
 }
 
+export async function readSlotLocked(
+  connection: Connection,
+  address: SlotAddress,
+): Promise<boolean> {
+  const block = await readBlock(connection, slotByteAddress(address) + LOCK_BLOCK_OFFSET);
+  return isPresetLocked(byteAt(block, LOCK_BYTE_INDEX - LOCK_BLOCK_OFFSET));
+}
+
 export async function readSlotContents(
   connection: Connection,
   address: SlotAddress,
@@ -160,10 +208,39 @@ export async function readSlotContents(
     : { kind: "Multi", bytes, multi: decodeMultiPreset(bytes) };
 }
 
-export function createSlotReader(connection: Connection): SlotReader {
+export function unlockedPresetImage(preset: SinglePreset): Uint8Array {
+  const bytes = encodeSinglePreset(preset);
+  bytes[LOCK_BYTE_INDEX] = PRESET_UNLOCKED;
+  return bytes;
+}
+
+export async function writeSlotContents(
+  connection: Connection,
+  address: SlotAddress,
+  bytes: Uint8Array,
+): Promise<void> {
+  const blocks = BLOCKS_PER_SLOT[address.kind];
+  const expected = blocks * READ_MEMORY_BLOCK_BYTES;
+  if (bytes.length !== expected) {
+    throw new SlotImageLengthError(expected, bytes.length);
+  }
+  const base = slotByteAddress(address);
+  for (let block = 0; block < blocks; block += 1) {
+    const offset = block * READ_MEMORY_BLOCK_BYTES;
+    await writeBlock(
+      connection,
+      base + offset,
+      bytes.subarray(offset, offset + READ_MEMORY_BLOCK_BYTES),
+      block + 1,
+      blocks,
+    );
+  }
+}
+
+export function createSlotAccess(connection: Connection): SlotAccess {
   let queue: Promise<unknown> = Promise.resolve();
-  const serialized = <Result>(read: () => Promise<Result>): Promise<Result> => {
-    const result = queue.then(read);
+  const serialized = <Result>(exchange: () => Promise<Result>): Promise<Result> => {
+    const result = queue.then(exchange);
     queue = result.catch(() => undefined);
     return result;
   };
@@ -173,6 +250,12 @@ export function createSlotReader(connection: Connection): SlotReader {
     },
     readContents(address: SlotAddress): Promise<SlotContents> {
       return serialized(() => readSlotContents(connection, address));
+    },
+    readLocked(address: SlotAddress): Promise<boolean> {
+      return serialized(() => readSlotLocked(connection, address));
+    },
+    write(address: SlotAddress, bytes: Uint8Array): Promise<void> {
+      return serialized(() => writeSlotContents(connection, address, bytes));
     },
   };
 }

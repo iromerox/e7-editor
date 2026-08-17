@@ -1,4 +1,4 @@
-// Device browser: bank and group navigation over the e7's single and multi slots, with per-slot name and lock reads, the preset selection the panel's numbered buttons make, and the per-slot transfers into the editor and the library.
+// Device browser: bank and group navigation over the e7's single and multi slots, with per-slot name and lock reads, the preset selection the panel's numbered buttons make, and the per-slot transfers into the editor, into the library, and back onto the instrument.
 import type { JSX } from "solid-js";
 import type { Connection } from "../midi";
 import type { LibraryDatabase } from "../store";
@@ -12,14 +12,20 @@ import {
   GROUPS_PER_BANK,
   SLOTS_PER_GROUP,
   SLOT_KINDS,
-  createSlotReader,
+  createSlotAccess,
   slotKey,
   slotLabel,
 } from "./device-slots";
 import { EditorChip } from "./EditorChip";
 import { createPresetSelection } from "./preset-select";
-import { LOAD_NOTE, SAVE_NOTE, createSlotTransfers } from "./slot-transfer";
-import { KEEP_EDITING, describeFailure, unsavedEditsQuestion } from "./transfer";
+import { LOAD_NOTE, SAVE_NOTE, WRITE_NOTE, createSlotTransfers } from "./slot-transfer";
+import {
+  KEEP_EDITING,
+  KEEP_STORED,
+  describeFailure,
+  unsavedEditsQuestion,
+  writeQuestion,
+} from "./transfer";
 
 export interface DevicePaneProps {
   readonly connection: Connection | undefined;
@@ -33,6 +39,20 @@ export const SELECTION_NOTE =
 
 export const AUTO_READ_NOTE =
   "The eight slots in view are read as you reach them, one at a time, and kept.";
+
+const RUNNING_NOTE: Readonly<Record<SlotTransferTask, string>> = {
+  load: "Loading…",
+  save: "Saving…",
+  write: "Writing…",
+};
+
+interface Confirmation {
+  readonly question: string;
+  readonly proceedLabel: string;
+  readonly proceedText: string;
+  readonly cancelLabel: string;
+  readonly cancelText: string;
+}
 
 function counting(total: number): readonly number[] {
   return Array.from({ length: total }, (_, index) => index + 1);
@@ -120,7 +140,28 @@ function SlotCell(props: SlotCellProps): JSX.Element {
     const pending = transfer();
     return pending?.status === "running" ? pending.task : undefined;
   };
-  const confirming = (): boolean => transfer()?.status === "confirming";
+  const confirmation = (): Confirmation | undefined => {
+    const pending = transfer();
+    if (pending?.status !== "confirming") {
+      return undefined;
+    }
+    if (pending.task === "write") {
+      return {
+        question: writeQuestion(named()),
+        proceedLabel: `Write the editor's preset to ${named()} anyway`,
+        proceedText: "Write anyway",
+        cancelLabel: `${KEEP_STORED}, leaving ${named()} as the instrument has it`,
+        cancelText: KEEP_STORED,
+      };
+    }
+    return {
+      question: unsavedEditsQuestion(props.transfers.unsavedEdits()),
+      proceedLabel: `Load ${named()} anyway`,
+      proceedText: "Load anyway",
+      cancelLabel: `${KEEP_EDITING}, leaving ${named()} where it is`,
+      cancelText: KEEP_EDITING,
+    };
+  };
   const done = (): string | undefined => {
     const pending = transfer();
     return pending?.status === "done" ? pending.note : undefined;
@@ -208,39 +249,50 @@ function SlotCell(props: SlotCellProps): JSX.Element {
         >
           Save to library
         </button>
+        <button
+          type="button"
+          aria-label={`Write the editor's preset to ${named()}`}
+          disabled={!props.transfers.reachable() || running() !== undefined}
+          title={WRITE_NOTE}
+          onClick={() => props.transfers.write(props.address)}
+        >
+          Write from editor
+        </button>
         <Show when={props.transfers.inEditor(props.address)}>
           <EditorChip part={props.transfers.editorPart()} />
         </Show>
       </div>
       <Switch>
         <Match when={running()}>
-          {(task) => <span role="status">{task() === "load" ? "Loading…" : "Saving…"}</span>}
+          {(task) => <span role="status">{RUNNING_NOTE[task()]}</span>}
         </Match>
-        <Match when={confirming()}>
-          <div
-            style={{
-              display: "flex",
-              "align-items": "baseline",
-              "flex-wrap": "wrap",
-              gap: "0.5rem",
-            }}
-          >
-            <span role="alert">{unsavedEditsQuestion(props.transfers.unsavedEdits())}</span>
-            <button
-              type="button"
-              aria-label={`Load ${named()} anyway`}
-              onClick={() => props.transfers.proceed(props.address)}
+        <Match when={confirmation()}>
+          {(ask) => (
+            <div
+              style={{
+                display: "flex",
+                "align-items": "baseline",
+                "flex-wrap": "wrap",
+                gap: "0.5rem",
+              }}
             >
-              Load anyway
-            </button>
-            <button
-              type="button"
-              aria-label={`${KEEP_EDITING}, leaving ${named()} where it is`}
-              onClick={() => props.transfers.cancel(props.address)}
-            >
-              {KEEP_EDITING}
-            </button>
-          </div>
+              <span role="alert">{ask().question}</span>
+              <button
+                type="button"
+                aria-label={ask().proceedLabel}
+                onClick={() => props.transfers.proceed(props.address)}
+              >
+                {ask().proceedText}
+              </button>
+              <button
+                type="button"
+                aria-label={ask().cancelLabel}
+                onClick={() => props.transfers.cancel(props.address)}
+              >
+                {ask().cancelText}
+              </button>
+            </div>
+          )}
         </Match>
         <Match when={refused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
         <Match when={done()}>{(note) => <span role="status">{note()}</span>}</Match>
@@ -254,12 +306,12 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
   const { state, selectSlotKind, selectBank, selectGroup, setSlotState } = controls;
   const presets = createPresetSelection(controls, () => props.connection);
 
-  const reader = createMemo(() => {
+  const slots = createMemo(() => {
     const connection = props.connection;
-    return connection === undefined ? undefined : createSlotReader(connection);
+    return connection === undefined ? undefined : createSlotAccess(connection);
   });
 
-  const transfers = createSlotTransfers(controls, reader, props.database);
+  const transfers = createSlotTransfers(controls, slots, props.database);
 
   const isSelected = (address: SlotAddress): boolean => {
     const selected = presets.selected();
@@ -267,7 +319,7 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
   };
 
   const readSlot = (address: SlotAddress): void => {
-    const reading = reader();
+    const reading = slots();
     if (reading === undefined) {
       return;
     }
@@ -280,7 +332,7 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
   };
 
   createEffect(() => {
-    const ready = reader() !== undefined;
+    const ready = slots() !== undefined;
     const { kind, bank, group } = state.device;
     if (!ready) {
       return;

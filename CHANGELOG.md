@@ -493,6 +493,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and a preset the library has no place for — one edited from nothing, or one
   part of a multi read off the device — says so instead of guessing where it
   belongs.
+- The editor's preset can be written to a device slot — the one transfer that
+  changes the instrument's memory. `Write from editor` covers the slot with
+  consecutive Write Memory blocks, each checked against the bytes the device
+  echoes back, and asks first, naming the slot it is about to replace. A
+  locked slot is refused with its lock state as the reason, read off the
+  instrument at the moment of writing rather than taken from what the browser
+  last saw; the factory range `1.1.1`-`1.7.8` and multi slots are refused
+  before anything is sent. The preset lands unlocked, so one taken from a
+  locked slot cannot lock where it is written. A write that stops partway says
+  which block it stopped at instead of reporting a write, and a slot that was
+  written is re-read, so the browser shows what it now holds.
 
 ### Changed
 

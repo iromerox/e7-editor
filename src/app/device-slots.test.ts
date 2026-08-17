@@ -17,14 +17,24 @@ import {
 } from "../protocol";
 import {
   BANKS_PER_KIND,
-  createSlotReader,
+  createSlotAccess,
+  isFactorySlot,
   readSlotContents,
+  readSlotLocked,
   readSlotSummary,
   slotByteAddress,
   slotKey,
   slotLabel,
+  unlockedPresetImage,
+  writeSlotContents,
 } from "./device-slots";
-import { SlotBlockLengthError, SlotBlockUnansweredError } from "./errors";
+import {
+  SlotBlockEchoedOtherwiseError,
+  SlotBlockLengthError,
+  SlotBlockUnacknowledgedError,
+  SlotBlockUnansweredError,
+  SlotImageLengthError,
+} from "./errors";
 
 vi.mock("../midi", () => ({ requestResponse: vi.fn() }));
 
@@ -90,6 +100,32 @@ function serveMemory(base: number, image: Uint8Array): number[] {
   return requested;
 }
 
+interface DeviceTraffic {
+  readonly read: number[];
+  readonly written: number[];
+}
+
+function serveDevice(base: number, memory: Uint8Array): DeviceTraffic {
+  const traffic: DeviceTraffic = { read: [], written: [] };
+  vi.mocked(requestResponse).mockImplementation((_connection, command) => {
+    const offset = "address" in command ? command.address - base : 0;
+    if (command.kind === "read-memory") {
+      traffic.read.push(command.address);
+      return Promise.resolve({
+        kind: "memory-data",
+        data: memory.slice(offset, offset + READ_BLOCK_BYTES),
+      });
+    }
+    if (command.kind === "write-memory") {
+      traffic.written.push(command.address);
+      memory.set(command.data, offset);
+      return Promise.resolve({ kind: "memory-data", data: command.data });
+    }
+    throw new Error(`unexpected command ${command.kind}`);
+  });
+  return traffic;
+}
+
 beforeEach(() => {
   vi.mocked(requestResponse).mockReset();
 });
@@ -109,6 +145,14 @@ describe("slot addressing", () => {
 
   it("offers eight single banks and the two the multi range reaches", () => {
     expect(BANKS_PER_KIND).toEqual({ Single: 8, Multi: 2 });
+  });
+
+  it("counts bank 1 up to group 7 as the factory range, and nothing else", () => {
+    expect(isFactorySlot({ kind: "Single", bank: 1, group: 1, slot: 1 })).toBe(true);
+    expect(isFactorySlot({ kind: "Single", bank: 1, group: 7, slot: 8 })).toBe(true);
+    expect(isFactorySlot({ kind: "Single", bank: 1, group: 8, slot: 1 })).toBe(false);
+    expect(isFactorySlot({ kind: "Single", bank: 2, group: 1, slot: 1 })).toBe(false);
+    expect(isFactorySlot({ kind: "Multi", bank: 1, group: 1, slot: 1 })).toBe(false);
   });
 
   it("labels a slot by its address, and keys the two kinds apart", () => {
@@ -278,7 +322,138 @@ describe("readSlotContents", () => {
   });
 });
 
-describe("createSlotReader", () => {
+describe("readSlotLocked", () => {
+  const slot: SlotAddress = { kind: "Single", bank: 2, group: 4, slot: 6 };
+
+  it("reads the lock byte off the instrument, in the one block that holds it", async () => {
+    const base = slotByteAddress(slot);
+    const traffic = serveDevice(base, presetImage("Opening Pad", 1));
+
+    await expect(readSlotLocked(connection, slot)).resolves.toBe(true);
+    expect(traffic.read).toEqual([base + 112]);
+  });
+
+  it("reports a slot whose lock byte is clear as unlocked", async () => {
+    serveDevice(slotByteAddress(slot), presetImage("Opening Pad", 0));
+
+    await expect(readSlotLocked(connection, slot)).resolves.toBe(false);
+  });
+});
+
+describe("unlockedPresetImage", () => {
+  it("clears the lock byte, so writing a locked preset cannot lock where it lands", () => {
+    const preset = decodeSinglePreset(presetImage("Opening Pad", 1));
+
+    const image = unlockedPresetImage(preset);
+
+    expect(preset.part1Only.lock).toBe(1);
+    expect(image[LOCK_BYTE_INDEX]).toBe(0);
+    expect(image.slice(0, LOCK_BYTE_INDEX)).toEqual(
+      encodeSinglePreset(preset).slice(0, LOCK_BYTE_INDEX),
+    );
+  });
+});
+
+describe("writeSlotContents", () => {
+  const single: SlotAddress = { kind: "Single", bank: 1, group: 8, slot: 3 };
+  const multi: SlotAddress = { kind: "Multi", bank: 2, group: 1, slot: 4 };
+
+  it("covers a single slot with eight consecutive block writes, and a multi slot with thirty-two", async () => {
+    const memory = new Uint8Array(MULTI_PRESET_BYTES);
+    const singleTraffic = serveDevice(slotByteAddress(single), memory);
+    await writeSlotContents(connection, single, presetFixture(SINGLE_PRESET_BYTES));
+    const multiTraffic = serveDevice(slotByteAddress(multi), memory);
+    await writeSlotContents(connection, multi, presetFixture(MULTI_PRESET_BYTES));
+
+    expect(singleTraffic.written).toEqual(blockAddresses(slotByteAddress(single), 8));
+    expect(multiTraffic.written).toEqual(blockAddresses(slotByteAddress(multi), 32));
+  });
+
+  it("puts a preset where reading the slot back returns it", async () => {
+    const memory = new Uint8Array(SINGLE_PRESET_BYTES);
+    serveDevice(slotByteAddress(single), memory);
+    const written = presetFixture(SINGLE_PRESET_BYTES);
+
+    await writeSlotContents(connection, single, written);
+    const contents = await readSlotContents(connection, single);
+
+    expect(contents).toEqual({
+      kind: "Single",
+      bytes: written,
+      preset: decodeSinglePreset(written),
+    });
+  });
+
+  it("refuses an image that is not the size of the slot, before sending anything", async () => {
+    serveDevice(slotByteAddress(single), new Uint8Array(SINGLE_PRESET_BYTES));
+
+    const failure = await writeSlotContents(
+      connection,
+      single,
+      new Uint8Array(SINGLE_PRESET_BYTES - 1),
+    ).catch((reason: unknown) => reason);
+
+    expect(failure).toBeInstanceOf(SlotImageLengthError);
+    expect(failure).toMatchObject({ code: "slot-image-length", expected: 128, actual: 127 });
+    expect(requestResponse).not.toHaveBeenCalled();
+  });
+
+  it("names the block it stopped at when the device stops acknowledging, rather than reporting a write", async () => {
+    const base = slotByteAddress(single);
+    const memory = new Uint8Array(SINGLE_PRESET_BYTES);
+    const traffic = serveDevice(base, memory);
+    const acknowledging = vi.mocked(requestResponse).getMockImplementation();
+    vi.mocked(requestResponse).mockImplementation((sent, command) => {
+      if (command.kind === "write-memory" && command.address === base + 3 * READ_BLOCK_BYTES) {
+        return Promise.reject(new Error("no write-memory response parsed within 1000ms"));
+      }
+      return acknowledging?.(sent, command) ?? Promise.reject(new Error("unserved"));
+    });
+
+    const failure = await writeSlotContents(
+      connection,
+      single,
+      presetFixture(SINGLE_PRESET_BYTES),
+    ).catch((reason: unknown) => reason);
+
+    expect(failure).toBeInstanceOf(SlotBlockUnacknowledgedError);
+    expect(failure).toMatchObject({
+      code: "slot-block-unacknowledged",
+      address: base + 3 * READ_BLOCK_BYTES,
+      block: 4,
+      blocks: 8,
+    });
+    expect(String(failure)).toContain("stopped at block 4 of 8");
+    expect(traffic.written).toEqual(blockAddresses(base, 3));
+    expect(memory.subarray(3 * READ_BLOCK_BYTES)).toEqual(
+      new Uint8Array(SINGLE_PRESET_BYTES - 3 * READ_BLOCK_BYTES),
+    );
+  });
+
+  it("refuses a block the device echoed back as something else", async () => {
+    const base = slotByteAddress(single);
+    vi.mocked(requestResponse).mockImplementation((_connection, command) => {
+      if (command.kind !== "write-memory") {
+        throw new Error(`unexpected command ${command.kind}`);
+      }
+      const echoed = Uint8Array.from(command.data);
+      echoed[0] = 0xff;
+      return Promise.resolve({ kind: "memory-data", data: echoed });
+    });
+
+    const failure = await writeSlotContents(
+      connection,
+      single,
+      presetFixture(SINGLE_PRESET_BYTES),
+    ).catch((reason: unknown) => reason);
+
+    expect(failure).toBeInstanceOf(SlotBlockEchoedOtherwiseError);
+    expect(failure).toMatchObject({ code: "slot-block-echoed-otherwise", address: base, block: 1 });
+    expect(requestResponse).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createSlotAccess", () => {
   it("runs queued reads one at a time, since the SysEx stream takes one consumer", async () => {
     let inFlight = 0;
     let overlapped = false;
@@ -290,12 +465,12 @@ describe("createSlotReader", () => {
         return { kind: "memory-data", data: new Uint8Array(READ_BLOCK_BYTES) };
       });
     });
-    const reader = createSlotReader(connection);
+    const slots = createSlotAccess(connection);
 
     await Promise.all([
-      reader.read({ kind: "Single", bank: 1, group: 1, slot: 1 }),
-      reader.read({ kind: "Single", bank: 1, group: 1, slot: 2 }),
-      reader.read({ kind: "Single", bank: 1, group: 1, slot: 3 }),
+      slots.read({ kind: "Single", bank: 1, group: 1, slot: 1 }),
+      slots.read({ kind: "Single", bank: 1, group: 1, slot: 2 }),
+      slots.read({ kind: "Single", bank: 1, group: 1, slot: 3 }),
     ]);
 
     expect(overlapped).toBe(false);
@@ -307,9 +482,9 @@ describe("createSlotReader", () => {
     const next: SlotAddress = { kind: "Single", bank: 1, group: 1, slot: 2 };
     const summarised = slotByteAddress(next);
     const requested = serveMemory(0, presetFixture(SINGLE_PRESET_BYTES * 2));
-    const reader = createSlotReader(connection);
+    const slots = createSlotAccess(connection);
 
-    await Promise.all([reader.readContents(whole), reader.read(next)]);
+    await Promise.all([slots.readContents(whole), slots.read(next)]);
 
     expect(requested).toEqual([
       ...blockAddresses(slotByteAddress(whole), 8),
@@ -319,14 +494,30 @@ describe("createSlotReader", () => {
     ]);
   });
 
+  it("keeps a write and the reads around it off each other's wire time", async () => {
+    const target: SlotAddress = { kind: "Single", bank: 1, group: 8, slot: 1 };
+    const base = slotByteAddress(target);
+    const traffic = serveDevice(base, new Uint8Array(SINGLE_PRESET_BYTES));
+    const slots = createSlotAccess(connection);
+
+    await Promise.all([
+      slots.readLocked(target),
+      slots.write(target, presetFixture(SINGLE_PRESET_BYTES)),
+      slots.read(target),
+    ]);
+
+    expect(traffic.read).toEqual([base + 112, base, base + 16, base + 112]);
+    expect(traffic.written).toEqual(blockAddresses(base, 8));
+  });
+
   it("keeps serving later reads after one of them fails", async () => {
     vi.mocked(requestResponse)
       .mockRejectedValueOnce(new Error("no response"))
       .mockResolvedValue({ kind: "memory-data", data: new Uint8Array(READ_BLOCK_BYTES) });
-    const reader = createSlotReader(connection);
+    const slots = createSlotAccess(connection);
 
-    const failed = reader.read({ kind: "Single", bank: 1, group: 1, slot: 1 });
-    const next = reader.read({ kind: "Single", bank: 1, group: 1, slot: 2 });
+    const failed = slots.read({ kind: "Single", bank: 1, group: 1, slot: 1 });
+    const next = slots.read({ kind: "Single", bank: 1, group: 1, slot: 2 });
 
     await expect(failed).rejects.toThrow("no response");
     await expect(next).resolves.toEqual({ name: "", locked: false });
