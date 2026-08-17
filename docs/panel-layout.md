@@ -448,6 +448,34 @@ boxes.
 LFO 3 has no `Mode` control — the six sync modes are LFO 1/2 only, and
 `Lfo3` has no `mode` field to match.
 
+### How the box was built
+
+**The panel's own single row survives here.** Unlike the LFO 1/2 box above,
+which stacks each half into a column to stay on the Oscillators' row guides,
+this box lines the button and its two knobs up left to right as the
+silkscreen does: three controls in a shallow box is the proportion the bottom
+band has, and there is no neighbouring section whose knob centres it has to
+meet. It sits directly under the LFO box and on its left edge, wider than it
+and reaching under the left of the Oscillators, which is where the panel puts
+it.
+
+**`Mod Wheel` and `Aftertouch` are described as what makes LFO 3 audible,
+not as modulation depths.** Every other `Mod` control in the editor sets how
+far one source moves a destination. These two set the LFO's own amplitude,
+which is zero by default (manual p.14), so with both at zero the `LFO3 Mod`
+knobs on the oscillators, filter and amplifier reach nothing however far they
+are turned. The knobs' descriptions say so at the control, and while both
+values are zero a line under the row says it in the box, where a user
+wondering why LFO 3 does nothing will be looking. The line disappears as soon
+as either is raised, so it costs the box no height once the instrument can be
+heard.
+
+**`Rate` reads as the raw value with no clock caveat.** LFO 1 and LFO 2's
+rate knobs carry a sentence about the MIDI clock, since their sync modes
+divide it. LFO 3 has no mode and no clock rate of its own — `Lfo3` holds only
+`shape`, `rate`, `aftertouchMod` and `modWheelMod` — so the caveat would be
+false here and the description says the rate is a plain frequency instead.
+
 ---
 
 ## Oscillators

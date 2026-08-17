@@ -441,6 +441,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   preset byte map gives it to LFO 1, so a knob there would write to whichever
   of the two is the mistake. It waits on a check against the instrument, and
   the knob's own description carries the whole disagreement.
+- `src/app/Lfo3Section.tsx`: the `LFO3` box at the far left of the panel's
+  bottom band — a `Wave shape` button stepping its four-lens column, a `Rate`
+  knob, and a `Mod Wheel` knob carrying `Aftertouch` on its shift layer, in
+  the single row the panel gives them. The wave shape reads in quarters of the
+  control change's travel rather than the sixteenths LFO 1 and LFO 2 read, and
+  the box draws no sample-and-hold position and no `Mode`, neither of which
+  this LFO has. While `Mod Wheel` and `Aftertouch` are both at zero the box
+  says the LFO is silent: its amplitude is zero until one of the two raises
+  it, so the `LFO3 Mod` knobs elsewhere on the panel reach nothing.
 
 ### Changed
 
@@ -645,3 +654,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   instrument shows the mode on its display, the sixth wave shape named rather
   than left as a dark column, and the empty lower row each half keeps to stay
   on the Oscillators' row guides.
+- `docs/panel-layout.md`: how the LFO 3 box was built — the single row it
+  keeps from the panel, why the two performance controls are described as
+  what makes the LFO audible rather than as modulation depths, and the line
+  that appears while both sit at zero.
