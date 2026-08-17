@@ -1,4 +1,5 @@
-// Typed error hierarchy for the memory-block reads that assemble a device slot.
+// Typed error hierarchies for the memory-block reads that assemble a device slot, and for putting a stored library entry in the editor.
+import type { LibraryEntryKind } from "../store";
 
 export type DeviceReadErrorCode = "slot-block-length" | "slot-block-unanswered";
 
@@ -38,5 +39,23 @@ export class SlotBlockUnansweredError extends DeviceReadError {
       cause: reason,
     });
     this.name = "SlotBlockUnansweredError";
+  }
+}
+
+export type EntryLoadErrorCode = "entry-not-one-preset";
+
+export abstract class EntryLoadError extends Error {
+  abstract readonly code: EntryLoadErrorCode;
+}
+
+export class EntryNotOnePresetError extends EntryLoadError {
+  readonly code = "entry-not-one-preset" as const;
+
+  constructor(
+    readonly id: string,
+    readonly kind: LibraryEntryKind,
+  ) {
+    super(`the SysEx stored for entry ${id} holds a ${kind}, which is more than one preset`);
+    this.name = "EntryNotOnePresetError";
   }
 }

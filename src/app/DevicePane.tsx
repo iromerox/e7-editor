@@ -2,7 +2,7 @@
 import type { JSX } from "solid-js";
 import type { Connection } from "../midi";
 import type { LibraryDatabase } from "../store";
-import type { DeviceSlotState, MultiPart } from "./app-state";
+import type { DeviceSlotState } from "./app-state";
 import type { SlotAddress, SlotSummary } from "./device-slots";
 import type { SlotTransferState, SlotTransferTask, SlotTransfers } from "./slot-transfer";
 import { For, Match, Show, Switch, createEffect, createMemo, untrack } from "solid-js";
@@ -16,15 +16,10 @@ import {
   slotKey,
   slotLabel,
 } from "./device-slots";
+import { EditorChip } from "./EditorChip";
 import { createPresetSelection } from "./preset-select";
-import {
-  KEEP_EDITING,
-  LOAD_NOTE,
-  SAVE_NOTE,
-  createSlotTransfers,
-  describeFailure,
-  unsavedEditsQuestion,
-} from "./slot-transfer";
+import { LOAD_NOTE, SAVE_NOTE, createSlotTransfers } from "./slot-transfer";
+import { KEEP_EDITING, describeFailure, unsavedEditsQuestion } from "./transfer";
 
 export interface DevicePaneProps {
   readonly connection: Connection | undefined;
@@ -98,23 +93,6 @@ function LockChip(props: { readonly locked: boolean }): JSX.Element {
       }}
     >
       {props.locked ? "Locked" : "Unlocked"}
-    </span>
-  );
-}
-
-function EditorChip(props: { readonly part: MultiPart | undefined }): JSX.Element {
-  return (
-    <span
-      style={{
-        border: "1px solid var(--e7-led-on)",
-        background: "var(--e7-led-halo)",
-        "border-radius": "0.75rem",
-        padding: "0 0.5rem",
-        "font-size": "0.75rem",
-        color: "var(--e7-led-on)",
-      }}
-    >
-      {props.part === undefined ? "In the editor" : `Part ${props.part} in the editor`}
     </span>
   );
 }

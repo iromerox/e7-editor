@@ -1,11 +1,15 @@
-// Browsable list of stored library entries, filterable by kind and kept in step with the store.
+// Browsable list of stored library entries, filterable by kind, kept in step with the store, and the loading of an entry that holds one preset into the editor.
 import type { JSX } from "solid-js";
 import type { LibraryDatabase, LibraryEntry } from "../store";
 import type { LibraryKindFilter } from "./app-state";
-import { For, Show, createEffect, createMemo, onCleanup } from "solid-js";
+import type { EntryTransfers } from "./entry-transfer";
+import { For, Match, Show, Switch, createEffect, createMemo, onCleanup } from "solid-js";
 import { LIBRARY_ENTRY_KINDS, allEntries, entriesByKind } from "../store";
 import { useAppState } from "./AppStateProvider";
 import { EVERY_KIND } from "./app-state";
+import { EditorChip } from "./EditorChip";
+import { createEntryTransfers, holdsOnePreset, loadNote, manyPresetsNote } from "./entry-transfer";
+import { KEEP_EDITING, unsavedEditsQuestion } from "./transfer";
 
 const KIND_FILTERS: readonly LibraryKindFilter[] = [EVERY_KIND, ...LIBRARY_ENTRY_KINDS];
 
@@ -43,29 +47,95 @@ function Chip(props: { readonly children: JSX.Element }): JSX.Element {
   );
 }
 
-function EntryRow(props: { readonly entry: LibraryEntry }): JSX.Element {
+interface EntryRowProps {
+  readonly entry: LibraryEntry;
+  readonly transfers: EntryTransfers;
+}
+
+function EntryRow(props: EntryRowProps): JSX.Element {
+  const named = (): string => (props.entry.name === "" ? props.entry.kind : props.entry.name);
+  const confirming = (): boolean => props.transfers.state(props.entry)?.status === "confirming";
+  const refused = (): string | undefined => {
+    const pending = props.transfers.state(props.entry);
+    return pending?.status === "failed" ? pending.reason : undefined;
+  };
+
   return (
     <li
       style={{
         display: "flex",
-        "align-items": "baseline",
-        gap: "0.5rem",
-        "flex-wrap": "wrap",
+        "flex-direction": "column",
+        gap: "0.25rem",
         padding: "0.25rem 0",
       }}
     >
-      <span style={{ "font-weight": "bold" }}>{props.entry.name}</span>
-      <Chip>{props.entry.kind}</Chip>
-      <Show when={capturedFrom(props.entry) !== ""}>
-        <span style={{ color: "var(--e7-label-secondary)" }}>{capturedFrom(props.entry)}</span>
-      </Show>
-      <For each={props.entry.tags}>{(tag) => <Chip>{tag}</Chip>}</For>
+      <div
+        style={{ display: "flex", "align-items": "baseline", gap: "0.5rem", "flex-wrap": "wrap" }}
+      >
+        <span style={{ "font-weight": "bold" }}>{props.entry.name}</span>
+        <Chip>{props.entry.kind}</Chip>
+        <Show when={capturedFrom(props.entry) !== ""}>
+          <span style={{ color: "var(--e7-label-secondary)" }}>{capturedFrom(props.entry)}</span>
+        </Show>
+        <For each={props.entry.tags}>{(tag) => <Chip>{tag}</Chip>}</For>
+        <Show
+          when={holdsOnePreset(props.entry.kind)}
+          fallback={
+            <span style={{ color: "var(--e7-label-secondary)" }}>
+              {manyPresetsNote(props.entry.kind)}
+            </span>
+          }
+        >
+          <button
+            type="button"
+            aria-label={`Load ${named()} into the editor`}
+            title={loadNote(props.entry.kind)}
+            onClick={() => props.transfers.load(props.entry)}
+          >
+            Load
+          </button>
+        </Show>
+        <Show when={props.transfers.inEditor(props.entry)}>
+          <EditorChip part={props.transfers.editorPart()} />
+        </Show>
+      </div>
+      <Switch>
+        <Match when={confirming()}>
+          <div
+            style={{
+              display: "flex",
+              "align-items": "baseline",
+              "flex-wrap": "wrap",
+              gap: "0.5rem",
+            }}
+          >
+            <span role="alert">{unsavedEditsQuestion(props.transfers.unsavedEdits())}</span>
+            <button
+              type="button"
+              aria-label={`Load ${named()} anyway`}
+              onClick={() => props.transfers.proceed(props.entry)}
+            >
+              Load anyway
+            </button>
+            <button
+              type="button"
+              aria-label={`${KEEP_EDITING}, leaving ${named()} where it is`}
+              onClick={() => props.transfers.cancel(props.entry)}
+            >
+              {KEEP_EDITING}
+            </button>
+          </div>
+        </Match>
+        <Match when={refused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
+      </Switch>
     </li>
   );
 }
 
 export function LibraryPane(props: LibraryPaneProps): JSX.Element {
-  const { state, selectLibraryKind, setLibraryEntries } = useAppState();
+  const controls = useAppState();
+  const { state, selectLibraryKind, setLibraryEntries } = controls;
+  const transfers = createEntryTransfers(controls);
 
   const shown = createMemo(() => {
     const selected = state.library.kind;
@@ -125,7 +195,9 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
             }
           >
             <ul style={{ "list-style": "none", margin: "0.5rem 0 0", padding: "0" }}>
-              <For each={found()}>{(entry) => <EntryRow entry={entry} />}</For>
+              <For each={found()}>
+                {(entry) => <EntryRow entry={entry} transfers={transfers} />}
+              </For>
             </ul>
           </Show>
         )}

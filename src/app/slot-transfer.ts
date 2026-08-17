@@ -5,6 +5,7 @@ import type { SlotAddress, SlotContents, SlotReader } from "./device-slots";
 import { createStore } from "solid-js/store";
 import { storeDeviceDump } from "../store";
 import { slotByteAddress, slotKey } from "./device-slots";
+import { describeFailure } from "./transfer";
 
 export type SlotTransferTask = "load" | "save";
 
@@ -31,17 +32,6 @@ export const LOAD_NOTE =
 
 export const SAVE_NOTE =
   "Save to library stores this slot's preset as a new library entry. The editor keeps the preset it has.";
-
-export const KEEP_EDITING = "Keep editing";
-
-export function unsavedEditsQuestion(edits: number): string {
-  const counted = edits === 1 ? "1 edit" : `${edits} edits`;
-  return `Loading replaces the preset in the editor, discarding ${counted} not saved to the library.`;
-}
-
-export function describeFailure(error: unknown): string {
-  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-}
 
 function savedNote(name: string): string {
   return `Saved to the library as “${name}”.`;

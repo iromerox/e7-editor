@@ -473,6 +473,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `src/store/syx-codec.ts`: `encodeMemoryImage`, turning a memory image and the
   address it starts at into the write-memory frames a library entry stores —
   the encode counterpart of `parseMemoryBlocks`.
+- A library entry that holds one preset can be loaded into the editor. `Load`
+  decodes the SysEx the entry stored and puts the preset in the editor,
+  recording which entry it came from; a `Multi` entry loads its first part and
+  the entry says which part the editor holds. The entry itself is left exactly
+  as it was stored. Kinds holding more than one preset — `Group`, `Bank`,
+  `MultiPack` and `Backup` — offer no `Load` and say why instead, an entry
+  whose stored bytes no longer decode reports the reason at that entry with
+  the editor's preset untouched, and loading over edits that were never saved
+  to the library asks before replacing them.
 
 ### Changed
 
