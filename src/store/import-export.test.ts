@@ -21,6 +21,7 @@ import {
   importSyxFromDisk,
   importSyxPayload,
   pickSyxFiles,
+  storeDeviceDump,
 } from "./index";
 
 const openDatabases: LibraryDatabase[] = [];
@@ -216,6 +217,73 @@ describe("importSyxPayload rejections", () => {
       importSyxPayload(database, { fileName: "read.syx", bytes }),
     ).rejects.toBeInstanceOf(UnexpectedSysExCommandError);
     expect(await database.entries.count().exec()).toBe(0);
+  });
+});
+
+describe("storeDeviceDump", () => {
+  it("stores a slot read off the instrument as a device dump of that slot", async () => {
+    const database = await openLibrary("dump-single");
+    const slot = new PresetSlot(3, 5, 2);
+    const image = presetBytes("Fat Brass");
+
+    const entry = await storeDeviceDump(database, {
+      label: "Single 3.5.2",
+      address: slot.byteAddress(),
+      bytes: image,
+    });
+
+    expect(entry).toMatchObject({
+      kind: "Single",
+      name: "Fat Brass",
+      bank: 3,
+      group: 5,
+      slot: 2,
+      source: "DeviceDump",
+      tags: [],
+      comment: "",
+    });
+    expect(await database.entries.count().exec()).toBe(1);
+    expect(await storedEntry(database, entry.id)).toMatchObject({ source: "DeviceDump" });
+  });
+
+  it("keeps the read bytes retrievable, and exportable as the file the instrument wrote", async () => {
+    const database = await openLibrary("dump-bytes");
+    const slot = new PresetSlot(1, 1, 1);
+    const image = presetBytes("Round Trip");
+
+    const entry = await storeDeviceDump(database, {
+      label: "Single 1.1.1",
+      address: slot.byteAddress(),
+      bytes: image,
+    });
+
+    expect(entryBytes(entry)).toEqual(syxFile(slot.byteAddress(), image));
+  });
+
+  it("stores a multi slot's four parts under the first part's name", async () => {
+    const database = await openLibrary("dump-multi");
+    const slot = new MultiSlot(2, 8, 8);
+
+    const entry = await storeDeviceDump(database, {
+      label: "Multi 2.8.8",
+      address: slot.byteAddress(),
+      bytes: presetBytes("Split Keys", MULTI_PRESET_BYTES),
+    });
+
+    expect(entry).toMatchObject({ kind: "Multi", name: "Split Keys", bank: 2, group: 8, slot: 8 });
+  });
+
+  it("names a dump after the slot it came from when the preset carries no name", async () => {
+    const database = await openLibrary("dump-unnamed");
+    const image = presetBytes("");
+
+    const entry = await storeDeviceDump(database, {
+      label: "Single 4.4.4",
+      address: new PresetSlot(4, 4, 4).byteAddress(),
+      bytes: image,
+    });
+
+    expect(entry.name).toBe("Single 4.4.4");
   });
 });
 

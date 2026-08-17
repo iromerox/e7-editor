@@ -57,7 +57,7 @@ function Shell(props: AppProps): JSX.Element {
       <h1>e7 editor</h1>
       <ConnectionBar onConnectionChange={setConnection} />
       <LibraryPane database={props.database} />
-      <DevicePane connection={connection()} />
+      <DevicePane connection={connection()} database={props.database} />
       <EditorPane connection={connection()} />
       <fieldset style={{ "border-color": "var(--e7-silkscreen)" }}>
         <legend>Finish</legend>

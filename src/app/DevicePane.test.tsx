@@ -1,12 +1,22 @@
 import type { JSX } from "solid-js";
 import type { Connection } from "../midi";
 import type { ProgramChangeMessage } from "../protocol";
+import type { LibraryDatabase, LibraryEntry } from "../store";
 import type { AppStateControls } from "./app-state";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { EMPTY } from "rxjs";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { requestResponse } from "../midi";
-import { LOCK_BYTE_INDEX, NAME_OFFSET, SINGLE_PRESET_BYTES } from "../protocol";
+import {
+  LOCK_BYTE_INDEX,
+  MULTI_PRESET_BYTES,
+  NAME_BYTES,
+  NAME_OFFSET,
+  SINGLE_PRESET_BYTES,
+  decodeMultiPreset,
+  decodeSinglePreset,
+} from "../protocol";
+import { createLibraryDatabase } from "../store";
 import { AppStateProvider, useAppState } from "./AppStateProvider";
 import { DevicePane } from "./DevicePane";
 import { slotByteAddress } from "./device-slots";
@@ -45,18 +55,34 @@ function presetImage(name: string, lockByte: number): Uint8Array {
   return bytes;
 }
 
+function slotFixture(name: string, length = SINGLE_PRESET_BYTES): Uint8Array {
+  const bytes = Uint8Array.from({ length }, (_, index) => (index * 37 + 11) % 256);
+  for (let part = 0; part < length; part += SINGLE_PRESET_BYTES) {
+    bytes.fill(0x20, part + NAME_OFFSET, part + NAME_OFFSET + NAME_BYTES);
+    for (const [index, character] of [...name].entries()) {
+      bytes[part + NAME_OFFSET + index] = character.charCodeAt(0);
+    }
+    bytes[part + LOCK_BYTE_INDEX] = 0;
+  }
+  return bytes;
+}
+
+function blockOf(images: ReadonlyMap<number, Uint8Array>, address: number): Uint8Array {
+  for (const [base, image] of images) {
+    if (address >= base && address < base + image.length) {
+      const offset = address - base;
+      return image.slice(offset, offset + READ_BLOCK_BYTES);
+    }
+  }
+  return new Uint8Array(READ_BLOCK_BYTES);
+}
+
 function serveSlots(images: ReadonlyMap<number, Uint8Array>): void {
   vi.mocked(requestResponse).mockImplementation((_connection, command) => {
     if (command.kind !== "read-memory") {
       throw new Error(`unexpected command ${command.kind}`);
     }
-    const base = command.address - (command.address % SINGLE_PRESET_BYTES);
-    const image = images.get(base) ?? new Uint8Array(SINGLE_PRESET_BYTES);
-    const offset = command.address - base;
-    return Promise.resolve({
-      kind: "memory-data",
-      data: image.slice(offset, offset + READ_BLOCK_BYTES),
-    });
+    return Promise.resolve({ kind: "memory-data", data: blockOf(images, command.address) });
   });
 }
 
@@ -73,7 +99,7 @@ function renderPane(active: Connection | undefined): AppStateControls {
     if (active !== undefined) {
       controls.setReceiveChannel({ kind: "channel", channel: 4 });
     }
-    return <DevicePane connection={active} />;
+    return <DevicePane connection={active} database={library} />;
   }
 
   render(() => (
@@ -103,11 +129,25 @@ function bankButtons(): string[] {
     .filter((label) => label.startsWith("Bank "));
 }
 
-beforeEach(() => {
+let library: LibraryDatabase;
+
+beforeEach(async () => {
   vi.mocked(requestResponse).mockReset();
   serveSlots(new Map());
   selected.length = 0;
+  library = await createLibraryDatabase({
+    name: `device-pane-${Math.random().toString(36).slice(2)}`,
+  });
 });
+
+afterEach(async () => {
+  await library.close();
+});
+
+async function storedEntries(): Promise<readonly LibraryEntry[]> {
+  const found = await library.entries.find().exec();
+  return found.map((document) => document.toJSON() as LibraryEntry);
+}
 
 describe("DevicePane", () => {
   it("renders a group of eight slots under eight banks of eight groups", () => {
@@ -294,5 +334,154 @@ describe("DevicePane", () => {
     renderPane(connection);
 
     expect(screen.getByText(/does not load the preset into the editor/)).toBeInTheDocument();
+  });
+});
+
+describe("DevicePane transfers", () => {
+  it("puts a slot's preset in the editor, and leaves the library as it was", async () => {
+    const image = slotFixture("Fat Brass");
+    serveSlots(new Map([[slotAt(1, 1, 3), image]]));
+    const controls = renderPane(connection);
+    await settled();
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Load Single 1.1.3 into the editor" }),
+    );
+
+    await vi.waitFor(() =>
+      expect(controls.state.editor.source).toEqual({
+        kind: "DeviceSlot",
+        address: { kind: "Single", bank: 1, group: 1, slot: 3 },
+      }),
+    );
+    expect(controls.state.editor.preset).toEqual(decodeSinglePreset(image));
+    expect(controls.state.editor.part).toBeUndefined();
+    expect(await storedEntries()).toEqual([]);
+    expect(slotLabels()[2]).toContain("In the editor");
+  });
+
+  it("loads part 1 of a multi and says which part the editor holds", async () => {
+    const image = slotFixture("Split Keys", MULTI_PRESET_BYTES);
+    serveSlots(new Map([[slotByteAddress({ kind: "Multi", bank: 1, group: 1, slot: 2 }), image]]));
+    const controls = renderPane(connection);
+    await fireEvent.click(screen.getByRole("tab", { name: "Multi" }));
+    await settled();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Load Multi 1.1.2 into the editor" }));
+
+    await vi.waitFor(() => expect(controls.state.editor.part).toBe(1));
+    expect(controls.state.editor.preset).toEqual(decodeMultiPreset(image).parts[0]);
+    expect(slotLabels()[1]).toContain("Part 1 in the editor");
+  });
+
+  it("marks the slot it is reading busy and leaves the other slots usable", async () => {
+    serveSlots(new Map([[slotAt(1, 1, 1), slotFixture("Opening Pad")]]));
+    renderPane(connection);
+    await settled();
+
+    let release = (): void => {};
+    const answering = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const images = new Map([[slotAt(1, 1, 1), slotFixture("Opening Pad")]]);
+    vi.mocked(requestResponse).mockImplementation(async (_connection, command) => {
+      if (command.kind !== "read-memory") {
+        throw new Error(`unexpected command ${command.kind}`);
+      }
+      await answering;
+      return { kind: "memory-data", data: blockOf(images, command.address) };
+    });
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Load Single 1.1.1 into the editor" }),
+    );
+
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Load Single 1.1.1 into the editor" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Load Single 1.1.2 into the editor" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Group 4" })).toBeEnabled();
+
+    release();
+    await vi.waitFor(() => expect(screen.queryByText("Loading…")).toBeNull());
+  });
+
+  it("keeps the editor's preset when the read fails, and reports the reason at the slot", async () => {
+    const controls = renderPane(connection);
+    await settled();
+    const before = controls.state.editor.preset;
+    vi.mocked(requestResponse).mockRejectedValue(new Error("no response"));
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Load Single 1.1.4 into the editor" }),
+    );
+
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("no response"));
+    expect(controls.state.editor.source).toEqual({ kind: "Empty" });
+    expect(controls.state.editor.preset).toEqual(before);
+  });
+
+  it("asks before replacing unsaved edits, and loads only once told to", async () => {
+    serveSlots(new Map([[slotAt(1, 1, 5), slotFixture("Metal Flies")]]));
+    const controls = renderPane(connection);
+    await settled();
+    controls.editField("filterCutoff", 42);
+    controls.recordEdit({ field: "filterCutoff", previousValue: 0, nextValue: 42, at: Date.now() });
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Load Single 1.1.5 into the editor" }),
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("discarding 1 edit");
+    expect(controls.state.editor.source).toEqual({ kind: "Empty" });
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Keep editing, leaving Single 1.1.5 where it is" }),
+    );
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(controls.state.editor.preset.filter.cutoff).toBe(42);
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Load Single 1.1.5 into the editor" }),
+    );
+    await fireEvent.click(screen.getByRole("button", { name: "Load Single 1.1.5 anyway" }));
+
+    await vi.waitFor(() => expect(controls.state.editor.source).not.toEqual({ kind: "Empty" }));
+    expect(controls.state.history.undo).toEqual([]);
+  });
+
+  it("saves a slot to the library as a device dump of the address it read", async () => {
+    const image = slotFixture("Fat Brass");
+    serveSlots(new Map([[slotAt(3, 5, 2), image]]));
+    const controls = renderPane(connection);
+    await fireEvent.click(screen.getByRole("button", { name: "Bank 3" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Group 5" }));
+    await settled();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Save Single 3.5.2 to the library" }));
+
+    await vi.waitFor(async () => expect(await storedEntries()).toHaveLength(1));
+    const [entry] = await storedEntries();
+    expect(entry).toMatchObject({
+      kind: "Single",
+      name: "Fat Brass",
+      source: "DeviceDump",
+      bank: 3,
+      group: 5,
+      slot: 2,
+    });
+    expect(screen.getByText(/Saved to the library as/)).toHaveTextContent("Fat Brass");
+    expect(controls.state.editor.source).toEqual({ kind: "Empty" });
+  });
+
+  it("offers neither transfer while there is no connection", () => {
+    renderPane(undefined);
+
+    expect(
+      screen.getByRole("button", { name: "Load Single 1.1.1 into the editor" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Single 1.1.1 to the library" })).toBeDisabled();
   });
 });

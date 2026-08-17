@@ -29,6 +29,7 @@ import {
   MULTI_SLOTS,
   PRESET_BANKS,
   PRESET_SLOTS,
+  encodeMemoryImage,
   parseMemoryBlocks,
   parseSyxFile,
 } from "./syx-codec";
@@ -320,5 +321,53 @@ describe("parseMemoryBlocks", () => {
     const [block] = parseMemoryBlocks(file(writeFrames(0, presetBytes(1, MEMORY_BLOCK_BYTES))));
 
     expect(block?.data).toEqual(presetBytes(1, MEMORY_BLOCK_BYTES));
+  });
+});
+
+describe("encodeMemoryImage", () => {
+  it("writes one frame per block, at consecutive addresses from the one given", () => {
+    const slot = new PresetSlot(3, 5, 2);
+
+    const bytes = encodeMemoryImage(slot.byteAddress(), presetBytes(4));
+
+    expect(bytes).toEqual(file(writeFrames(slot.byteAddress(), presetBytes(4))));
+    expect(parseMemoryBlocks(bytes).map((block) => block.address)).toEqual(
+      Array.from(
+        { length: SINGLE_PRESET_BYTES / MEMORY_BLOCK_BYTES },
+        (_, index) => slot.byteAddress() + index * MEMORY_BLOCK_BYTES,
+      ),
+    );
+  });
+
+  it("round-trips a multi image back to the same slot and bytes", () => {
+    const slot = new MultiSlot(2, 8, 8);
+    const image = presetBytes(9, MULTI_PRESET_BYTES);
+
+    const parsed = parseSyxFile(encodeMemoryImage(slot.byteAddress(), image));
+
+    expect(parsed).toMatchObject({ kind: "Multi", bank: 2, group: 8, slot: 8 });
+    expect(parsed.multis[0]?.bytes).toEqual(image);
+  });
+
+  it("refuses an address that does not start a memory block", () => {
+    expect(() => encodeMemoryImage(MEMORY_BLOCK_BYTES / 2, presetBytes(1))).toThrow(
+      MemoryBlockAlignmentError,
+    );
+  });
+
+  it("refuses an image that does not fill whole blocks, naming the block left over", () => {
+    const error = thrownBy(() => encodeMemoryImage(0, presetBytes(1, MEMORY_BLOCK_BYTES + 3)));
+
+    expect(error).toBeInstanceOf(MemoryBlockLengthError);
+    expect(error).toMatchObject({
+      code: "memory-block-length",
+      address: MEMORY_BLOCK_BYTES,
+      expected: MEMORY_BLOCK_BYTES,
+      actual: 3,
+    });
+  });
+
+  it("refuses an empty image, which would write nothing at all", () => {
+    expect(() => encodeMemoryImage(0, new Uint8Array(0))).toThrow(MemoryBlockLengthError);
   });
 });

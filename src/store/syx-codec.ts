@@ -1,4 +1,4 @@
-// Parsing of .syx file contents into memory blocks, classified by the addresses they write.
+// Parsing of .syx file contents into memory blocks, classified by the addresses they write, and the write-memory frames a memory image is stored as.
 import type { MultiPreset, SinglePreset, SysExCommand } from "../protocol";
 import type { LibraryEntryKind } from "./schema";
 import {
@@ -14,6 +14,7 @@ import {
   decodeCommand,
   decodeMultiPreset,
   decodeSinglePreset,
+  encodeCommand,
 } from "../protocol";
 import {
   DuplicateMemoryBlockError,
@@ -269,4 +270,35 @@ export function classifyMemoryBlocks(blocks: readonly MemoryBlock[]): SyxFile {
 
 export function parseSyxFile(bytes: Uint8Array): SyxFile {
   return classifyMemoryBlocks(parseMemoryBlocks(bytes));
+}
+
+export function encodeMemoryImage(address: number, image: Uint8Array): Uint8Array {
+  if (address % MEMORY_BLOCK_BYTES !== 0) {
+    throw new MemoryBlockAlignmentError(address, MEMORY_BLOCK_BYTES);
+  }
+  const trailing = image.length % MEMORY_BLOCK_BYTES;
+  if (image.length === 0 || trailing !== 0) {
+    throw new MemoryBlockLengthError(
+      address + image.length - trailing,
+      MEMORY_BLOCK_BYTES,
+      trailing,
+    );
+  }
+  const frames: Uint8Array[] = [];
+  for (let offset = 0; offset < image.length; offset += MEMORY_BLOCK_BYTES) {
+    frames.push(
+      encodeCommand({
+        kind: "write-memory",
+        address: address + offset,
+        data: image.subarray(offset, offset + MEMORY_BLOCK_BYTES),
+      }),
+    );
+  }
+  const bytes = new Uint8Array(frames.reduce((total, frame) => total + frame.length, 0));
+  let written = 0;
+  for (const frame of frames) {
+    bytes.set(frame, written);
+    written += frame.length;
+  }
+  return bytes;
 }

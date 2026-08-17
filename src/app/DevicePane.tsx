@@ -1,8 +1,10 @@
-// Device browser: bank and group navigation over the e7's single and multi slots, with per-slot name and lock reads, and the preset selection the panel's numbered buttons make.
+// Device browser: bank and group navigation over the e7's single and multi slots, with per-slot name and lock reads, the preset selection the panel's numbered buttons make, and the per-slot transfers into the editor and the library.
 import type { JSX } from "solid-js";
 import type { Connection } from "../midi";
-import type { DeviceSlotState } from "./app-state";
+import type { LibraryDatabase } from "../store";
+import type { DeviceSlotState, MultiPart } from "./app-state";
 import type { SlotAddress, SlotSummary } from "./device-slots";
+import type { SlotTransferState, SlotTransferTask, SlotTransfers } from "./slot-transfer";
 import { For, Match, Show, Switch, createEffect, createMemo, untrack } from "solid-js";
 import { useAppState } from "./AppStateProvider";
 import {
@@ -15,9 +17,18 @@ import {
   slotLabel,
 } from "./device-slots";
 import { createPresetSelection } from "./preset-select";
+import {
+  KEEP_EDITING,
+  LOAD_NOTE,
+  SAVE_NOTE,
+  createSlotTransfers,
+  describeFailure,
+  unsavedEditsQuestion,
+} from "./slot-transfer";
 
 export interface DevicePaneProps {
   readonly connection: Connection | undefined;
+  readonly database: LibraryDatabase;
 }
 
 const UNNAMED = "(unnamed)";
@@ -27,10 +38,6 @@ export const SELECTION_NOTE =
 
 export const AUTO_READ_NOTE =
   "The eight slots in view are read as you reach them, one at a time, and kept.";
-
-function describe(error: unknown): string {
-  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-}
 
 function counting(total: number): readonly number[] {
   return Array.from({ length: total }, (_, index) => index + 1);
@@ -95,11 +102,29 @@ function LockChip(props: { readonly locked: boolean }): JSX.Element {
   );
 }
 
+function EditorChip(props: { readonly part: MultiPart | undefined }): JSX.Element {
+  return (
+    <span
+      style={{
+        border: "1px solid var(--e7-led-on)",
+        background: "var(--e7-led-halo)",
+        "border-radius": "0.75rem",
+        padding: "0 0.5rem",
+        "font-size": "0.75rem",
+        color: "var(--e7-led-on)",
+      }}
+    >
+      {props.part === undefined ? "In the editor" : `Part ${props.part} in the editor`}
+    </span>
+  );
+}
+
 interface SlotCellProps {
   readonly address: SlotAddress;
   readonly state: DeviceSlotState | undefined;
   readonly selectable: boolean;
   readonly selected: boolean;
+  readonly transfers: SlotTransfers;
   readonly onRead: (address: SlotAddress) => void;
   readonly onSelect: (address: SlotAddress) => void;
 }
@@ -110,6 +135,22 @@ function SlotCell(props: SlotCellProps): JSX.Element {
   const failure = (): string | undefined =>
     props.state?.status === "failed" ? props.state.reason : undefined;
   const locked = (): boolean => summary()?.locked === true;
+  const named = (): string => `${props.address.kind} ${slotLabel(props.address)}`;
+
+  const transfer = (): SlotTransferState | undefined => props.transfers.state(props.address);
+  const running = (): SlotTransferTask | undefined => {
+    const pending = transfer();
+    return pending?.status === "running" ? pending.task : undefined;
+  };
+  const confirming = (): boolean => transfer()?.status === "confirming";
+  const done = (): string | undefined => {
+    const pending = transfer();
+    return pending?.status === "done" ? pending.note : undefined;
+  };
+  const refused = (): string | undefined => {
+    const pending = transfer();
+    return pending?.status === "failed" ? pending.reason : undefined;
+  };
 
   return (
     <li
@@ -154,7 +195,7 @@ function SlotCell(props: SlotCellProps): JSX.Element {
               <span role="alert">{reason()}</span>
               <button
                 type="button"
-                aria-label={`Read ${props.address.kind} ${slotLabel(props.address)} again`}
+                aria-label={`Read ${named()} again`}
                 onClick={() => props.onRead(props.address)}
               >
                 Read again
@@ -162,6 +203,69 @@ function SlotCell(props: SlotCellProps): JSX.Element {
             </div>
           )}
         </Match>
+      </Switch>
+      <div
+        style={{
+          display: "flex",
+          "align-items": "baseline",
+          "flex-wrap": "wrap",
+          gap: "0.5rem",
+        }}
+      >
+        <button
+          type="button"
+          aria-label={`Load ${named()} into the editor`}
+          disabled={!props.transfers.reachable() || running() !== undefined}
+          title={LOAD_NOTE}
+          onClick={() => props.transfers.load(props.address)}
+        >
+          Load
+        </button>
+        <button
+          type="button"
+          aria-label={`Save ${named()} to the library`}
+          disabled={!props.transfers.reachable() || running() !== undefined}
+          title={SAVE_NOTE}
+          onClick={() => props.transfers.save(props.address)}
+        >
+          Save to library
+        </button>
+        <Show when={props.transfers.inEditor(props.address)}>
+          <EditorChip part={props.transfers.editorPart()} />
+        </Show>
+      </div>
+      <Switch>
+        <Match when={running()}>
+          {(task) => <span role="status">{task() === "load" ? "Loading…" : "Saving…"}</span>}
+        </Match>
+        <Match when={confirming()}>
+          <div
+            style={{
+              display: "flex",
+              "align-items": "baseline",
+              "flex-wrap": "wrap",
+              gap: "0.5rem",
+            }}
+          >
+            <span role="alert">{unsavedEditsQuestion(props.transfers.unsavedEdits())}</span>
+            <button
+              type="button"
+              aria-label={`Load ${named()} anyway`}
+              onClick={() => props.transfers.proceed(props.address)}
+            >
+              Load anyway
+            </button>
+            <button
+              type="button"
+              aria-label={`${KEEP_EDITING}, leaving ${named()} where it is`}
+              onClick={() => props.transfers.cancel(props.address)}
+            >
+              {KEEP_EDITING}
+            </button>
+          </div>
+        </Match>
+        <Match when={refused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
+        <Match when={done()}>{(note) => <span role="status">{note()}</span>}</Match>
       </Switch>
     </li>
   );
@@ -177,6 +281,8 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
     return connection === undefined ? undefined : createSlotReader(connection);
   });
 
+  const transfers = createSlotTransfers(controls, reader, props.database);
+
   const isSelected = (address: SlotAddress): boolean => {
     const selected = presets.selected();
     return selected !== undefined && slotKey(selected) === slotKey(address);
@@ -190,7 +296,8 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
     setSlotState(address, { status: "reading" });
     void reading.read(address).then(
       (summary) => setSlotState(address, { status: "read", summary }),
-      (error: unknown) => setSlotState(address, { status: "failed", reason: describe(error) }),
+      (error: unknown) =>
+        setSlotState(address, { status: "failed", reason: describeFailure(error) }),
     );
   };
 
@@ -295,6 +402,7 @@ export function DevicePane(props: DevicePaneProps): JSX.Element {
                   state={state.device.slots[slotKey(address())]}
                   selectable={presets.reachable()}
                   selected={isSelected(address())}
+                  transfers={transfers}
                   onRead={readSlot}
                   onSelect={presets.select}
                 />

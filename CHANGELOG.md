@@ -460,6 +460,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that answers with the wrong length, or does not answer at all, now fails
   naming the address it was reading rather than leaving a preset silently
   short — for the name-and-lock reads as much as for a full one.
+- A slot in the device browser can be loaded into the editor. `Load` reads the
+  whole slot and puts its preset in the editor, recording the slot it came
+  from; a multi loads its first part and the slot says which part the editor
+  holds. The slot being read shows it while the rest of the browser stays
+  usable, and a read that fails reports the reason at that slot with the
+  editor's preset untouched. Loading over edits that were never saved to the
+  library asks before replacing them.
+- A slot in the device browser can be saved straight to the library. `Save to
+  library` stores what the slot holds as a `DeviceDump` entry carrying the
+  address it was read from, without passing through the editor.
+- `src/store/syx-codec.ts`: `encodeMemoryImage`, turning a memory image and the
+  address it starts at into the write-memory frames a library entry stores —
+  the encode counterpart of `parseMemoryBlocks`.
 
 ### Changed
 
@@ -510,6 +523,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   how many lenses it had, so buttons sharing a row with each other and with
   the knobs beside them sat at three different heights, and a button moved
   when its shift layer changed the column's length.
+- A library entry's `source` now comes from whatever creates the entry instead
+  of being `UserImport` for everything. Importing a `.syx` file is still a
+  `UserImport`; a slot saved off the instrument is a `DeviceDump`.
 
 ### Fixed
 

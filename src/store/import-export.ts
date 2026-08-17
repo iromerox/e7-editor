@@ -1,12 +1,12 @@
-// Reading .syx files from disk into the library and writing library entries back out to disk.
+// Reading .syx files from disk into the library, storing a slot read off the instrument as an entry, and writing library entries back out to disk.
 import type { MultiPreset, SinglePreset } from "../protocol";
 import type { LibraryDatabase } from "./database";
-import type { LibraryEntry, PresetSnapshot } from "./schema";
+import type { LibraryEntry, LibraryEntrySource, PresetSnapshot } from "./schema";
 import type { SyxFile } from "./syx-codec";
 import * as z from "zod";
 import { ADDRESS_BYTES, COMMAND_HEADER, SYSEX_END, SYSEX_START } from "../protocol";
 import { EntryPayloadError, SyxPayloadError } from "./errors";
-import { BACKUP_BLOCKS, MEMORY_BLOCK_BYTES, parseSyxFile } from "./syx-codec";
+import { BACKUP_BLOCKS, MEMORY_BLOCK_BYTES, encodeMemoryImage, parseSyxFile } from "./syx-codec";
 
 export const SYX_FILE_EXTENSION = ".syx";
 export const SYX_MEDIA_TYPE = "application/octet-stream";
@@ -142,7 +142,10 @@ function storedSlot(file: SyxFile): SlotMetadata {
   }
 }
 
-export async function syxEntry(payload: SyxPayload): Promise<LibraryEntry> {
+export async function syxEntry(
+  payload: SyxPayload,
+  source: LibraryEntrySource,
+): Promise<LibraryEntry> {
   const { fileName, bytes } = validateSyxPayload(payload);
   const file = parseSyxFile(bytes);
   const snapshot = storedSnapshot(file);
@@ -152,7 +155,7 @@ export async function syxEntry(payload: SyxPayload): Promise<LibraryEntry> {
     name: storedName(file, fileName),
     ...storedSlot(file),
     capturedAt: new Date().toISOString(),
-    source: "UserImport",
+    source,
     tags: [],
     comment: "",
     sha256: await sha256Hex(bytes),
@@ -169,7 +172,7 @@ export async function importSyxPayload(
   database: LibraryDatabase,
   payload: SyxPayload,
 ): Promise<LibraryEntry> {
-  const entry = await syxEntry(payload);
+  const entry = await syxEntry(payload, "UserImport");
   await database.entries.insert(entry);
   return entry;
 }
@@ -179,11 +182,33 @@ export async function importSyxFiles(
   files: readonly File[],
 ): Promise<readonly LibraryEntry[]> {
   const payloads = await Promise.all(files.map(readSyxFile));
-  const entries = await Promise.all(payloads.map(syxEntry));
+  const entries = await Promise.all(payloads.map((payload) => syxEntry(payload, "UserImport")));
   for (const entry of entries) {
     await database.entries.insert(entry);
   }
   return entries;
+}
+
+export interface DeviceDump {
+  readonly label: string;
+  readonly address: number;
+  readonly bytes: Uint8Array;
+}
+
+export function deviceDumpPayload(dump: DeviceDump): SyxPayload {
+  return {
+    fileName: `${dump.label}${SYX_FILE_EXTENSION}`,
+    bytes: encodeMemoryImage(dump.address, dump.bytes),
+  };
+}
+
+export async function storeDeviceDump(
+  database: LibraryDatabase,
+  dump: DeviceDump,
+): Promise<LibraryEntry> {
+  const entry = await syxEntry(deviceDumpPayload(dump), "DeviceDump");
+  await database.entries.insert(entry);
+  return entry;
 }
 
 export function entryBytes(entry: LibraryEntry): Uint8Array {
