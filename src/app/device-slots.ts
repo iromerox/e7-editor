@@ -1,6 +1,11 @@
-// Slot addressing for the device browser, and the reads that fill in a slot's name and lock state.
+// Slot addressing for the device browser, and the reads that fill in a slot's name, lock state and full contents.
 import type { Connection } from "../midi";
-import type { ProgramChangeMessage } from "../protocol";
+import type {
+  MemoryDataResponse,
+  MultiPreset,
+  ProgramChangeMessage,
+  SinglePreset,
+} from "../protocol";
 import { requestResponse } from "../midi";
 import {
   LOCK_BYTE_INDEX,
@@ -9,9 +14,13 @@ import {
   NAME_OFFSET,
   PresetSlot,
   READ_MEMORY_BLOCK_BYTES,
+  decodeMultiPreset,
+  decodeSinglePreset,
   encodeProgramChange,
   isPresetLocked,
 } from "../protocol";
+import { MULTI_PRESET_BLOCKS, SINGLE_PRESET_BLOCKS } from "../store";
+import { SlotBlockLengthError, SlotBlockUnansweredError } from "./errors";
 
 export type SlotKind = "Single" | "Multi";
 
@@ -35,9 +44,29 @@ export interface SlotSummary {
   readonly locked: boolean;
 }
 
+export interface SlotSingle {
+  readonly kind: "Single";
+  readonly bytes: Uint8Array;
+  readonly preset: SinglePreset;
+}
+
+export interface SlotMulti {
+  readonly kind: "Multi";
+  readonly bytes: Uint8Array;
+  readonly multi: MultiPreset;
+}
+
+export type SlotContents = SlotSingle | SlotMulti;
+
 export interface SlotReader {
   read(address: SlotAddress): Promise<SlotSummary>;
+  readContents(address: SlotAddress): Promise<SlotContents>;
 }
+
+export const BLOCKS_PER_SLOT: Readonly<Record<SlotKind, number>> = {
+  Single: SINGLE_PRESET_BLOCKS,
+  Multi: MULTI_PRESET_BLOCKS,
+};
 
 const NAME_BLOCKS = Math.ceil((NAME_OFFSET + NAME_BYTES) / READ_MEMORY_BLOCK_BYTES);
 
@@ -88,11 +117,14 @@ function byteAt(bytes: Uint8Array, index: number): number {
 }
 
 async function readBlock(connection: Connection, address: number): Promise<Uint8Array> {
-  const response = await requestResponse(connection, { kind: "read-memory", address });
+  let response: MemoryDataResponse;
+  try {
+    response = await requestResponse(connection, { kind: "read-memory", address });
+  } catch (reason) {
+    throw new SlotBlockUnansweredError(address, reason);
+  }
   if (response.data.length !== READ_MEMORY_BLOCK_BYTES) {
-    throw new RangeError(
-      `read of 0x${address.toString(16).toUpperCase().padStart(6, "0")} returned ${response.data.length} bytes, expected ${READ_MEMORY_BLOCK_BYTES}`,
-    );
+    throw new SlotBlockLengthError(address, READ_MEMORY_BLOCK_BYTES, response.data.length);
   }
   return response.data;
 }
@@ -114,13 +146,33 @@ export async function readSlotSummary(
   };
 }
 
+export async function readSlotContents(
+  connection: Connection,
+  address: SlotAddress,
+): Promise<SlotContents> {
+  const base = slotByteAddress(address);
+  const bytes = new Uint8Array(BLOCKS_PER_SLOT[address.kind] * READ_MEMORY_BLOCK_BYTES);
+  for (let offset = 0; offset < bytes.length; offset += READ_MEMORY_BLOCK_BYTES) {
+    bytes.set(await readBlock(connection, base + offset), offset);
+  }
+  return address.kind === "Single"
+    ? { kind: "Single", bytes, preset: decodeSinglePreset(bytes) }
+    : { kind: "Multi", bytes, multi: decodeMultiPreset(bytes) };
+}
+
 export function createSlotReader(connection: Connection): SlotReader {
   let queue: Promise<unknown> = Promise.resolve();
+  const serialized = <Result>(read: () => Promise<Result>): Promise<Result> => {
+    const result = queue.then(read);
+    queue = result.catch(() => undefined);
+    return result;
+  };
   return {
     read(address: SlotAddress): Promise<SlotSummary> {
-      const summary = queue.then(() => readSlotSummary(connection, address));
-      queue = summary.catch(() => undefined);
-      return summary;
+      return serialized(() => readSlotSummary(connection, address));
+    },
+    readContents(address: SlotAddress): Promise<SlotContents> {
+      return serialized(() => readSlotContents(connection, address));
     },
   };
 }

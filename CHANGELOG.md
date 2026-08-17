@@ -450,6 +450,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   this LFO has. While `Mod Wheel` and `Aftertouch` are both at zero the box
   says the LFO is silent: its amplitude is zero until one of the two raises
   it, so the `LFO3 Mod` knobs elsewhere on the panel reach nothing.
+- `src/app/device-slots.ts`: `readSlotContents`, reading a whole slot off the
+  instrument — the eight consecutive 16-byte blocks a single preset occupies,
+  or the thirty-two a multi does — and decoding the assembled image into a
+  preset, with the raw bytes kept beside it. It runs on the same one-at-a-time
+  request queue as the device browser's name-and-lock reads, so a full read
+  and a slot summary cannot interleave their requests on the wire.
+- `src/app/errors.ts`: typed errors for the block reads behind a slot. A block
+  that answers with the wrong length, or does not answer at all, now fails
+  naming the address it was reading rather than leaving a preset silently
+  short — for the name-and-lock reads as much as for a full one.
 
 ### Changed
 
