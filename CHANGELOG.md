@@ -482,6 +482,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   whose stored bytes no longer decode reports the reason at that entry with
   the editor's preset untouched, and loading over edits that were never saved
   to the library asks before replacing them.
+- The editor can save what it holds to the library. `Save` replaces the bytes
+  of the entry the preset was loaded from — keeping that entry's id, name,
+  tags and comment, and asking first, since what it stored is not kept — and
+  `Save as new` stores the editor's preset as another entry under a name the
+  user gives, leaving the one it came from exactly as it was. A preset loaded
+  from a multi is written back into the part it came from, leaving the other
+  three byte-identical. The editor says whether what it holds still matches
+  what its entry stores, so unsaved work is visible rather than remembered,
+  and a preset the library has no place for — one edited from nothing, or one
+  part of a multi read off the device — says so instead of guessing where it
+  belongs.
 
 ### Changed
 

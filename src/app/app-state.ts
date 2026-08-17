@@ -92,6 +92,7 @@ export interface AppStateControls {
   editField(field: CcField, value: number): void;
   setMasterVolume(value: number): void;
   recordEdit(edit: EditorEdit): void;
+  clearHistory(): void;
   takeUndo(): EditorEdit | undefined;
   takeRedo(): EditorEdit | undefined;
 }
@@ -180,6 +181,9 @@ export function createAppState(): AppStateControls {
     },
     recordEdit(edit: EditorEdit): void {
       setState("history", recorded(unwrap(state).history, edit));
+    },
+    clearHistory(): void {
+      setState("history", emptyHistory());
     },
     takeUndo(): EditorEdit | undefined {
       const { undo, redo } = unwrap(state).history;

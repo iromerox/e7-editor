@@ -15,13 +15,17 @@ import {
   SyxPayloadError,
   UnexpectedSysExCommandError,
   createLibraryDatabase,
+  deviceDumpPayload,
   entryBytes,
   entryFileName,
   exportEntryToDisk,
   importSyxFromDisk,
   importSyxPayload,
   pickSyxFiles,
+  replaceEntryWithEdit,
   storeDeviceDump,
+  storeEdit,
+  syxEntry,
 } from "./index";
 
 const openDatabases: LibraryDatabase[] = [];
@@ -284,6 +288,84 @@ describe("storeDeviceDump", () => {
     });
 
     expect(entry.name).toBe("Single 4.4.4");
+  });
+});
+
+describe("storeEdit", () => {
+  it("stores the editor's preset as an edit under the name it was given", async () => {
+    const database = await openLibrary("edit-new");
+    const slot = new PresetSlot(2, 4, 6);
+    const image = presetBytes("Fat Brass");
+
+    const entry = await storeEdit(database, "Fat Brass Bright", {
+      address: slot.byteAddress(),
+      bytes: image,
+    });
+
+    expect(entry).toMatchObject({
+      kind: "Single",
+      name: "Fat Brass Bright",
+      bank: 2,
+      group: 4,
+      slot: 6,
+      source: "Edit",
+      tags: [],
+    });
+    expect(entryBytes(entry)).toEqual(syxFile(slot.byteAddress(), image));
+    expect(await storedEntry(database, entry.id)).toMatchObject({ name: "Fat Brass Bright" });
+  });
+
+  it("falls back to the name the preset carries when it is given none", async () => {
+    const database = await openLibrary("edit-unnamed");
+
+    const entry = await storeEdit(database, "   ", {
+      address: new PresetSlot(1, 1, 1).byteAddress(),
+      bytes: presetBytes("Fat Brass"),
+    });
+
+    expect(entry.name).toBe("Fat Brass");
+  });
+});
+
+describe("replaceEntryWithEdit", () => {
+  it("replaces an entry's bytes and hash while keeping what names it", async () => {
+    const database = await openLibrary("edit-over");
+    const slot = new PresetSlot(2, 4, 6);
+    const stored = await syxEntry(
+      deviceDumpPayload({
+        label: "Single 2.4.6",
+        address: slot.byteAddress(),
+        bytes: presetBytes("Fat Brass"),
+      }),
+      "UserImport",
+    );
+    const kept = { ...stored, tags: ["brass"], comment: "warm" };
+    await database.entries.insert(kept);
+    const edited = presetBytes("Fat Brass");
+    edited[70] = 91;
+
+    const next = await replaceEntryWithEdit(database, kept, {
+      address: slot.byteAddress(),
+      bytes: edited,
+    });
+
+    expect(next).toMatchObject({
+      id: kept.id,
+      name: "Fat Brass",
+      tags: ["brass"],
+      comment: "warm",
+      source: "Edit",
+      bank: 2,
+      group: 4,
+      slot: 6,
+    });
+    expect(next.sha256).not.toBe(kept.sha256);
+    expect(await database.entries.count().exec()).toBe(1);
+    expect(entryBytes(next)).toEqual(syxFile(slot.byteAddress(), edited));
+    expect(await storedEntry(database, kept.id)).toMatchObject({
+      sysex: next.sysex,
+      sha256: next.sha256,
+    });
   });
 });
 

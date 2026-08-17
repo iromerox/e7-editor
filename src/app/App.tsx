@@ -58,7 +58,7 @@ function Shell(props: AppProps): JSX.Element {
       <ConnectionBar onConnectionChange={setConnection} />
       <LibraryPane database={props.database} />
       <DevicePane connection={connection()} database={props.database} />
-      <EditorPane connection={connection()} />
+      <EditorPane connection={connection()} database={props.database} />
       <fieldset style={{ "border-color": "var(--e7-silkscreen)" }}>
         <legend>Finish</legend>
         <FinishSelect

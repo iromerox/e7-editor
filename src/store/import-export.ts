@@ -6,6 +6,7 @@ import type { SyxFile } from "./syx-codec";
 import * as z from "zod";
 import { ADDRESS_BYTES, COMMAND_HEADER, SYSEX_END, SYSEX_START } from "../protocol";
 import { EntryPayloadError, SyxPayloadError } from "./errors";
+import { ENTRY_NAME_MAX_LENGTH } from "./schema";
 import { BACKUP_BLOCKS, MEMORY_BLOCK_BYTES, encodeMemoryImage, parseSyxFile } from "./syx-codec";
 
 export const SYX_FILE_EXTENSION = ".syx";
@@ -142,9 +143,15 @@ function storedSlot(file: SyxFile): SlotMetadata {
   }
 }
 
+function givenName(name: string | undefined, file: SyxFile, fileName: string): string {
+  const given = name?.trim() ?? "";
+  return given === "" ? storedName(file, fileName) : given.slice(0, ENTRY_NAME_MAX_LENGTH);
+}
+
 export async function syxEntry(
   payload: SyxPayload,
   source: LibraryEntrySource,
+  name?: string,
 ): Promise<LibraryEntry> {
   const { fileName, bytes } = validateSyxPayload(payload);
   const file = parseSyxFile(bytes);
@@ -152,7 +159,7 @@ export async function syxEntry(
   return {
     id: crypto.randomUUID(),
     kind: file.kind,
-    name: storedName(file, fileName),
+    name: givenName(name, file, fileName),
     ...storedSlot(file),
     capturedAt: new Date().toISOString(),
     source,
@@ -209,6 +216,44 @@ export async function storeDeviceDump(
   const entry = await syxEntry(deviceDumpPayload(dump), "DeviceDump");
   await database.entries.insert(entry);
   return entry;
+}
+
+export interface PresetImage {
+  readonly address: number;
+  readonly bytes: Uint8Array;
+}
+
+function editPayload(name: string, image: PresetImage): SyxPayload {
+  return {
+    fileName: `${name}${SYX_FILE_EXTENSION}`,
+    bytes: encodeMemoryImage(image.address, image.bytes),
+  };
+}
+
+export async function storeEdit(
+  database: LibraryDatabase,
+  name: string,
+  image: PresetImage,
+): Promise<LibraryEntry> {
+  const entry = await syxEntry(editPayload(name, image), "Edit", name);
+  await database.entries.insert(entry);
+  return entry;
+}
+
+export async function replaceEntryWithEdit(
+  database: LibraryDatabase,
+  entry: LibraryEntry,
+  image: PresetImage,
+): Promise<LibraryEntry> {
+  const encoded = await syxEntry(editPayload(entry.name, image), "Edit", entry.name);
+  const next: LibraryEntry = {
+    ...encoded,
+    id: entry.id,
+    tags: entry.tags,
+    comment: entry.comment,
+  };
+  await database.entries.upsert(next);
+  return next;
 }
 
 export function entryBytes(entry: LibraryEntry): Uint8Array {

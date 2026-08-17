@@ -17,6 +17,8 @@ export const LIBRARY_ENTRY_SOURCES = ["DeviceDump", "UserImport", "Edit"] as con
 
 export type LibraryEntrySource = (typeof LIBRARY_ENTRY_SOURCES)[number];
 
+export const ENTRY_NAME_MAX_LENGTH = 64;
+
 type JsonSafe<Value> = Value extends Uint8Array
   ? readonly number[]
   : Value extends object
@@ -53,7 +55,7 @@ export const LIBRARY_ENTRY_SCHEMA: RxJsonSchema<LibraryEntry> = {
   properties: {
     id: { type: "string", maxLength: 64 },
     kind: { type: "string", enum: [...LIBRARY_ENTRY_KINDS], maxLength: 16 },
-    name: { type: "string", maxLength: 64 },
+    name: { type: "string", maxLength: ENTRY_NAME_MAX_LENGTH },
     bank: { type: "integer", minimum: 1, maximum: 8, multipleOf: 1 },
     group: { type: "integer", minimum: 1, maximum: 8, multipleOf: 1 },
     slot: { type: "integer", minimum: 1, maximum: 8, multipleOf: 1 },

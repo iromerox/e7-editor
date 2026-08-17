@@ -5,7 +5,7 @@ import type { SlotAddress, SlotContents, SlotReader } from "./device-slots";
 import { createStore } from "solid-js/store";
 import { storeDeviceDump } from "../store";
 import { slotByteAddress, slotKey } from "./device-slots";
-import { describeFailure } from "./transfer";
+import { describeFailure, savedNote } from "./transfer";
 
 export type SlotTransferTask = "load" | "save";
 
@@ -32,10 +32,6 @@ export const LOAD_NOTE =
 
 export const SAVE_NOTE =
   "Save to library stores this slot's preset as a new library entry. The editor keeps the preset it has.";
-
-function savedNote(name: string): string {
-  return `Saved to the library as “${name}”.`;
-}
 
 export function createSlotTransfers(
   controls: AppStateControls,
