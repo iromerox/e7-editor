@@ -184,16 +184,59 @@ export async function importSyxPayload(
   return entry;
 }
 
+export interface SyxImportSkip {
+  readonly fileName: string;
+  readonly stored: LibraryEntry;
+}
+
+export interface SyxImportFailure {
+  readonly fileName: string;
+  readonly reason: string;
+}
+
+export interface SyxImportReport {
+  readonly imported: readonly LibraryEntry[];
+  readonly skipped: readonly SyxImportSkip[];
+  readonly failed: readonly SyxImportFailure[];
+}
+
+export async function entryWithHash(
+  database: LibraryDatabase,
+  sha256: string,
+): Promise<LibraryEntry | undefined> {
+  const document = await database.entries.findOne({ selector: { sha256 } }).exec();
+  return document?.toJSON();
+}
+
+function importFault(reason: unknown): string {
+  if (reason instanceof SyxPayloadError) {
+    return reason.faults.join("; ");
+  }
+  return reason instanceof Error ? reason.message : String(reason);
+}
+
 export async function importSyxFiles(
   database: LibraryDatabase,
   files: readonly File[],
-): Promise<readonly LibraryEntry[]> {
-  const payloads = await Promise.all(files.map(readSyxFile));
-  const entries = await Promise.all(payloads.map((payload) => syxEntry(payload, "UserImport")));
-  for (const entry of entries) {
-    await database.entries.insert(entry);
+): Promise<SyxImportReport> {
+  const imported: LibraryEntry[] = [];
+  const skipped: SyxImportSkip[] = [];
+  const failed: SyxImportFailure[] = [];
+  for (const file of files) {
+    try {
+      const entry = await syxEntry(await readSyxFile(file), "UserImport");
+      const stored = await entryWithHash(database, entry.sha256);
+      if (stored !== undefined) {
+        skipped.push({ fileName: file.name, stored });
+        continue;
+      }
+      await database.entries.insert(entry);
+      imported.push(entry);
+    } catch (reason) {
+      failed.push({ fileName: file.name, reason: importFault(reason) });
+    }
   }
-  return entries;
+  return { imported, skipped, failed };
 }
 
 export interface DeviceDump {
@@ -344,9 +387,7 @@ export function pickSyxFiles(): Promise<readonly File[]> {
   return canOpenWithPicker(window) ? pickWithPicker(window) : pickWithInput();
 }
 
-export async function importSyxFromDisk(
-  database: LibraryDatabase,
-): Promise<readonly LibraryEntry[]> {
+export async function importSyxFromDisk(database: LibraryDatabase): Promise<SyxImportReport> {
   return importSyxFiles(database, await pickSyxFiles());
 }
 

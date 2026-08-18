@@ -516,6 +516,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the other three byte-identical, which is what lets a part read off the
   instrument reach the library and a multi reach a multi slot: both were
   refused before, for want of the three parts the editor never held.
+- `.syx` files on disk can be imported into the library, which is how a
+  collection of patches enters the app without an instrument attached.
+  `Import .syx files` sits in the library pane's header and again in the empty
+  library's own message, and opens the browser's file picker where there is
+  one, a file input where there is not. Each picked file is read and stored on
+  its own, so an unreadable file no longer takes the rest of the selection
+  down with it: the import reports how many of the picked files were stored,
+  and names every file it refused with the reason it was refused. A file whose
+  bytes are already in the library is skipped rather than stored twice, named
+  alongside the entry that already holds them.
 
 ### Changed
 

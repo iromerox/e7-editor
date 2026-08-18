@@ -19,6 +19,7 @@ import {
   entryBytes,
   entryFileName,
   exportEntryToDisk,
+  importSyxFiles,
   importSyxFromDisk,
   importSyxPayload,
   pickSyxFiles,
@@ -409,6 +410,91 @@ describe("pickSyxFiles", () => {
   });
 });
 
+describe("importSyxFiles", () => {
+  it("keeps the readable files of a selection when one of them is unreadable", async () => {
+    const database = await openLibrary("batch-mixed");
+    const good = toFile(singleFile(new PresetSlot(1, 1, 1), "Kept"), "kept.syx");
+    const bad = toFile(
+      new TextEncoder().encode("not a patch dump at all, however long"),
+      "bad.syx",
+    );
+    const other = toFile(singleFile(new PresetSlot(2, 2, 2), "Also Kept"), "also-kept.syx");
+
+    const report = await importSyxFiles(database, [good, bad, other]);
+
+    expect(report.imported.map((entry) => entry.name)).toEqual(["Kept", "Also Kept"]);
+    expect(report.failed).toHaveLength(1);
+    expect(report.failed[0]?.fileName).toBe("bad.syx");
+    expect(report.failed[0]?.reason).toContain("F0 status byte");
+    expect(await database.entries.count().exec()).toBe(2);
+  });
+
+  it("names every unreadable file in a selection, with its own reason", async () => {
+    const database = await openLibrary("batch-failures");
+    const short = toFile(Uint8Array.from([0xf0, 0xf7]), "short.syx");
+    const read = toFile(
+      concat(Array.from({ length: 8 }, () => encodeCommand({ kind: "read-memory", address: 0 }))),
+      "read.syx",
+    );
+
+    const report = await importSyxFiles(database, [short, read]);
+
+    expect(report.imported).toEqual([]);
+    expect(report.failed.map((failure) => failure.fileName)).toEqual(["short.syx", "read.syx"]);
+    expect(report.failed[0]?.reason).toContain("shorter than");
+    expect(report.failed[1]?.reason).toContain("read-memory");
+    expect(await database.entries.count().exec()).toBe(0);
+  });
+
+  it("skips a file whose bytes are already stored, naming the entry holding them", async () => {
+    const database = await openLibrary("batch-duplicate");
+    const bytes = singleFile(new PresetSlot(3, 3, 3), "Only Once");
+    const stored = await importSyxPayload(database, { fileName: "first.syx", bytes });
+
+    const report = await importSyxFiles(database, [toFile(bytes, "again.syx")]);
+
+    expect(report.imported).toEqual([]);
+    expect(report.skipped).toHaveLength(1);
+    expect(report.skipped[0]?.fileName).toBe("again.syx");
+    expect(report.skipped[0]?.stored.id).toBe(stored.id);
+    expect(await database.entries.count().exec()).toBe(1);
+  });
+
+  it("skips the second of two identical files picked in one selection", async () => {
+    const database = await openLibrary("batch-duplicate-selection");
+    const bytes = singleFile(new PresetSlot(4, 4, 4), "Twice Picked");
+
+    const report = await importSyxFiles(database, [
+      toFile(bytes, "one.syx"),
+      toFile(bytes, "copy-of-one.syx"),
+    ]);
+
+    expect(report.imported).toHaveLength(1);
+    expect(report.skipped.map((skip) => skip.fileName)).toEqual(["copy-of-one.syx"]);
+    expect(await database.entries.count().exec()).toBe(1);
+  });
+
+  it("stores a file whose bytes differ from an entry it otherwise resembles", async () => {
+    const database = await openLibrary("batch-near-duplicate");
+    const bytes = singleFile(new PresetSlot(5, 5, 5), "Near");
+    await importSyxPayload(database, { fileName: "near.syx", bytes });
+    const edited = singleFile(new PresetSlot(5, 5, 5), "Near");
+    edited[edited.length - 2] = (edited[edited.length - 2] ?? 0) ^ 0x01;
+
+    const report = await importSyxFiles(database, [toFile(edited, "near-edited.syx")]);
+
+    expect(report.skipped).toEqual([]);
+    expect(report.imported).toHaveLength(1);
+    expect(await database.entries.count().exec()).toBe(2);
+  });
+
+  it("reports nothing read when no files were picked", async () => {
+    const database = await openLibrary("batch-empty");
+
+    expect(await importSyxFiles(database, [])).toEqual({ imported: [], skipped: [], failed: [] });
+  });
+});
+
 describe("importSyxFromDisk", () => {
   it("imports through the file input fallback, end to end", async () => {
     const database = await openLibrary("disk-fallback");
@@ -417,9 +503,9 @@ describe("importSyxFromDisk", () => {
 
     chooseFiles([toFile(bytes, "from-disk.syx")]);
 
-    const entries = await importing;
-    expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({
+    const report = await importing;
+    expect(report.imported).toHaveLength(1);
+    expect(report.imported[0]).toMatchObject({
       kind: "Single",
       name: "From Disk",
       bank: 6,
@@ -427,6 +513,37 @@ describe("importSyxFromDisk", () => {
       slot: 4,
     });
     expect(await database.entries.count().exec()).toBe(1);
+  });
+
+  it("imports through the file picker when the browser has one, end to end", async () => {
+    const database = await openLibrary("disk-picker");
+    const file = toFile(singleFile(new PresetSlot(6, 2, 5), "Picked Off Disk"), "picked.syx");
+    vi.stubGlobal(
+      "showOpenFilePicker",
+      vi.fn(async () => [{ getFile: async () => file }]),
+    );
+
+    const report = await importSyxFromDisk(database);
+
+    expect(report.imported).toHaveLength(1);
+    expect(report.imported[0]).toMatchObject({ kind: "Single", name: "Picked Off Disk" });
+    expect(document.body.querySelector("input[type=file]")).toBeNull();
+    expect(await database.entries.count().exec()).toBe(1);
+  });
+
+  it("imports nothing when the picker is dismissed", async () => {
+    const database = await openLibrary("disk-dismissed");
+    vi.stubGlobal(
+      "showOpenFilePicker",
+      vi.fn(() => Promise.reject(new DOMException("dismissed", "AbortError"))),
+    );
+
+    expect(await importSyxFromDisk(database)).toEqual({
+      imported: [],
+      skipped: [],
+      failed: [],
+    });
+    expect(await database.entries.count().exec()).toBe(0);
   });
 });
 

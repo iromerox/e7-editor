@@ -117,11 +117,41 @@ function listed(): string[] {
   return screen.getAllByRole("listitem").map((item) => item.textContent ?? "");
 }
 
+function syxBytes(name: string, address: number, length = SINGLE_PRESET_BYTES): Uint8Array {
+  return encodeMemoryImage(address, presetImage(name, length));
+}
+
+function toFile(bytes: Uint8Array, fileName: string): File {
+  return new File([Uint8Array.from(bytes)], fileName);
+}
+
+function chooseFiles(files: readonly File[]): void {
+  const input = document.body.querySelector("input[type=file]");
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("no file input was added to the document");
+  }
+  Object.defineProperty(input, "files", { value: files, configurable: true });
+  input.dispatchEvent(new Event("change"));
+}
+
+async function importFiles(label: string, files: readonly File[]): Promise<void> {
+  await fireEvent.click(screen.getByRole("button", { name: label }));
+  chooseFiles(files);
+}
+
+function alerts(): string[] {
+  return screen.queryAllByRole("alert").map((item) => item.textContent ?? "");
+}
+
+const IMPORT = "Import .syx files into the library";
+const IMPORT_WHEN_EMPTY = "Import .syx files into the empty library";
+
 async function filterBy(kind: string): Promise<void> {
   await fireEvent.change(screen.getByLabelText("Kind"), { target: { value: kind } });
 }
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
   while (openDatabases.length > 0) {
     await openDatabases.pop()?.close();
   }
@@ -209,6 +239,111 @@ describe("LibraryPane", () => {
       expect(screen.getByText(/No Group entries in the library/)).toBeInTheDocument(),
     );
     expect(screen.queryByText(/The library is empty/)).not.toBeInTheDocument();
+  });
+});
+
+describe("LibraryPane importing", () => {
+  it("stores a picked file and lists it without a manual refresh", async () => {
+    const database = await openLibrary();
+    renderPane(database);
+    await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
+
+    await importFiles(IMPORT, [
+      toFile(syxBytes("From Disk", new PresetSlot(6, 2, 4).byteAddress()), "from-disk.syx"),
+    ]);
+
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+    expect(listed()[0]).toContain("From Disk");
+    expect(listed()[0]).toContain("Single");
+    expect(listed()[0]).toContain("Bank 6 · Group 2 · Slot 4");
+    expect(screen.getByText("Imported 1 file of the 1 file picked.")).toBeInTheDocument();
+  });
+
+  it("is reachable from the empty state itself, and through the browser's own picker", async () => {
+    const database = await openLibrary();
+    const file = toFile(
+      syxBytes("Picked Off Disk", new PresetSlot(2, 1, 1).byteAddress()),
+      "picked.syx",
+    );
+    vi.stubGlobal(
+      "showOpenFilePicker",
+      vi.fn(async () => [{ getFile: async () => file }]),
+    );
+    renderPane(database);
+    await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
+
+    await fireEvent.click(screen.getByRole("button", { name: IMPORT_WHEN_EMPTY }));
+
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+    expect(listed()[0]).toContain("Picked Off Disk");
+    expect(screen.queryByRole("button", { name: IMPORT_WHEN_EMPTY })).toBeNull();
+  });
+
+  it("imports the readable files of a selection and names the one that failed", async () => {
+    const database = await openLibrary();
+    renderPane(database);
+    await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
+
+    await importFiles(IMPORT, [
+      toFile(syxBytes("Kept", new PresetSlot(2, 2, 2).byteAddress()), "kept.syx"),
+      toFile(new TextEncoder().encode("a text file wearing a .syx extension"), "notes.syx"),
+      toFile(syxBytes("Also Kept", new PresetSlot(3, 3, 3).byteAddress()), "also-kept.syx"),
+    ]);
+
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+    expect(screen.getByText("Imported 2 files of the 3 files picked.")).toBeInTheDocument();
+    expect(alerts()).toHaveLength(1);
+    expect(alerts()[0]).toContain("notes.syx was not imported");
+    expect(alerts()[0]).toContain("F0 status byte");
+  });
+
+  it("skips a file already in the library and says which entry holds its bytes", async () => {
+    const address = new PresetSlot(1, 3, 5).byteAddress();
+    const image = presetImage("Fat Brass");
+    const database = await openLibrary(await storedEntry("Fat Brass", address, image));
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await importFiles(IMPORT, [toFile(encodeMemoryImage(address, image), "fat-brass-again.syx")]);
+
+    await vi.waitFor(() =>
+      expect(
+        screen.getByText("Nothing was imported out of the 1 file picked."),
+      ).toBeInTheDocument(),
+    );
+    expect(alerts()[0]).toContain("fat-brass-again.syx holds the same bytes as “Fat Brass”");
+    expect(alerts()[0]).toContain("skipped");
+    expect(listed()).toHaveLength(1);
+  });
+
+  it("clears what an import reported when it is dismissed", async () => {
+    const database = await openLibrary();
+    renderPane(database);
+    await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
+    await importFiles(IMPORT, [
+      toFile(syxBytes("Dismissed", new PresetSlot(4, 4, 4).byteAddress()), "dismissed.syx"),
+    ]);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Dismiss what the import reported" }));
+
+    expect(screen.queryByText(/Imported 1 file/)).toBeNull();
+    expect(listed()).toHaveLength(1);
+  });
+
+  it("reports a picker that failed outright, leaving the library as it was", async () => {
+    const database = await openLibrary(single);
+    vi.stubGlobal(
+      "showOpenFilePicker",
+      vi.fn(() => Promise.reject(new Error("the file system is unreachable"))),
+    );
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await fireEvent.click(screen.getByRole("button", { name: IMPORT }));
+
+    await vi.waitFor(() => expect(alerts()[0]).toContain("the file system is unreachable"));
+    expect(listed()).toHaveLength(1);
   });
 });
 

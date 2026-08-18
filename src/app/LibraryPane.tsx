@@ -1,14 +1,22 @@
-// Browsable list of stored library entries, filterable by kind, kept in step with the store, and the loading of an entry that holds one preset into the editor.
+// Browsable list of stored library entries, filterable by kind, kept in step with the store, the import of .syx files from disk into it, and the loading of an entry that holds one preset into the editor.
 import type { JSX } from "solid-js";
-import type { LibraryDatabase, LibraryEntry } from "../store";
+import type { LibraryDatabase, LibraryEntry, SyxImportReport } from "../store";
 import type { LibraryKindFilter } from "./app-state";
 import type { EntryTransfers } from "./entry-transfer";
+import type { LibraryImport } from "./library-import";
 import { For, Match, Show, Switch, createEffect, createMemo, onCleanup } from "solid-js";
 import { LIBRARY_ENTRY_KINDS, allEntries, entriesByKind } from "../store";
 import { useAppState } from "./AppStateProvider";
 import { EVERY_KIND } from "./app-state";
 import { EditorChip } from "./EditorChip";
 import { createEntryTransfers, holdsOnePreset, loadNote, manyPresetsNote } from "./entry-transfer";
+import {
+  IMPORT_NOTE,
+  createLibraryImport,
+  failedNote,
+  importedNote,
+  skippedNote,
+} from "./library-import";
 import { KEEP_EDITING, unsavedEditsQuestion } from "./transfer";
 
 const KIND_FILTERS: readonly LibraryKindFilter[] = [EVERY_KIND, ...LIBRARY_ENTRY_KINDS];
@@ -44,6 +52,84 @@ function Chip(props: { readonly children: JSX.Element }): JSX.Element {
     >
       {props.children}
     </span>
+  );
+}
+
+interface ImportButtonProps {
+  readonly label: string;
+  readonly imports: LibraryImport;
+}
+
+function ImportButton(props: ImportButtonProps): JSX.Element {
+  return (
+    <button
+      type="button"
+      aria-label={props.label}
+      title={IMPORT_NOTE}
+      disabled={props.imports.state()?.status === "importing"}
+      onClick={() => props.imports.start()}
+    >
+      Import .syx files
+    </button>
+  );
+}
+
+function ImportReport(props: { readonly imports: LibraryImport }): JSX.Element {
+  const importing = (): boolean => props.imports.state()?.status === "importing";
+  const report = (): SyxImportReport | undefined => {
+    const pending = props.imports.state();
+    return pending?.status === "done" ? pending.report : undefined;
+  };
+  const refused = (): string | undefined => {
+    const pending = props.imports.state();
+    return pending?.status === "failed" ? pending.reason : undefined;
+  };
+
+  return (
+    <Switch>
+      <Match when={importing()}>
+        <p role="status" style={{ margin: "0.5rem 0 0" }}>
+          Reading the files…
+        </p>
+      </Match>
+      <Match when={report()}>
+        {(found) => (
+          <div
+            style={{
+              display: "flex",
+              "flex-direction": "column",
+              gap: "0.25rem",
+              margin: "0.5rem 0 0",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                "align-items": "baseline",
+                "flex-wrap": "wrap",
+                gap: "0.5rem",
+              }}
+            >
+              <span role="status">{importedNote(found())}</span>
+              <button
+                type="button"
+                aria-label="Dismiss what the import reported"
+                onClick={() => props.imports.dismiss()}
+              >
+                Dismiss
+              </button>
+            </div>
+            <For each={found().skipped}>
+              {(skip) => <span role="alert">{skippedNote(skip)}</span>}
+            </For>
+            <For each={found().failed}>
+              {(failure) => <span role="alert">{failedNote(failure)}</span>}
+            </For>
+          </div>
+        )}
+      </Match>
+      <Match when={refused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
+    </Switch>
   );
 }
 
@@ -136,6 +222,7 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
   const controls = useAppState();
   const { state, selectLibraryKind, setLibraryEntries } = controls;
   const transfers = createEntryTransfers(controls);
+  const imports = createLibraryImport(props.database);
 
   const shown = createMemo(() => {
     const selected = state.library.kind;
@@ -177,21 +264,38 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
           </select>
         </label>
         <Show when={state.library.entries}>{(found) => <span>{counted(found())}</span>}</Show>
+        <ImportButton label="Import .syx files into the library" imports={imports} />
       </div>
+      <ImportReport imports={imports} />
       <Show when={state.library.entries} fallback={<p>Reading the library…</p>}>
         {(found) => (
           <Show
             when={found().length > 0}
             fallback={
-              <p>
-                <Show
-                  when={state.library.kind === EVERY_KIND}
-                  fallback={`No ${state.library.kind} entries in the library. Pick another kind to see the rest.`}
+              <Show
+                when={state.library.kind === EVERY_KIND}
+                fallback={
+                  <p>{`No ${state.library.kind} entries in the library. Pick another kind to see the rest.`}</p>
+                }
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    "align-items": "baseline",
+                    "flex-wrap": "wrap",
+                    gap: "0.5rem",
+                  }}
                 >
-                  The library is empty. Import a .syx file, or save a preset from the device, to
-                  fill it.
-                </Show>
-              </p>
+                  <p>
+                    The library is empty. Import a .syx file, or save a preset from the device, to
+                    fill it.
+                  </p>
+                  <ImportButton
+                    label="Import .syx files into the empty library"
+                    imports={imports}
+                  />
+                </div>
+              </Show>
             }
           >
             <ul style={{ "list-style": "none", margin: "0.5rem 0 0", padding: "0" }}>
