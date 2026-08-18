@@ -96,6 +96,7 @@ export interface AppStateControls {
   loadEditor(preset: SinglePreset, source: EditorSource): void;
   loadMulti(multi: MultiPreset, source: EditorSource, part: MultiPart): void;
   selectPart(part: MultiPart): void;
+  clearEditorSource(): void;
   editField(field: CcField, value: number): void;
   setMasterVolume(value: number): void;
   recordEdit(edit: EditorEdit): void;
@@ -208,6 +209,9 @@ export function createAppState(): AppStateControls {
         multi: { part, preset: held.preset },
       });
       setState("history", emptyHistory());
+    },
+    clearEditorSource(): void {
+      setState("editor", { source: { kind: "Empty" } });
     },
     editField(field: CcField, value: number): void {
       setState("editor", "preset", (preset) => writeField(unwrap(preset), field, value));

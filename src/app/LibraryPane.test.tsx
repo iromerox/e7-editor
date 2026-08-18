@@ -624,6 +624,133 @@ describe("LibraryPane editing what the library stores", () => {
   });
 });
 
+describe("LibraryPane deleting", () => {
+  async function askToDelete(name: string): Promise<void> {
+    await fireEvent.click(screen.getByRole("button", { name: `Delete ${name} from the library` }));
+  }
+
+  async function confirmDelete(name: string): Promise<void> {
+    await fireEvent.click(screen.getByRole("button", { name: `Delete ${name} for good` }));
+  }
+
+  it("removes the entry from the store and the list, leaving every other one alone", async () => {
+    const database = await openLibrary(single, multi, backup);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(3));
+
+    await askToDelete("Fat Brass");
+    await confirmDelete("Fat Brass");
+
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+    expect(screen.queryByText("Fat Brass")).toBeNull();
+    expect(await reread(database, single.id)).toBeUndefined();
+    expect(await reread(database, multi.id)).toEqual(multi);
+    expect(await reread(database, backup.id)).toEqual(backup);
+    expect(screen.getByText("Deleted “Fat Brass” from the library.")).toBeInTheDocument();
+  });
+
+  it("asks first, naming the entry, and keeps it when the question is answered no", async () => {
+    const database = await openLibrary(single, multi);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+
+    await askToDelete("Fat Brass");
+
+    expect(alerts()).toHaveLength(1);
+    expect(alerts()[0]).toContain("Deleting “Fat Brass” removes it from the library for good");
+    expect(listed()).toHaveLength(2);
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Keep it, leaving Fat Brass in the library" }),
+    );
+
+    expect(alerts()).toHaveLength(0);
+    expect(listed()).toHaveLength(2);
+    expect(await reread(database, single.id)).toEqual(single);
+  });
+
+  it("is offered for an entry holding many presets, which has no load of its own", async () => {
+    const database = await openLibrary(backup);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+    expect(screen.queryByRole("button", { name: /into the editor/ })).toBeNull();
+
+    await askToDelete("Whole instrument");
+    await confirmDelete("Whole instrument");
+
+    await vi.waitFor(async () => expect(await reread(database, backup.id)).toBeUndefined());
+  });
+
+  it("leaves the editor's preset alone and stops it pointing at the entry it came from", async () => {
+    const image = presetImage("Fat Brass");
+    const entry = await storedEntry("Fat Brass", new PresetSlot(1, 3, 5).byteAddress(), image);
+    const database = await openLibrary(entry, multi);
+    const controls = renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+    await fireEvent.click(screen.getByRole("button", { name: "Load Fat Brass into the editor" }));
+    expect(controls.state.editor.source).toEqual({ kind: "LibraryEntry", id: entry.id });
+
+    await askToDelete("Fat Brass");
+    await confirmDelete("Fat Brass");
+
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+    expect(controls.state.editor.source).toEqual({ kind: "Empty" });
+    expect(controls.state.editor.preset).toEqual(decodeSinglePreset(image));
+    expect(
+      screen.getByText(/The editor keeps the preset it holds, which no longer comes from an entry/),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing about the editor when the entry deleted is not the one it came from", async () => {
+    const entry = await storedEntry(
+      "Fat Brass",
+      new PresetSlot(1, 3, 5).byteAddress(),
+      presetImage("Fat Brass"),
+    );
+    const database = await openLibrary(entry, multi);
+    const controls = renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+    await fireEvent.click(screen.getByRole("button", { name: "Load Fat Brass into the editor" }));
+
+    await askToDelete("Split Keys");
+    await confirmDelete("Split Keys");
+
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+    expect(controls.state.editor.source).toEqual({ kind: "LibraryEntry", id: entry.id });
+    expect(screen.queryByText(/The editor keeps the preset it holds/)).toBeNull();
+  });
+
+  it("takes the question away with the entry when it leaves the library another way", async () => {
+    const database = await openLibrary(single, multi);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+    await askToDelete("Fat Brass");
+    expect(alerts()).toHaveLength(1);
+
+    await (await database.entries.findOne(single.id).exec())?.remove();
+
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+    expect(alerts()).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "Delete Fat Brass for good" })).toBeNull();
+    expect(await reread(database, multi.id)).toEqual(multi);
+  });
+
+  it("returns the pane to its empty state when the last entry goes, import and all", async () => {
+    const database = await openLibrary(single);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await askToDelete("Fat Brass");
+    await confirmDelete("Fat Brass");
+
+    await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(screen.getByText("0 entries")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: IMPORT_WHEN_EMPTY })).toBeInTheDocument();
+    expect(screen.getByText("Deleted “Fat Brass” from the library.")).toBeInTheDocument();
+  });
+});
+
 describe("LibraryPane loading", () => {
   it("puts a Single entry's preset in the editor, leaving the entry untouched", async () => {
     const image = presetImage("Fat Brass");

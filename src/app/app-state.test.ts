@@ -131,6 +131,19 @@ describe("createAppState", () => {
     expect(state.history.undo).toEqual([]);
   });
 
+  it("forgets where the preset came from without disturbing the preset itself", () => {
+    const { state, loadMulti, recordEdit, clearEditorSource } = createAppState();
+    loadMulti(fourParts(), { kind: "LibraryEntry", id: "multi-1" }, 2);
+    recordEdit(edit("filterCutoff", 2, 42));
+
+    clearEditorSource();
+
+    expect(state.editor.source).toEqual({ kind: "Empty" });
+    expect(state.editor.preset.filter.cutoff).toBe(2);
+    expect(state.editor.multi?.part).toBe(2);
+    expect(state.history.undo).toHaveLength(1);
+  });
+
   it("has no part to switch to while the editor holds a single preset", () => {
     const { state, loadEditor, selectPart } = createAppState();
     loadEditor(emptyPreset(), { kind: "LibraryEntry", id: "entry-1" });

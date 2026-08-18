@@ -1,8 +1,9 @@
-// Browsable list of stored library entries, filterable by kind, kept in step with the store, the import of .syx files from disk into it, the export of an entry back out to one, the editing of what the library stores about one, and the loading of an entry that holds one preset into the editor.
+// Browsable list of stored library entries, filterable by kind, kept in step with the store, the import of .syx files from disk into it, the export of an entry back out to one, the editing of what the library stores about one, the deletion of one from the library, and the loading of an entry that holds one preset into the editor.
 import type { JSX } from "solid-js";
 import type { LibraryDatabase, LibraryEntry, SyxImportReport } from "../store";
 import type { LibraryKindFilter } from "./app-state";
 import type { EntryMetadataEdits, MetadataDraft } from "./entry-metadata";
+import type { EntryRemovals } from "./entry-removal";
 import type { EntryTransfers } from "./entry-transfer";
 import type { LibraryExports } from "./library-export";
 import type { LibraryImport } from "./library-import";
@@ -17,7 +18,8 @@ import {
 import { useAppState } from "./AppStateProvider";
 import { EVERY_KIND } from "./app-state";
 import { EditorChip } from "./EditorChip";
-import { EDIT_NOTE, createEntryMetadataEdits } from "./entry-metadata";
+import { EDIT_NOTE, createEntryMetadataEdits, entryLabel } from "./entry-metadata";
+import { DELETE_NOTE, KEEP_ENTRY, createEntryRemovals, deleteQuestion } from "./entry-removal";
 import { createEntryTransfers, holdsOnePreset, loadNote, manyPresetsNote } from "./entry-transfer";
 import { EXPORT_NOTE, createLibraryExports } from "./library-export";
 import {
@@ -220,10 +222,11 @@ interface EntryRowProps {
   readonly transfers: EntryTransfers;
   readonly exports: LibraryExports;
   readonly metadata: EntryMetadataEdits;
+  readonly removals: EntryRemovals;
 }
 
 function EntryRow(props: EntryRowProps): JSX.Element {
-  const named = (): string => (props.entry.name === "" ? props.entry.kind : props.entry.name);
+  const named = (): string => entryLabel(props.entry);
   const confirming = (): boolean => props.transfers.state(props.entry)?.status === "confirming";
   const refused = (): string | undefined => {
     const pending = props.transfers.state(props.entry);
@@ -299,6 +302,15 @@ function EntryRow(props: EntryRowProps): JSX.Element {
         >
           Edit
         </button>
+        <button
+          type="button"
+          aria-label={`Delete ${named()} from the library`}
+          title={DELETE_NOTE}
+          disabled={props.removals.state(props.entry) !== undefined}
+          onClick={() => props.removals.ask(props.entry)}
+        >
+          Delete
+        </button>
         <Show when={props.transfers.inEditor(props.entry)}>
           <EditorChip part={props.transfers.editorPart()} />
         </Show>
@@ -335,6 +347,32 @@ function EntryRow(props: EntryRowProps): JSX.Element {
         </Match>
         <Match when={refused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
       </Switch>
+      <Show when={props.removals.state(props.entry)?.status === "confirming"}>
+        <div
+          style={{
+            display: "flex",
+            "align-items": "baseline",
+            "flex-wrap": "wrap",
+            gap: "0.5rem",
+          }}
+        >
+          <span role="alert">{deleteQuestion(named())}</span>
+          <button
+            type="button"
+            aria-label={`Delete ${named()} for good`}
+            onClick={() => props.removals.proceed(props.entry)}
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            aria-label={`${KEEP_ENTRY}, leaving ${named()} in the library`}
+            onClick={() => props.removals.cancel(props.entry)}
+          >
+            {KEEP_ENTRY}
+          </button>
+        </div>
+      </Show>
       <Switch>
         <Match when={exported()}>{(note) => <span role="status">{note()}</span>}</Match>
         <Match when={exportRefused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
@@ -364,6 +402,16 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
   const imports = createLibraryImport(props.database);
   const exports = createLibraryExports();
   const metadata = createEntryMetadataEdits(props.database);
+  const removals = createEntryRemovals(controls, props.database);
+
+  const deleted = (): string | undefined => {
+    const reported = removals.outcome();
+    return reported?.status === "done" ? reported.note : undefined;
+  };
+  const deleteRefused = (): string | undefined => {
+    const reported = removals.outcome();
+    return reported?.status === "failed" ? reported.reason : undefined;
+  };
 
   const shown = createMemo(() => {
     const selected = state.library.kind;
@@ -408,6 +456,22 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
         <ImportButton label="Import .syx files into the library" imports={imports} />
       </div>
       <ImportReport imports={imports} />
+      <Switch>
+        <Match when={deleted()}>
+          {(note) => (
+            <p role="status" style={{ margin: "0.5rem 0 0" }}>
+              {note()}
+            </p>
+          )}
+        </Match>
+        <Match when={deleteRefused()}>
+          {(reason) => (
+            <p role="alert" style={{ margin: "0.5rem 0 0" }}>
+              {reason()}
+            </p>
+          )}
+        </Match>
+      </Switch>
       <Show when={state.library.entries} fallback={<p>Reading the library…</p>}>
         {(found) => (
           <Show
@@ -447,6 +511,7 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
                     transfers={transfers}
                     exports={exports}
                     metadata={metadata}
+                    removals={removals}
                   />
                 )}
               </For>

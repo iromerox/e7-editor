@@ -4,5 +4,6 @@ export * from "./errors";
 export * from "./import-export";
 export * from "./metadata";
 export * from "./queries";
+export * from "./removal";
 export * from "./schema";
 export * from "./syx-codec";

@@ -547,6 +547,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   An entry needs a name to be listed under, so a blank one cannot be saved,
   and an edit refused for any other reason is reported at the entry with what
   was typed still in the form to correct.
+- A library entry can be deleted — a `Delete` button on every row, whatever
+  the entry holds, asking first with the entry named in the question, since
+  nothing is written to disk on the way out and an entry that was never
+  exported is gone. The list drops the entry without a manual refresh and
+  every other entry is left alone; deleting the last one returns the pane to
+  its empty state with the import still in it. Deleting the entry the editor
+  was loaded from leaves the preset in the editor exactly as it is and stops
+  it pointing at an entry that no longer exists, which is said in the same
+  breath as the deletion.
 
 ### Changed
 

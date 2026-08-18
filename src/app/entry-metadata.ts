@@ -25,6 +25,10 @@ export function savedMetadataNote(name: string): string {
   return `Saved what the library stores about “${name}”, leaving its SysEx as it was.`;
 }
 
+export function entryLabel(entry: LibraryEntry): string {
+  return entry.name === "" ? entry.kind : entry.name;
+}
+
 export function draftOf(entry: LibraryEntry): MetadataDraft {
   const { name, tags, comment } = entryMetadata(entry);
   return { name, tags: formatTags(tags), comment };
