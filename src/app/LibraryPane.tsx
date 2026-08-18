@@ -1,8 +1,9 @@
-// Browsable list of stored library entries, filterable by kind, kept in step with the store, the import of .syx files from disk into it, and the loading of an entry that holds one preset into the editor.
+// Browsable list of stored library entries, filterable by kind, kept in step with the store, the import of .syx files from disk into it, the export of an entry back out to one, and the loading of an entry that holds one preset into the editor.
 import type { JSX } from "solid-js";
 import type { LibraryDatabase, LibraryEntry, SyxImportReport } from "../store";
 import type { LibraryKindFilter } from "./app-state";
 import type { EntryTransfers } from "./entry-transfer";
+import type { LibraryExports } from "./library-export";
 import type { LibraryImport } from "./library-import";
 import { For, Match, Show, Switch, createEffect, createMemo, onCleanup } from "solid-js";
 import { LIBRARY_ENTRY_KINDS, allEntries, entriesByKind } from "../store";
@@ -10,6 +11,7 @@ import { useAppState } from "./AppStateProvider";
 import { EVERY_KIND } from "./app-state";
 import { EditorChip } from "./EditorChip";
 import { createEntryTransfers, holdsOnePreset, loadNote, manyPresetsNote } from "./entry-transfer";
+import { EXPORT_NOTE, createLibraryExports } from "./library-export";
 import {
   IMPORT_NOTE,
   createLibraryImport,
@@ -136,6 +138,7 @@ function ImportReport(props: { readonly imports: LibraryImport }): JSX.Element {
 interface EntryRowProps {
   readonly entry: LibraryEntry;
   readonly transfers: EntryTransfers;
+  readonly exports: LibraryExports;
 }
 
 function EntryRow(props: EntryRowProps): JSX.Element {
@@ -143,6 +146,14 @@ function EntryRow(props: EntryRowProps): JSX.Element {
   const confirming = (): boolean => props.transfers.state(props.entry)?.status === "confirming";
   const refused = (): string | undefined => {
     const pending = props.transfers.state(props.entry);
+    return pending?.status === "failed" ? pending.reason : undefined;
+  };
+  const exported = (): string | undefined => {
+    const pending = props.exports.state(props.entry);
+    return pending?.status === "done" ? pending.note : undefined;
+  };
+  const exportRefused = (): string | undefined => {
+    const pending = props.exports.state(props.entry);
     return pending?.status === "failed" ? pending.reason : undefined;
   };
 
@@ -181,6 +192,15 @@ function EntryRow(props: EntryRowProps): JSX.Element {
             Load
           </button>
         </Show>
+        <button
+          type="button"
+          aria-label={`Export ${named()} to a .syx file`}
+          title={EXPORT_NOTE}
+          disabled={props.exports.state(props.entry)?.status === "saving"}
+          onClick={() => props.exports.save(props.entry)}
+        >
+          Export
+        </button>
         <Show when={props.transfers.inEditor(props.entry)}>
           <EditorChip part={props.transfers.editorPart()} />
         </Show>
@@ -214,6 +234,10 @@ function EntryRow(props: EntryRowProps): JSX.Element {
         </Match>
         <Match when={refused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
       </Switch>
+      <Switch>
+        <Match when={exported()}>{(note) => <span role="status">{note()}</span>}</Match>
+        <Match when={exportRefused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
+      </Switch>
     </li>
   );
 }
@@ -223,6 +247,7 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
   const { state, selectLibraryKind, setLibraryEntries } = controls;
   const transfers = createEntryTransfers(controls);
   const imports = createLibraryImport(props.database);
+  const exports = createLibraryExports();
 
   const shown = createMemo(() => {
     const selected = state.library.kind;
@@ -300,7 +325,7 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
           >
             <ul style={{ "list-style": "none", margin: "0.5rem 0 0", padding: "0" }}>
               <For each={found()}>
-                {(entry) => <EntryRow entry={entry} transfers={transfers} />}
+                {(entry) => <EntryRow entry={entry} transfers={transfers} exports={exports} />}
               </For>
             </ul>
           </Show>

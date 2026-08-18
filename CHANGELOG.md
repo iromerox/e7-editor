@@ -526,6 +526,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and names every file it refused with the reason it was refused. A file whose
   bytes are already in the library is skipped rather than stored twice, named
   alongside the entry that already holds them.
+- Any library entry can be exported back out to a `.syx` file, whatever it
+  holds — an `Export` button on every row writes its stored SysEx byte for
+  byte, so a file leaving the library re-enters it as the same bytes. The
+  file is suggested under the entry's own name with anything a filesystem
+  would object to replaced, falling back to the entry's kind when its name
+  leaves nothing to name a file after, and the save goes through the
+  browser's save picker where there is one, a download where there is not.
+  Dismissing the save dialog writes nothing and is reported as a dismissal
+  rather than a failure; an entry whose stored bytes no longer read back as
+  SysEx says so at the entry instead of writing a file no tool could open.
 
 ### Changed
 

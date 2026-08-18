@@ -347,6 +347,114 @@ describe("LibraryPane importing", () => {
   });
 });
 
+describe("LibraryPane exporting", () => {
+  function captureSaves(written: Uint8Array[]): ReturnType<typeof vi.fn> {
+    const showSaveFilePicker = vi.fn(async () => ({
+      createWritable: async () => ({
+        write: async (chunk: Uint8Array) => {
+          written.push(chunk);
+        },
+        close: async () => undefined,
+      }),
+    }));
+    vi.stubGlobal("showSaveFilePicker", showSaveFilePicker);
+    return showSaveFilePicker;
+  }
+
+  it("writes an entry's stored bytes out under a name taken from the entry", async () => {
+    const address = new PresetSlot(1, 3, 5).byteAddress();
+    const image = presetImage("Fat Brass");
+    const database = await openLibrary(await storedEntry("Fat Brass", address, image));
+    const written: Uint8Array[] = [];
+    const showSaveFilePicker = captureSaves(written);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Export Fat Brass to a .syx file" }));
+
+    await vi.waitFor(() => expect(written).toHaveLength(1));
+    expect(written[0]).toEqual(encodeMemoryImage(address, image));
+    expect(showSaveFilePicker).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedName: "Fat Brass.syx" }),
+    );
+    await vi.waitFor(() =>
+      expect(screen.getByText("Exported as Fat Brass.syx.")).toBeInTheDocument(),
+    );
+    expect(alerts()).toHaveLength(0);
+  });
+
+  it("exports an entry holding many presets, which has no load of its own", async () => {
+    const address = new PresetSlot(1, 1, 1).byteAddress();
+    const image = presetImage("Whole Group", SINGLE_PRESET_BYTES * 8);
+    const database = await openLibrary(await storedEntry("Whole Group", address, image));
+    const written: Uint8Array[] = [];
+    captureSaves(written);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+    expect(screen.queryByRole("button", { name: /into the editor/ })).toBeNull();
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Export Whole Group to a .syx file" }),
+    );
+
+    await vi.waitFor(() => expect(written).toHaveLength(1));
+    expect(written[0]).toEqual(encodeMemoryImage(address, image));
+  });
+
+  it("says nothing was written when the save dialog is dismissed, and reports no error", async () => {
+    const database = await openLibrary(
+      await storedEntry(
+        "Not Saved",
+        new PresetSlot(2, 2, 2).byteAddress(),
+        presetImage("Not Saved"),
+      ),
+    );
+    vi.stubGlobal(
+      "showSaveFilePicker",
+      vi.fn(() => Promise.reject(new DOMException("dismissed", "AbortError"))),
+    );
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Export Not Saved to a .syx file" }));
+
+    await vi.waitFor(() =>
+      expect(
+        screen.getByText("The save was dismissed, so no file was written."),
+      ).toBeInTheDocument(),
+    );
+    expect(alerts()).toHaveLength(0);
+  });
+
+  it("reports an entry whose stored bytes no longer decode at that entry, writing nothing", async () => {
+    const half = presetImage("Half Written").subarray(0, SINGLE_PRESET_BYTES / 2);
+    const database = await openLibrary(
+      await storedEntry(
+        "Fat Brass",
+        new PresetSlot(1, 3, 5).byteAddress(),
+        presetImage("Fat Brass"),
+      ),
+      {
+        ...single,
+        name: "Damaged",
+        sysex: base64(encodeMemoryImage(new PresetSlot(1, 3, 5).byteAddress(), half)),
+      },
+    );
+    const written: Uint8Array[] = [];
+    const showSaveFilePicker = captureSaves(written);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Export Damaged to a .syx file" }));
+
+    await vi.waitFor(() => expect(alerts()).toHaveLength(1));
+    expect(alerts()[0]).toContain("cannot be read back");
+    expect(alerts()[0]).toContain("partially written");
+    expect(showSaveFilePicker).not.toHaveBeenCalled();
+    expect(written).toHaveLength(0);
+  });
+});
+
 describe("LibraryPane loading", () => {
   it("puts a Single entry's preset in the editor, leaving the entry untouched", async () => {
     const image = presetImage("Fat Brass");

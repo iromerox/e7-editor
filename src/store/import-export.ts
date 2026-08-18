@@ -208,7 +208,7 @@ export async function entryWithHash(
   return document?.toJSON();
 }
 
-function importFault(reason: unknown): string {
+function payloadFault(reason: unknown): string {
   if (reason instanceof SyxPayloadError) {
     return reason.faults.join("; ");
   }
@@ -233,7 +233,7 @@ export async function importSyxFiles(
       await database.entries.insert(entry);
       imported.push(entry);
     } catch (reason) {
-      failed.push({ fileName: file.name, reason: importFault(reason) });
+      failed.push({ fileName: file.name, reason: payloadFault(reason) });
     }
   }
   return { imported, skipped, failed };
@@ -308,10 +308,21 @@ export function entryBytes(entry: LibraryEntry): Uint8Array {
 }
 
 const UNSAFE_FILE_NAME_CHARACTERS = /[^A-Za-z0-9 ._-]+/g;
+const EDGE_SEPARATORS = /^[\s._-]+|[\s._-]+$/g;
 
 export function entryFileName(entry: LibraryEntry): string {
-  const base = entry.name.replace(UNSAFE_FILE_NAME_CHARACTERS, "-").trim();
+  const base = entry.name.replace(UNSAFE_FILE_NAME_CHARACTERS, "-").replace(EDGE_SEPARATORS, "");
   return `${base === "" ? entry.kind : base}${SYX_FILE_EXTENSION}`;
+}
+
+export function exportableBytes(entry: LibraryEntry, fileName: string): Uint8Array {
+  const bytes = entryBytes(entry);
+  try {
+    parseSyxFile(validateSyxPayload({ fileName, bytes }).bytes);
+  } catch (reason) {
+    throw new EntryPayloadError(entry.id, payloadFault(reason));
+  }
+  return bytes;
 }
 
 interface FilePickerType {
@@ -427,8 +438,8 @@ function saveWithDownload(bytes: Uint8Array, fileName: string): void {
 }
 
 export async function exportEntryToDisk(entry: LibraryEntry): Promise<boolean> {
-  const bytes = entryBytes(entry);
   const fileName = entryFileName(entry);
+  const bytes = exportableBytes(entry, fileName);
   if (canSaveWithPicker(window)) {
     return saveWithPicker(window, bytes, fileName);
   }

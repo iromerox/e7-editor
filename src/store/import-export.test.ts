@@ -10,6 +10,7 @@ import {
   encodeCommand,
 } from "../protocol";
 import {
+  EntryPayloadError,
   MAX_SYX_FILE_BYTES,
   MEMORY_BLOCK_BYTES,
   SyxPayloadError,
@@ -575,6 +576,31 @@ describe("exportEntryToDisk", () => {
     );
   });
 
+  it("writes a file the library reads back as the same bytes it exported", async () => {
+    const [entry] = await importedEntry("export-round-trip", "There And Back");
+    const written: Uint8Array[] = [];
+    vi.stubGlobal(
+      "showSaveFilePicker",
+      vi.fn(async () => ({
+        createWritable: async () => ({
+          write: async (chunk: Uint8Array) => {
+            written.push(chunk);
+          },
+          close: async () => undefined,
+        }),
+      })),
+    );
+    expect(await exportEntryToDisk(entry)).toBe(true);
+
+    const reimported = await importSyxPayload(await openLibrary("export-reimport"), {
+      fileName: entryFileName(entry),
+      bytes: written[0] ?? new Uint8Array(),
+    });
+
+    expect(reimported.sha256).toBe(entry.sha256);
+    expect(entryBytes(reimported)).toEqual(entryBytes(entry));
+  });
+
   it("reports a dismissed save dialog instead of writing anything", async () => {
     const [entry] = await importedEntry("export-cancel", "Not Saved");
     vi.stubGlobal(
@@ -608,6 +634,20 @@ describe("exportEntryToDisk", () => {
     expect(new Uint8Array((await blobs[0]?.arrayBuffer()) ?? new ArrayBuffer(0))).toEqual(bytes);
     expect(document.body.querySelector("a")).toBeNull();
   });
+
+  it("refuses an entry whose stored bytes are no longer readable, opening no dialog", async () => {
+    const [entry] = await importedEntry("export-corrupt", "Damaged");
+    const showSaveFilePicker = vi.fn();
+    vi.stubGlobal("showSaveFilePicker", showSaveFilePicker);
+
+    await expect(exportEntryToDisk({ ...entry, sysex: "not base64 at all!" })).rejects.toThrow(
+      EntryPayloadError,
+    );
+    await expect(
+      exportEntryToDisk({ ...entry, sysex: btoa("a text file wearing a .syx extension") }),
+    ).rejects.toThrow(/does not open with an F0 status byte/);
+    expect(showSaveFilePicker).not.toHaveBeenCalled();
+  });
 });
 
 describe("entryFileName", () => {
@@ -619,5 +659,18 @@ describe("entryFileName", () => {
     });
 
     expect(entryFileName(entry)).toBe("Lead-Bass -1.syx");
+  });
+
+  it("falls back to the entry's kind when its name leaves nothing to name a file after", async () => {
+    const database = await openLibrary("file-name-empty");
+    const entry = await importSyxPayload(database, {
+      fileName: "source.syx",
+      bytes: singleFile(new PresetSlot(1, 1, 2), "Named"),
+    });
+
+    expect(entryFileName({ ...entry, name: "" })).toBe("Single.syx");
+    expect(entryFileName({ ...entry, name: "   " })).toBe("Single.syx");
+    expect(entryFileName({ ...entry, name: "///" })).toBe("Single.syx");
+    expect(entryFileName({ ...entry, name: ".hidden " })).toBe("hidden.syx");
   });
 });
