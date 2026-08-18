@@ -567,6 +567,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   not a library backup, or one written against another schema version, is
   named for what it is rather than reported as a crash, and a dismissed
   dialog is a note that nothing was written rather than a failure.
+- `hardware-console.html`: a dev-server-only page that logs every SysEx frame
+  and control change a connected e7 sends, as it arrives, for as long as it is
+  open — timestamped, in hex, and read-only. Every line shows the raw bytes
+  beside what the app made of them rather than in place of them: a frame that
+  decodes as no documented response is kept and marked unparsed, a frame
+  carrying the manufacturer header is named as the command it echoes, and a
+  control change is logged with its channel, controller and value whether or
+  not the CC map has a field for that controller. The SysEx reassembler's
+  fragmentation, discard and pending-byte counts are shown live above the log.
+  The log keeps its most recent 2000 events, drops the oldest past that, and
+  says how many it dropped, so a session left open through an hour of
+  knob-turning cannot exhaust memory. Pause freezes the view without stopping
+  the recording; Clear empties it.
 
 ### Changed
 
@@ -782,3 +795,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   keeps from the panel, why the two performance controls are described as
   what makes the LFO audible rather than as modulation depths, and the line
   that appears while both sit at zero.
+- `docs/hardware-console.md`: how to run the console and how to read what it
+  prints — the four readings a line can carry, why a bare-data response often
+  names several at once, what an inbound command frame implies about Soft
+  Thru, and what the reassembler's three counters mean while nothing is
+  arriving.

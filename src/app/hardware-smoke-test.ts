@@ -12,6 +12,7 @@ import {
   decodeSerialNumberResponse,
   encodeCommand,
 } from "../protocol";
+import { formatHex } from "./hex";
 
 export const READS_PER_PRESET = SINGLE_PRESET_BYTES / READ_MEMORY_BLOCK_BYTES;
 
@@ -58,10 +59,6 @@ export function readablePresetName(bytes: Uint8Array): string {
   )
     .join("")
     .trimEnd();
-}
-
-export function formatHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).toUpperCase().padStart(2, "0")).join(" ");
 }
 
 export function formatSmokeTestReport(report: SmokeTestReport): string {
