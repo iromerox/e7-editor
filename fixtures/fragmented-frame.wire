@@ -1,0 +1,13 @@
+e7 wire log v1
+device   none - hand-written, no instrument was attached
+input    none
+output   none
+date     2026-08-18
+session  One frame delivered in three pieces, transcribed from the bytes src/midi/reassembly.test.ts built inline
+
+# Web MIDI is specified to deliver a whole F0...F7 frame per event and no browser
+# has been seen to break that (docs/protocol-quirks.md #16), so the case
+# src/midi/reassembly.ts guards against is written out here rather than captured.
+    +0.0ms  <--  F0 00 21
+    +1.2ms  <--  62 01
+    +2.5ms  <--  10 20 F7

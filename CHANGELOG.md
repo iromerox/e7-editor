@@ -599,6 +599,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   recorded in the same log as an outbound event, and an inbound frame arriving
   within a second of one is annotated with the command it followed and how
   long it took.
+- `src/midi/wire-log.ts`: the committed form of a captured session and the
+  `parseWireLog` that reads one back — a provenance header naming the device,
+  both ports, the date and what the session was doing, then one line per event
+  carrying the time since the capture opened, the direction, and the bytes.
+  Events load as the shape the console's own events extend, so a capture reads
+  back through the same code that reads live traffic. Nothing decoded is
+  stored: a response carries nothing identifying what it answers, so the bytes
+  are the record and any reading of them is computed on load. Frames are not
+  validated as whole MIDI messages either, which is what lets a capture hold
+  one frame delivered in several pieces. Anything malformed — a missing or
+  duplicated header field, a date that is not one, times running backwards, a
+  truncated byte, a header with no events — throws a `WireLogFormatError`
+  naming the file, the line and the fault, and no partial capture is returned.
+- `fixtures/`: the first two committed captures, both hand-written and saying
+  so in their headers — one frame arriving in three pieces, and the two-frame
+  answer to a single Read Memory with the malformed preview frame ahead of the
+  real response. The reassembler's fragmentation test now loads the first of
+  them instead of building its bytes inline.
 
 ### Changed
 
@@ -824,3 +842,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   for, why there is no confirmation dialog, the hex forms the address and data
   fields take, what is refused rather than clamped, and why a response is
   named after the last command sent rather than matched to one.
+- `docs/hardware-fixtures.md`: what a committed capture looks like on disk and
+  why — the header that carries provenance, why the elapsed time is relative to
+  the capture rather than a wall clock, why no decode or request/response
+  pairing is stored, why frames are not validated as whole messages, why the
+  file is line-oriented text rather than JSON, and how to mark a fixture
+  written by hand rather than measured.

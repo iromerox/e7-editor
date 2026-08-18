@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { wireLogFixture } from "../test-wire-log";
 import { createSysExReassembler } from "./reassembly";
 
 function bytes(...values: number[]): Uint8Array {
@@ -28,13 +29,16 @@ describe("createSysExReassembler", () => {
   it("reassembles a frame a fragmenting driver split across events", () => {
     const reassembler = createSysExReassembler();
 
-    expect(reassembler.push(bytes(0xf0, 0x00, 0x21))).toEqual([]);
-    expect(reassembler.pendingBytes).toBe(3);
-    expect(reassembler.push(bytes(0x62, 0x01))).toEqual([]);
-    expect(reassembler.push(bytes(0x10, 0x20, 0xf7))).toEqual([
-      bytes(0xf0, 0x00, 0x21, 0x62, 0x01, 0x10, 0x20, 0xf7),
+    const steps = wireLogFixture("fragmented-frame").events.map((event) => ({
+      frames: reassembler.push(event.bytes),
+      pendingBytes: reassembler.pendingBytes,
+    }));
+
+    expect(steps).toEqual([
+      { frames: [], pendingBytes: 3 },
+      { frames: [], pendingBytes: 5 },
+      { frames: [bytes(0xf0, 0x00, 0x21, 0x62, 0x01, 0x10, 0x20, 0xf7)], pendingBytes: 0 },
     ]);
-    expect(reassembler.pendingBytes).toBe(0);
     expect(reassembler.fragmentedFrames).toBe(1);
     expect(reassembler.discardedPartials).toBe(0);
   });

@@ -4,6 +4,7 @@ import type { WireEvent } from "./wire-monitor";
 import { describe, expect, it } from "vitest";
 import { createConnection } from "../midi";
 import { FILTER_RESONANCE, ccToFields, encodeCommand, encodeResponse } from "../protocol";
+import { wireLogFixture } from "../test-wire-log";
 import {
   WIRE_LOG_CAPACITY,
   controlChangeEvent,
@@ -12,6 +13,7 @@ import {
   monitorWire,
   readSysExFrame,
   recorded,
+  replies,
   sysExEvent,
 } from "./wire-monitor";
 
@@ -177,6 +179,26 @@ describe("readSysExFrame", () => {
 
   it("reads a frame carrying the manufacturer header as the command it is", () => {
     expect(readSysExFrame(READ_MEMORY)).toEqual({ kind: "command", command: "read-memory" });
+  });
+
+  it("reads a committed capture the same way it reads what arrives live", () => {
+    const capture = wireLogFixture("preview-frame");
+
+    expect(capture.events.map((event) => readSysExFrame(event.bytes))).toEqual([
+      { kind: "command", command: "read-memory" },
+      { kind: "unparsed" },
+      { kind: "response", reads: ["memory-data"] },
+    ]);
+  });
+});
+
+describe("replies", () => {
+  it("attributes both frames of a committed capture to the command they followed", () => {
+    const log = wireLogFixture("preview-frame")
+      .events.map((event) => sysExEvent(event.direction, event.bytes, event.atMs))
+      .reduce(recorded, emptyWireLog());
+
+    expect(replies(log).map((reply) => reply.elapsedMs)).toEqual([14.6, 16.1]);
   });
 });
 

@@ -1,5 +1,5 @@
 // A running log of every SysEx frame and control change crossing the wire, in arrival order, bounded, keeping what it cannot read, and naming the command a frame arrived after.
-import type { Connection, SysExReassemblyStats } from "../midi";
+import type { Connection, SysExReassemblyStats, WireDirection, WireLogEvent } from "../midi";
 import type { CcField, SysExCommandKind, SysExResponse } from "../protocol";
 import { DEFAULT_RESPONSE_TIMEOUT_MS } from "../midi";
 import {
@@ -16,8 +16,6 @@ import { formatHex } from "./hex";
 
 export const WIRE_LOG_CAPACITY = 2000;
 
-export type WireDirection = "inbound" | "outbound";
-
 export type SysExResponseKind = SysExResponse["kind"];
 
 export type SysExReading =
@@ -25,13 +23,7 @@ export type SysExReading =
   | { readonly kind: "response"; readonly reads: readonly SysExResponseKind[] }
   | { readonly kind: "unparsed" };
 
-interface WireEventFields {
-  readonly atMs: number;
-  readonly direction: WireDirection;
-  readonly bytes: Uint8Array;
-}
-
-export interface SysExWireEvent extends WireEventFields {
+export interface SysExWireEvent extends WireLogEvent {
   readonly kind: "sysex";
   readonly reading: SysExReading;
 }
@@ -42,7 +34,7 @@ export interface ControlChangeMessage {
   readonly value: number;
 }
 
-export interface ControlChangeWireEvent extends WireEventFields {
+export interface ControlChangeWireEvent extends WireLogEvent {
   readonly kind: "control-change";
   readonly channel: number;
   readonly controller: number;

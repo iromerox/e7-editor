@@ -1,0 +1,13 @@
+e7 wire log v1
+device   none - hand-written from docs/protocol-quirks.md #12, no instrument was attached
+input    none
+output   none
+date     2026-08-18
+session  The two frames one Read Memory drew on the rig that first saw it: a malformed preview frame ahead of the real response
+
+# The response data is zeroed rather than borrowed from a device, so nothing here
+# can be mistaken for a measurement. The frame lengths and the ~16ms gap are the
+# shape #12 describes; the bytes inside the answer are not evidence of anything.
+    +0.0ms  -->  F0 00 21 62 01 10 0E 00 00 00 F7
+   +14.6ms  <--  F0 0F F7
+   +16.1ms  <--  F0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 F7
