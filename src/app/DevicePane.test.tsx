@@ -127,6 +127,10 @@ function slotAt(bank: number, group: number, slot: number): number {
   return slotByteAddress({ kind: "Single", bank, group, slot });
 }
 
+function multiAt(bank: number, group: number, slot: number): number {
+  return slotByteAddress({ kind: "Multi", bank, group, slot });
+}
+
 function blockAddresses(base: number, blocks: number): number[] {
   return Array.from({ length: blocks }, (_, index) => base + index * READ_BLOCK_BYTES);
 }
@@ -397,7 +401,7 @@ describe("DevicePane transfers", () => {
       }),
     );
     expect(controls.state.editor.preset).toEqual(decodeSinglePreset(image));
-    expect(controls.state.editor.part).toBeUndefined();
+    expect(controls.state.editor.multi).toBeUndefined();
     expect(await storedEntries()).toEqual([]);
     expect(slotLabels()[2]).toContain("In the editor");
   });
@@ -411,9 +415,49 @@ describe("DevicePane transfers", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Load Multi 1.1.2 into the editor" }));
 
-    await vi.waitFor(() => expect(controls.state.editor.part).toBe(1));
+    await vi.waitFor(() => expect(controls.state.editor.multi?.part).toBe(1));
     expect(controls.state.editor.preset).toEqual(decodeMultiPreset(image).parts[0]);
     expect(slotLabels()[1]).toContain("Part 1 in the editor");
+  });
+
+  it("keeps the whole multi it read, so switching parts sends nothing further", async () => {
+    const image = slotFixture("Split Keys", MULTI_PRESET_BYTES);
+    serveSlots(new Map([[slotByteAddress({ kind: "Multi", bank: 1, group: 1, slot: 2 }), image]]));
+    const controls = renderPane(connection);
+    await fireEvent.click(screen.getByRole("tab", { name: "Multi" }));
+    await settled();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Load Multi 1.1.2 into the editor" }));
+    await vi.waitFor(() => expect(controls.state.editor.multi?.part).toBe(1));
+    const reads = vi.mocked(requestResponse).mock.calls.length;
+    controls.selectPart(3);
+
+    expect(vi.mocked(requestResponse).mock.calls).toHaveLength(reads);
+    expect(controls.state.editor.preset).toEqual(decodeMultiPreset(image).parts[2]);
+    expect(slotLabels()[1]).toContain("Part 3 in the editor");
+  });
+
+  it("saves a multi part back to the library as the whole multi it came from", async () => {
+    const image = slotFixture("Split Keys", MULTI_PRESET_BYTES);
+    const base = slotByteAddress({ kind: "Multi", bank: 2, group: 1, slot: 1 });
+    serveSlots(new Map([[base, image]]));
+    const controls = renderPane(connection);
+    await fireEvent.click(screen.getByRole("tab", { name: "Multi" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Bank 2" }));
+    await settled();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Save Multi 2.1.1 to the library" }));
+
+    await vi.waitFor(async () => expect(await storedEntries()).toHaveLength(1));
+    const [entry] = await storedEntries();
+    expect(entry).toMatchObject({
+      kind: "Multi",
+      source: "DeviceDump",
+      bank: 2,
+      group: 1,
+      slot: 1,
+    });
+    expect(controls.state.editor.multi).toBeUndefined();
   });
 
   it("marks the slot it is reading busy and leaves the other slots usable", async () => {
@@ -545,13 +589,27 @@ describe("DevicePane writes", () => {
     return controls;
   }
 
-  async function write(target: string, confirm: boolean): Promise<void> {
+  async function editingMulti(
+    images: ReadonlyMap<number, Uint8Array>,
+    from: string,
+  ): Promise<AppStateControls> {
+    serveDevice(images);
+    const controls = renderPane(connection);
+    await fireEvent.click(screen.getByRole("tab", { name: "Multi" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Bank 2" }));
+    await settled();
+    await fireEvent.click(screen.getByRole("button", { name: `Load ${from} into the editor` }));
+    await vi.waitFor(() => expect(controls.state.editor.multi).toBeDefined());
+    return controls;
+  }
+
+  async function write(target: string, confirm: boolean, holding = "preset"): Promise<void> {
     await fireEvent.click(
-      screen.getByRole("button", { name: `Write the editor's preset to ${target}` }),
+      screen.getByRole("button", { name: `Write the editor's ${holding} to ${target}` }),
     );
     if (confirm) {
       await fireEvent.click(
-        screen.getByRole("button", { name: `Write the editor's preset to ${target} anyway` }),
+        screen.getByRole("button", { name: `Write the editor's ${holding} to ${target} anyway` }),
       );
     }
   }
@@ -633,6 +691,46 @@ describe("DevicePane writes", () => {
     await write("Multi 1.1.1", false);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Multi 1.1.1 holds four presets");
+    expect(written).toEqual([]);
+  });
+
+  it("writes the multi in the editor, the part it holds edited and the other three as read", async () => {
+    const source = slotFixture("Split Keys", MULTI_PRESET_BYTES);
+    const images = new Map([
+      [multiAt(2, 1, 1), source],
+      [multiAt(2, 1, 2), new Uint8Array(MULTI_PRESET_BYTES)],
+    ]);
+    const controls = await editingMulti(images, "Multi 2.1.1");
+    controls.selectPart(2);
+    controls.editField("filterCutoff", 42);
+
+    await write("Multi 2.1.2", true, "multi");
+
+    await vi.waitFor(() => expect(screen.getByText("Written to Multi 2.1.2.")).toBeInTheDocument());
+    expect(written).toEqual(
+      blockAddresses(multiAt(2, 1, 2), MULTI_PRESET_BYTES / READ_BLOCK_BYTES),
+    );
+    const landed = imageAt(images, multiAt(2, 1, 2));
+    expect(landed.subarray(0, SINGLE_PRESET_BYTES)).toEqual(
+      source.subarray(0, SINGLE_PRESET_BYTES),
+    );
+    expect(landed.subarray(SINGLE_PRESET_BYTES * 2)).toEqual(
+      source.subarray(SINGLE_PRESET_BYTES * 2),
+    );
+    expect(decodeMultiPreset(landed).parts[1].filter.cutoff).toBe(42);
+    expect(landed[LOCK_BYTE_INDEX]).toBe(0);
+  });
+
+  it("refuses the multi factory range, which the instrument keeps as it does the single one", async () => {
+    const images = new Map([[multiAt(2, 1, 1), slotFixture("Split Keys", MULTI_PRESET_BYTES)]]);
+    await editingMulti(images, "Multi 2.1.1");
+    await fireEvent.click(screen.getByRole("button", { name: "Bank 1" }));
+    await settled();
+
+    await write("Multi 1.1.1", false, "multi");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Multi 1.1.1 is a factory preset");
+    expect(screen.getByRole("alert")).toHaveTextContent("Slots from 1.2.1 on");
     expect(written).toEqual([]);
   });
 

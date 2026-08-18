@@ -102,8 +102,8 @@ export function createLiveEdit(
   };
 
   const applies = (field: CcField): boolean => {
-    const part = controls.state.editor.part;
-    return part === undefined || part === 1 || !isPart1OnlyField(field);
+    const multi = controls.state.editor.multi;
+    return multi === undefined || multi.part === 1 || !isPart1OnlyField(field);
   };
 
   const noted = (readout: FieldReadout): FieldReadout => ({

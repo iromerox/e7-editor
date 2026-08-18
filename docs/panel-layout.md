@@ -810,7 +810,11 @@ Selecting a preset is Bank Select MSB/LSB + Program Change, resolved by
 `resolveProgramChange` in `src/protocol/program-change.ts` — not a CC.
 Addresses are `X.Y.Z`, from `1.1.1` to `8.8.8` for singles (512) and `1.1.1`
 to `2.8.8` for multis (128). Factory presets occupy `1.1.1`-`1.7.8` (56) and
-cannot be overwritten, though they can be edited and saved elsewhere.
+cannot be overwritten, though they can be edited and saved elsewhere. The
+multi range has a factory block of its own and a much shorter one:
+`1.1.1`-`1.1.8`, eight of the 128, per the manual's own count (p.21). Both
+ranges are refused before a write is sent, so the first address a write can
+land on is `1.8.1` for a single and `1.2.1` for a multi.
 
 **The editor draws no `PRESETS` box at all.** This is the one panel block
 with no section of its own, and the reason is that the app already has a
@@ -825,6 +829,19 @@ into whichever bank the browser was on anyway.
 So the panel's function lives in the browser: every slot cell carries a
 `Select` that sends the Bank Select MSB/LSB and Program Change for its
 address, and the selected cell is marked.
+
+**The shift layer's other half — `P1`-`P4` — lives in the editor instead.**
+Shift + buttons 1 to 4 chooses which of a multi's four parts the panel is
+editing (manual p.21), and that is a question about what the editor holds
+rather than about which slot is playing, so it is drawn as a `Part` row of
+four buttons at the top of the editor, present only while the preset in hand
+came out of a multi. It has no LED equivalent to keep: the panel shows the
+selected part on its display, and the row's pressed button says the same
+thing. Reaching a part is not a read — all four arrived together with the
+slot or the entry — so the row is exactly the panel's gesture without the
+instrument in the loop. The manual's next sentence in the same paragraph is
+what the part-1-only controls draw on: "The only controls that are global …
+are the effects and the Stereo Spread and Stereo Motion controls."
 
 **Deliberately not drawn as cap buttons and LEDs.** Building the cells out
 of the panel's own widgets — a cap with its LED above and its position digit

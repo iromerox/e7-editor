@@ -504,6 +504,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   locked slot cannot lock where it is written. A write that stops partway says
   which block it stopped at instead of reporting a write, and a slot that was
   written is re-read, so the browser shows what it now holds.
+- All four parts of a multi are reachable from the editor. Loading a multi —
+  from a device slot or from a library entry — puts part 1 in the editor and
+  keeps the other three, so a `Part` row of four buttons moves between them
+  without asking the instrument for anything further; switching away from a
+  part carrying edits that were never saved asks first. While parts 2-4 are
+  held, the controls a multi takes from part 1 alone — the chorus and delay
+  sections, and the amplifier's `Stereo spread` and `Stereo motion` — are
+  read-only with the reason on the control itself, and are editable again on
+  part 1. A part saved or written back lands in the part it came from with
+  the other three byte-identical, which is what lets a part read off the
+  instrument reach the library and a multi reach a multi slot: both were
+  refused before, for want of the three parts the editor never held.
 
 ### Changed
 
@@ -557,6 +569,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A library entry's `source` now comes from whatever creates the entry instead
   of being `UserImport` for everything. Importing a `.syx` file is still a
   `UserImport`; a slot saved off the instrument is a `DeviceDump`.
+- The multi range has a factory block of its own — `1.1.1`-`1.1.8`, eight of
+  the 128 — and writes to it are now refused as writes to the single factory
+  range are. The refusal names the first address that kind can be written to:
+  `1.8.1` for a single, `1.2.1` for a multi.
 
 ### Fixed
 

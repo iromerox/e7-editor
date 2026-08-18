@@ -147,12 +147,14 @@ describe("slot addressing", () => {
     expect(BANKS_PER_KIND).toEqual({ Single: 8, Multi: 2 });
   });
 
-  it("counts bank 1 up to group 7 as the factory range, and nothing else", () => {
+  it("counts each kind's own factory range, which the multi range ends earlier", () => {
     expect(isFactorySlot({ kind: "Single", bank: 1, group: 1, slot: 1 })).toBe(true);
     expect(isFactorySlot({ kind: "Single", bank: 1, group: 7, slot: 8 })).toBe(true);
     expect(isFactorySlot({ kind: "Single", bank: 1, group: 8, slot: 1 })).toBe(false);
     expect(isFactorySlot({ kind: "Single", bank: 2, group: 1, slot: 1 })).toBe(false);
-    expect(isFactorySlot({ kind: "Multi", bank: 1, group: 1, slot: 1 })).toBe(false);
+    expect(isFactorySlot({ kind: "Multi", bank: 1, group: 1, slot: 8 })).toBe(true);
+    expect(isFactorySlot({ kind: "Multi", bank: 1, group: 2, slot: 1 })).toBe(false);
+    expect(isFactorySlot({ kind: "Multi", bank: 2, group: 1, slot: 1 })).toBe(false);
   });
 
   it("labels a slot by its address, and keys the two kinds apart", () => {

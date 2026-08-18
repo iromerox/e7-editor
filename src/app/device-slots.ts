@@ -42,7 +42,12 @@ export const SLOTS_PER_GROUP = 8;
 
 export const FACTORY_BANK = 1;
 
-export const LAST_FACTORY_GROUP = 7;
+export const LAST_FACTORY_GROUP: Readonly<Record<SlotKind, number>> = { Single: 7, Multi: 1 };
+
+export const FIRST_WRITABLE_SLOT: Readonly<Record<SlotKind, string>> = {
+  Single: "1.8.1",
+  Multi: "1.2.1",
+};
 
 export interface SlotAddress {
   readonly kind: SlotKind;
@@ -98,11 +103,7 @@ export function slotByteAddress(address: SlotAddress): number {
 }
 
 export function isFactorySlot(address: SlotAddress): boolean {
-  return (
-    address.kind === "Single" &&
-    address.bank === FACTORY_BANK &&
-    address.group <= LAST_FACTORY_GROUP
-  );
+  return address.bank === FACTORY_BANK && address.group <= LAST_FACTORY_GROUP[address.kind];
 }
 
 export function slotProgramChange(address: SlotAddress): ProgramChangeMessage {
@@ -208,10 +209,14 @@ export async function readSlotContents(
     : { kind: "Multi", bytes, multi: decodeMultiPreset(bytes) };
 }
 
+export function unlockedImage(bytes: Uint8Array): Uint8Array {
+  const unlocked = Uint8Array.from(bytes);
+  unlocked[LOCK_BYTE_INDEX] = PRESET_UNLOCKED;
+  return unlocked;
+}
+
 export function unlockedPresetImage(preset: SinglePreset): Uint8Array {
-  const bytes = encodeSinglePreset(preset);
-  bytes[LOCK_BYTE_INDEX] = PRESET_UNLOCKED;
-  return bytes;
+  return unlockedImage(encodeSinglePreset(preset));
 }
 
 export async function writeSlotContents(

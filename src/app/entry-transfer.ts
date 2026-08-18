@@ -1,10 +1,11 @@
 // Moving a stored library entry's preset into the editor: the kinds that hold one preset, the decode of what they stored, and the gate that protects unsaved edits.
-import type { SinglePreset } from "../protocol";
+import type { MultiPreset, SinglePreset } from "../protocol";
 import type { LibraryEntry, LibraryEntryKind } from "../store";
-import type { AppStateControls, MultiPart } from "./app-state";
+import type { AppStateControls, EditorSource, MultiPart } from "./app-state";
 import { createStore } from "solid-js/store";
 import { entryBytes, parseSyxFile } from "../store";
 import { EntryNotOnePresetError } from "./errors";
+import { FIRST_PART } from "./part-select";
 import { describeFailure } from "./transfer";
 
 export const SINGLE_PRESET_ENTRY_KINDS: readonly LibraryEntryKind[] = ["Single", "Multi"];
@@ -23,10 +24,9 @@ export interface EntryTransfers {
   readonly cancel: (entry: LibraryEntry) => void;
 }
 
-export interface LoadedEntry {
-  readonly preset: SinglePreset;
-  readonly part: MultiPart | undefined;
-}
+export type LoadedEntry =
+  | { readonly kind: "Single"; readonly preset: SinglePreset }
+  | { readonly kind: "Multi"; readonly multi: MultiPreset; readonly part: MultiPart };
 
 export function holdsOnePreset(kind: LibraryEntryKind): boolean {
   return SINGLE_PRESET_ENTRY_KINDS.includes(kind);
@@ -35,7 +35,7 @@ export function holdsOnePreset(kind: LibraryEntryKind): boolean {
 export function loadNote(kind: LibraryEntryKind): string {
   const loaded =
     kind === "Multi"
-      ? "Load puts part 1 of this entry's multi in the editor."
+      ? "Load puts part 1 of this entry's multi in the editor, with its other three parts to switch to."
       : "Load puts this entry's preset in the editor.";
   return `${loaded} The entry itself is unchanged, and the device keeps the sound it is playing.`;
 }
@@ -49,10 +49,10 @@ export function entryPreset(entry: LibraryEntry): LoadedEntry {
   const [single] = file.singles;
   const [multi] = file.multis;
   if (file.kind === "Single" && single !== undefined) {
-    return { preset: single.preset, part: undefined };
+    return { kind: "Single", preset: single.preset };
   }
   if (file.kind === "Multi" && multi !== undefined) {
-    return { preset: multi.multi.parts[0], part: 1 };
+    return { kind: "Multi", multi: multi.multi, part: FIRST_PART };
   }
   throw new EntryNotOnePresetError(entry.id, file.kind);
 }
@@ -72,7 +72,12 @@ export function createEntryTransfers(controls: AppStateControls): EntryTransfers
       set(entry, { status: "failed", reason: describeFailure(error) });
       return;
     }
-    controls.loadEditor(loaded.preset, { kind: "LibraryEntry", id: entry.id }, loaded.part);
+    const source: EditorSource = { kind: "LibraryEntry", id: entry.id };
+    if (loaded.kind === "Single") {
+      controls.loadEditor(loaded.preset, source);
+    } else {
+      controls.loadMulti(loaded.multi, source, loaded.part);
+    }
     set(entry, undefined);
   };
 
@@ -83,7 +88,7 @@ export function createEntryTransfers(controls: AppStateControls): EntryTransfers
       const { source } = controls.state.editor;
       return source.kind === "LibraryEntry" && source.id === entry.id;
     },
-    editorPart: () => controls.state.editor.part,
+    editorPart: () => controls.state.editor.multi?.part,
     load(entry: LibraryEntry): void {
       if (!holdsOnePreset(entry.kind)) {
         return;

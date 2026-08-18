@@ -8,6 +8,7 @@ import { SINGLE_PRESET_BYTES, encodeSinglePreset } from "../protocol";
 import { entryById, entryBytes, parseSyxFile, replaceEntryWithEdit, storeEdit } from "../store";
 import { slotByteAddress, slotKey, slotLabel } from "./device-slots";
 import { EntryNotOnePresetError } from "./errors";
+import { editedMulti } from "./part-select";
 import { describeFailure, savedNote, savedOverNote } from "./transfer";
 
 export const SAVE_OVER_NOTE =
@@ -16,11 +17,11 @@ export const SAVE_OVER_NOTE =
 export const SAVE_AS_NEW_NOTE =
   "Save as new stores the editor's preset as another library entry, leaving the one it came from exactly as it is.";
 
+export const SAVE_AS_NEW_MULTI_NOTE =
+  "Save as new stores the whole multi as another library entry — the part being edited as the editor has it, the other three as they were read — leaving the one it came from exactly as it is.";
+
 export const NOTHING_LOADED =
   "The preset in the editor came from neither the device nor the library, so the library has nowhere to keep it. Load a slot or an entry first.";
-
-export const PART_OF_A_DEVICE_MULTI =
-  "The editor holds one part of a multi read from the device, and storing it needs the other three, which the editor does not hold. Save the slot to the library first, then load that entry.";
 
 export const ENTRY_GONE =
   "The entry this preset came from is no longer in the library, so there is nothing left to save it over.";
@@ -111,14 +112,12 @@ export function createEditorSave(
   });
 
   const destination = createMemo((): SaveDestination => {
-    const { source, part } = controls.state.editor;
+    const { source, multi } = controls.state.editor;
     switch (source.kind) {
       case "Empty":
         return { kind: "None", reason: NOTHING_LOADED };
       case "DeviceSlot":
-        return source.address.kind === "Single"
-          ? { kind: "Slot", address: source.address }
-          : { kind: "None", reason: PART_OF_A_DEVICE_MULTI };
+        return { kind: "Slot", address: source.address };
       case "LibraryEntry": {
         const found = stored();
         if (found.status === "reading") {
@@ -128,7 +127,7 @@ export function createEditorSave(
           return { kind: "None", reason: ENTRY_GONE };
         }
         try {
-          return { kind: "Entry", entry: found.entry, image: entryImage(found.entry, part) };
+          return { kind: "Entry", entry: found.entry, image: entryImage(found.entry, multi?.part) };
         } catch (error: unknown) {
           return { kind: "None", reason: describeFailure(error) };
         }
@@ -156,12 +155,15 @@ export function createEditorSave(
   };
 
   const imageOf = (place: SaveDestination): PresetImage | undefined => {
-    const { preset } = controls.state.editor;
+    const { preset, multi } = controls.state.editor;
     if (place.kind === "Entry") {
       return editedImage(place.image, preset);
     }
     if (place.kind === "Slot") {
-      return { address: slotByteAddress(place.address), bytes: encodeSinglePreset(preset) };
+      return {
+        address: slotByteAddress(place.address),
+        bytes: multi === undefined ? encodeSinglePreset(preset) : editedMulti(multi, preset),
+      };
     }
     return undefined;
   };

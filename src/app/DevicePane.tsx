@@ -18,7 +18,13 @@ import {
 } from "./device-slots";
 import { EditorChip } from "./EditorChip";
 import { createPresetSelection } from "./preset-select";
-import { LOAD_NOTE, SAVE_NOTE, WRITE_NOTE, createSlotTransfers } from "./slot-transfer";
+import {
+  LOAD_NOTE,
+  SAVE_NOTE,
+  WRITE_MULTI_NOTE,
+  WRITE_NOTE,
+  createSlotTransfers,
+} from "./slot-transfer";
 import {
   KEEP_EDITING,
   KEEP_STORED,
@@ -136,6 +142,8 @@ function SlotCell(props: SlotCellProps): JSX.Element {
   const named = (): string => `${props.address.kind} ${slotLabel(props.address)}`;
 
   const transfer = (): SlotTransferState | undefined => props.transfers.state(props.address);
+  const holding = (): string => (props.transfers.writesMulti(props.address) ? "multi" : "preset");
+  const writing = (): string => `Write the editor's ${holding()} to ${named()}`;
   const running = (): SlotTransferTask | undefined => {
     const pending = transfer();
     return pending?.status === "running" ? pending.task : undefined;
@@ -147,8 +155,8 @@ function SlotCell(props: SlotCellProps): JSX.Element {
     }
     if (pending.task === "write") {
       return {
-        question: writeQuestion(named()),
-        proceedLabel: `Write the editor's preset to ${named()} anyway`,
+        question: writeQuestion(named(), holding()),
+        proceedLabel: `${writing()} anyway`,
         proceedText: "Write anyway",
         cancelLabel: `${KEEP_STORED}, leaving ${named()} as the instrument has it`,
         cancelText: KEEP_STORED,
@@ -251,9 +259,9 @@ function SlotCell(props: SlotCellProps): JSX.Element {
         </button>
         <button
           type="button"
-          aria-label={`Write the editor's preset to ${named()}`}
+          aria-label={writing()}
           disabled={!props.transfers.reachable() || running() !== undefined}
-          title={WRITE_NOTE}
+          title={props.transfers.writesMulti(props.address) ? WRITE_MULTI_NOTE : WRITE_NOTE}
           onClick={() => props.transfers.write(props.address)}
         >
           Write from editor

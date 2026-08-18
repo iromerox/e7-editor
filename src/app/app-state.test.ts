@@ -1,9 +1,12 @@
-import type { CcField } from "../protocol";
+import type { CcField, MultiPreset } from "../protocol";
 import type { EditorEdit } from "./edit-history";
 import { createEffect, createRoot } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
+import { MULTI_PRESET_BYTES, SINGLE_PRESET_BYTES, decodeMultiPreset } from "../protocol";
 import { FULL_MASTER_VOLUME, createAppState, emptyPreset } from "./app-state";
 import { COALESCE_WINDOW_MS } from "./edit-history";
+
+const FILTER_CUTOFF_OFFSET = 70;
 
 let dispose: (() => void) | undefined;
 
@@ -25,6 +28,14 @@ function watching<Counters>(build: () => Counters): Counters {
 
 function edit(field: CcField, previousValue: number, nextValue: number, at = 0): EditorEdit {
   return { field, previousValue, nextValue, at };
+}
+
+function fourParts(): MultiPreset {
+  const bytes = new Uint8Array(MULTI_PRESET_BYTES);
+  for (const part of [1, 2, 3, 4]) {
+    bytes[(part - 1) * SINGLE_PRESET_BYTES + FILTER_CUTOFF_OFFSET] = part;
+  }
+  return decodeMultiPreset(bytes);
 }
 
 afterEach(() => {
@@ -96,13 +107,38 @@ describe("createAppState", () => {
   });
 
   it("remembers which part of a multi the preset in hand is, and forgets it for a single", () => {
-    const { state, loadEditor } = createAppState();
+    const { state, loadEditor, loadMulti } = createAppState();
 
-    loadEditor(emptyPreset(), { kind: "LibraryEntry", id: "multi-1" }, 3);
-    expect(state.editor.part).toBe(3);
+    loadMulti(fourParts(), { kind: "LibraryEntry", id: "multi-1" }, 3);
+    expect(state.editor.multi?.part).toBe(3);
+    expect(state.editor.preset.filter.cutoff).toBe(3);
 
     loadEditor(emptyPreset(), { kind: "LibraryEntry", id: "entry-1" });
-    expect(state.editor.part).toBeUndefined();
+    expect(state.editor.multi).toBeUndefined();
+  });
+
+  it("switches to another part of the multi it already holds, keeping the source it came from", () => {
+    const { state, loadMulti, selectPart, recordEdit } = createAppState();
+    loadMulti(fourParts(), { kind: "LibraryEntry", id: "multi-1" }, 1);
+    recordEdit(edit("filterCutoff", 1, 42));
+
+    selectPart(4);
+
+    expect(state.editor.multi?.part).toBe(4);
+    expect(state.editor.preset.filter.cutoff).toBe(4);
+    expect(state.editor.multi?.preset.parts[0].filter.cutoff).toBe(1);
+    expect(state.editor.source).toEqual({ kind: "LibraryEntry", id: "multi-1" });
+    expect(state.history.undo).toEqual([]);
+  });
+
+  it("has no part to switch to while the editor holds a single preset", () => {
+    const { state, loadEditor, selectPart } = createAppState();
+    loadEditor(emptyPreset(), { kind: "LibraryEntry", id: "entry-1" });
+
+    selectPart(2);
+
+    expect(state.editor.multi).toBeUndefined();
+    expect(state.editor.preset).toEqual(emptyPreset());
   });
 
   it("keeps the master volume outside the preset the editor holds", () => {

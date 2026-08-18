@@ -1,6 +1,6 @@
 // Central application state: connection, ports, library results, device slot cache, editor, and edit history.
 import type { PortInfo, PortLists } from "../midi";
-import type { CcField, ReceiveChannel, SinglePreset } from "../protocol";
+import type { CcField, MultiPreset, ReceiveChannel, SinglePreset } from "../protocol";
 import type { LibraryEntry, LibraryEntryKind } from "../store";
 import type { SlotAddress, SlotKind, SlotSummary } from "./device-slots";
 import type { EditorEdit, HistoryState } from "./edit-history";
@@ -53,10 +53,15 @@ export type EditorSource =
 
 export type MultiPart = 1 | 2 | 3 | 4;
 
+export interface EditorMulti {
+  readonly part: MultiPart;
+  readonly preset: MultiPreset;
+}
+
 export interface EditorState {
   source: EditorSource;
   preset: SinglePreset;
-  part: MultiPart | undefined;
+  multi: EditorMulti | undefined;
 }
 
 export interface OutputState {
@@ -88,7 +93,9 @@ export interface AppStateControls {
   selectBank(bank: number): void;
   selectGroup(group: number): void;
   setSlotState(address: SlotAddress, slot: DeviceSlotState): void;
-  loadEditor(preset: SinglePreset, source: EditorSource, part?: MultiPart): void;
+  loadEditor(preset: SinglePreset, source: EditorSource): void;
+  loadMulti(multi: MultiPreset, source: EditorSource, part: MultiPart): void;
+  selectPart(part: MultiPart): void;
   editField(field: CcField, value: number): void;
   setMasterVolume(value: number): void;
   recordEdit(edit: EditorEdit): void;
@@ -101,6 +108,20 @@ export const FULL_MASTER_VOLUME = 127;
 
 export function emptyPreset(): SinglePreset {
   return decodeSinglePreset(new Uint8Array(SINGLE_PRESET_BYTES));
+}
+
+export function partAt(multi: MultiPreset, part: MultiPart): SinglePreset {
+  const [first, second, third, fourth] = multi.parts;
+  switch (part) {
+    case 1:
+      return first;
+    case 2:
+      return second;
+    case 3:
+      return third;
+    case 4:
+      return fourth;
+  }
 }
 
 export function initialAppState(): AppState {
@@ -116,7 +137,7 @@ export function initialAppState(): AppState {
     ports: { inputs: [], outputs: [] },
     library: { kind: EVERY_KIND, entries: undefined },
     device: { kind: "Single", bank: 1, group: 1, slots: {} },
-    editor: { source: { kind: "Empty" }, preset: emptyPreset(), part: undefined },
+    editor: { source: { kind: "Empty" }, preset: emptyPreset(), multi: undefined },
     output: { masterVolume: FULL_MASTER_VOLUME },
     history: emptyHistory(),
   };
@@ -169,8 +190,23 @@ export function createAppState(): AppStateControls {
     setSlotState(address: SlotAddress, slot: DeviceSlotState): void {
       setState("device", "slots", slotKey(address), slot);
     },
-    loadEditor(preset: SinglePreset, source: EditorSource, part?: MultiPart): void {
-      setState("editor", { preset, source, part });
+    loadEditor(preset: SinglePreset, source: EditorSource): void {
+      setState("editor", { preset, source, multi: undefined });
+      setState("history", emptyHistory());
+    },
+    loadMulti(multi: MultiPreset, source: EditorSource, part: MultiPart): void {
+      setState("editor", { preset: partAt(multi, part), source, multi: { part, preset: multi } });
+      setState("history", emptyHistory());
+    },
+    selectPart(part: MultiPart): void {
+      const held = unwrap(state).editor.multi;
+      if (held === undefined) {
+        return;
+      }
+      setState("editor", {
+        preset: partAt(held.preset, part),
+        multi: { part, preset: held.preset },
+      });
       setState("history", emptyHistory());
     },
     editField(field: CcField, value: number): void {

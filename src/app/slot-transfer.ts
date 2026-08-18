@@ -4,7 +4,15 @@ import type { AppStateControls, MultiPart } from "./app-state";
 import type { SlotAccess, SlotAddress, SlotContents } from "./device-slots";
 import { createStore } from "solid-js/store";
 import { storeDeviceDump } from "../store";
-import { isFactorySlot, slotByteAddress, slotKey, unlockedPresetImage } from "./device-slots";
+import {
+  FIRST_WRITABLE_SLOT,
+  isFactorySlot,
+  slotByteAddress,
+  slotKey,
+  unlockedImage,
+  unlockedPresetImage,
+} from "./device-slots";
+import { FIRST_PART, editedMulti } from "./part-select";
 import { describeFailure, savedNote, writtenNote } from "./transfer";
 
 export type SlotTransferTask = "load" | "save" | "write";
@@ -21,6 +29,7 @@ export interface SlotTransfers {
   readonly unsavedEdits: () => number;
   readonly inEditor: (address: SlotAddress) => boolean;
   readonly editorPart: () => MultiPart | undefined;
+  readonly writesMulti: (address: SlotAddress) => boolean;
   readonly load: (address: SlotAddress) => void;
   readonly save: (address: SlotAddress) => void;
   readonly write: (address: SlotAddress) => void;
@@ -29,7 +38,7 @@ export interface SlotTransfers {
 }
 
 export const LOAD_NOTE =
-  "Load reads the whole slot and puts its preset in the editor. The library keeps the entries it has.";
+  "Load reads the whole slot and puts its preset in the editor. A multi's four parts are all read, with part 1 in the editor and the rest to switch to. The library keeps the entries it has.";
 
 export const SAVE_NOTE =
   "Save to library stores this slot's preset as a new library entry. The editor keeps the preset it has.";
@@ -37,23 +46,28 @@ export const SAVE_NOTE =
 export const WRITE_NOTE =
   "Write sends the preset in the editor to this slot, replacing what the instrument holds there. The library keeps the entries it has.";
 
-export function factorySlotRefusal(slot: string): string {
-  return `${slot} is a factory preset, and the instrument keeps those. Slots from 1.8.1 on are the ones a preset can be written to.`;
+export const WRITE_MULTI_NOTE =
+  "Write sends the multi in the editor to this slot, replacing what the instrument holds there: the part being edited as the editor has it, the other three as they were read. The library keeps the entries it has.";
+
+export function factorySlotRefusal(slot: string, firstWritable: string): string {
+  return `${slot} is a factory preset, and the instrument keeps those. Slots from ${firstWritable} on are the ones a preset can be written to.`;
 }
 
 export function multiSlotRefusal(slot: string): string {
-  return `${slot} holds four presets and the editor holds one, so a write here would leave the other three unaddressed. Write to a single slot.`;
+  return `${slot} holds four presets and the editor holds one, so a write here would leave the other three unaddressed. Load a multi into the editor first, or write to a single slot.`;
 }
 
 export function lockedSlotRefusal(slot: string): string {
   return `${slot} is locked on the instrument, so nothing was written to it. A locked slot has to be unlocked before anything can replace what it holds.`;
 }
 
-export function writeRefusal(address: SlotAddress): string | undefined {
-  if (address.kind === "Multi") {
+export function writeRefusal(address: SlotAddress, holdsMulti: boolean): string | undefined {
+  if (address.kind === "Multi" && !holdsMulti) {
     return multiSlotRefusal(slotKey(address));
   }
-  return isFactorySlot(address) ? factorySlotRefusal(slotKey(address)) : undefined;
+  return isFactorySlot(address)
+    ? factorySlotRefusal(slotKey(address), FIRST_WRITABLE_SLOT[address.kind])
+    : undefined;
 }
 
 export function createSlotTransfers(
@@ -68,9 +82,12 @@ export function createSlotTransfers(
   };
 
   const intoEditor = (address: SlotAddress, contents: SlotContents): void => {
-    const preset = contents.kind === "Single" ? contents.preset : contents.multi.parts[0];
-    const part: MultiPart | undefined = contents.kind === "Single" ? undefined : 1;
-    controls.loadEditor(preset, { kind: "DeviceSlot", address }, part);
+    const source = { kind: "DeviceSlot", address } as const;
+    if (contents.kind === "Single") {
+      controls.loadEditor(contents.preset, source);
+      return;
+    }
+    controls.loadMulti(contents.multi, source, FIRST_PART);
   };
 
   const intoLibrary = async (address: SlotAddress, contents: SlotContents): Promise<string> => {
@@ -90,6 +107,13 @@ export function createSlotTransfers(
     );
   };
 
+  const editorImage = (address: SlotAddress): Uint8Array => {
+    const { preset, multi } = controls.state.editor;
+    return address.kind === "Multi" && multi !== undefined
+      ? unlockedImage(editedMulti(multi, preset))
+      : unlockedPresetImage(preset);
+  };
+
   const ontoDevice = async (
     address: SlotAddress,
     slots: SlotAccess,
@@ -97,7 +121,7 @@ export function createSlotTransfers(
     if (await slots.readLocked(address)) {
       return { status: "failed", task: "write", reason: lockedSlotRefusal(slotKey(address)) };
     }
-    await slots.write(address, unlockedPresetImage(controls.state.editor.preset));
+    await slots.write(address, editorImage(address));
     await resummarize(address, slots);
     return { status: "done", task: "write", note: writtenNote(slotKey(address)) };
   };
@@ -138,7 +162,8 @@ export function createSlotTransfers(
       const { source } = controls.state.editor;
       return source.kind === "DeviceSlot" && slotKey(source.address) === slotKey(address);
     },
-    editorPart: () => controls.state.editor.part,
+    editorPart: () => controls.state.editor.multi?.part,
+    writesMulti: (address) => address.kind === "Multi" && controls.state.editor.multi !== undefined,
     load(address: SlotAddress): void {
       if (controls.state.history.undo.length > 0) {
         set(address, { status: "confirming", task: "load" });
@@ -150,7 +175,7 @@ export function createSlotTransfers(
       start("save", address);
     },
     write(address: SlotAddress): void {
-      const refusal = writeRefusal(address);
+      const refusal = writeRefusal(address, controls.state.editor.multi !== undefined);
       if (refusal !== undefined) {
         set(address, { status: "failed", task: "write", reason: refusal });
         return;

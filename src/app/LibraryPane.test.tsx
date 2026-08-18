@@ -224,7 +224,7 @@ describe("LibraryPane loading", () => {
 
     expect(controls.state.editor.source).toEqual({ kind: "LibraryEntry", id: entry.id });
     expect(controls.state.editor.preset).toEqual(decodeSinglePreset(image));
-    expect(controls.state.editor.part).toBeUndefined();
+    expect(controls.state.editor.multi).toBeUndefined();
     expect(listed()[0]).toContain("In the editor");
     expect(await reread(database, entry.id)).toEqual(entry);
   });
@@ -238,7 +238,7 @@ describe("LibraryPane loading", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Load Split Keys into the editor" }));
 
-    expect(controls.state.editor.part).toBe(1);
+    expect(controls.state.editor.multi?.part).toBe(1);
     expect(controls.state.editor.preset).toEqual(decodeMultiPreset(image).parts[0]);
     expect(listed()[0]).toContain("Part 1 in the editor");
   });

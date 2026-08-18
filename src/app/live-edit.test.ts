@@ -1,5 +1,5 @@
 import type { CcEvent, Connection } from "../midi";
-import type { ReceiveChannel } from "../protocol";
+import type { MultiPreset, ReceiveChannel } from "../protocol";
 import type { AppStateControls } from "./app-state";
 import type { LiveEdit } from "./live-edit";
 import { EMPTY } from "rxjs";
@@ -9,8 +9,10 @@ import {
   FILTER_RESONANCE,
   MIXER_OSC1_LEVEL,
   MOD_WHEEL,
+  MULTI_PRESET_BYTES,
   OSC1_TRANSPOSE,
   OTHER_VOICES,
+  decodeMultiPreset,
   readField,
 } from "../protocol";
 import { createAppState, emptyPreset } from "./app-state";
@@ -38,6 +40,10 @@ function stubConnection(sent: SentCc[]): Connection {
     sendProgramChange: () => {},
     close: () => Promise.resolve(),
   };
+}
+
+function emptyMulti(): MultiPreset {
+  return decodeMultiPreset(new Uint8Array(MULTI_PRESET_BYTES));
 }
 
 function ccEvent(controller: number, value: number): CcEvent {
@@ -171,7 +177,7 @@ describe("createLiveEdit", () => {
 
     expect(live.applies("chorusMix")).toBe(true);
 
-    controls.loadEditor(emptyPreset(), { kind: "Empty" }, 1);
+    controls.loadMulti(emptyMulti(), { kind: "Empty" }, 1);
 
     expect(live.applies("chorusMix")).toBe(true);
     expect(live.control("chorusMix", { label: "Mix" }).readOnly).toBe(false);
@@ -179,7 +185,7 @@ describe("createLiveEdit", () => {
 
   it("hands back a read-only control that says why on a multi's parts 2-4", () => {
     const { controls, live } = setUp({ kind: "channel", channel: 1 });
-    controls.loadEditor(emptyPreset(), { kind: "Empty" }, 4);
+    controls.loadMulti(emptyMulti(), { kind: "Empty" }, 4);
 
     expect(live.applies("chorusMix")).toBe(false);
     expect(live.applies("delayTime")).toBe(false);

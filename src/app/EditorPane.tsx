@@ -3,7 +3,8 @@ import type { JSX } from "solid-js";
 import type { Connection } from "../midi";
 import type { LibraryDatabase } from "../store";
 import type { EditorSave, EditorSaveState, SaveDestination } from "./editor-save";
-import { Match, Switch, createEffect, onCleanup } from "solid-js";
+import type { PartSelection } from "./part-select";
+import { For, Match, Show, Switch, createEffect, onCleanup } from "solid-js";
 import { ENTRY_NAME_MAX_LENGTH } from "../store";
 import { AmplifierSection } from "./AmplifierSection";
 import { useAppState } from "./AppStateProvider";
@@ -12,7 +13,12 @@ import { DelaySection } from "./DelaySection";
 import { slotLabel } from "./device-slots";
 import { EnvelopeSection } from "./EnvelopeSection";
 import { historyShortcut } from "./edit-history";
-import { SAVE_AS_NEW_NOTE, SAVE_OVER_NOTE, createEditorSave } from "./editor-save";
+import {
+  SAVE_AS_NEW_MULTI_NOTE,
+  SAVE_AS_NEW_NOTE,
+  SAVE_OVER_NOTE,
+  createEditorSave,
+} from "./editor-save";
 import { FilterSection } from "./FilterSection";
 import { Lfo3Section } from "./Lfo3Section";
 import { LfoSection } from "./LfoSection";
@@ -22,7 +28,8 @@ import { createMasterVolume } from "./master-volume";
 import { OscillatorsSection } from "./OscillatorsSection";
 import { OutputSection } from "./OutputSection";
 import { PortamentoPolyphonySection } from "./PortamentoPolyphonySection";
-import { KEEP_STORED, overwriteQuestion } from "./transfer";
+import { MULTI_PARTS, PART_NOTE, createPartSelection } from "./part-select";
+import { KEEP_EDITING, KEEP_STORED, overwriteQuestion, partSwitchQuestion } from "./transfer";
 import { VoicesSection } from "./VoicesSection";
 
 export interface EditorPaneProps {
@@ -68,12 +75,17 @@ function StoredChip(props: { readonly name: string; readonly differs: boolean })
   );
 }
 
-function SaveAsNewButton(props: { readonly save: EditorSave }): JSX.Element {
+interface SaveBarProps {
+  readonly save: EditorSave;
+  readonly multi: boolean;
+}
+
+function SaveAsNewButton(props: SaveBarProps): JSX.Element {
   return (
     <button
       type="button"
       aria-label="Save as a new library entry"
-      title={SAVE_AS_NEW_NOTE}
+      title={props.multi ? SAVE_AS_NEW_MULTI_NOTE : SAVE_AS_NEW_NOTE}
       onClick={props.save.saveAsNew}
     >
       Save as new
@@ -81,7 +93,69 @@ function SaveAsNewButton(props: { readonly save: EditorSave }): JSX.Element {
   );
 }
 
-function SaveBar(props: { readonly save: EditorSave }): JSX.Element {
+function PartRow(props: { readonly parts: PartSelection }): JSX.Element {
+  const held = (): number | undefined => props.parts.held()?.part;
+
+  return (
+    <div style={{ display: "flex", "flex-direction": "column", gap: "0.25rem" }}>
+      <fieldset
+        style={{
+          display: "flex",
+          "align-items": "baseline",
+          "flex-wrap": "wrap",
+          gap: "0.25rem",
+          border: "none",
+          margin: "0",
+          padding: "0",
+        }}
+      >
+        <legend style={{ color: "var(--e7-label-secondary)", float: "left", padding: "0" }}>
+          Part
+        </legend>
+        <For each={MULTI_PARTS}>
+          {(part) => (
+            <button
+              type="button"
+              aria-label={`Part ${part}`}
+              aria-pressed={part === held()}
+              title={PART_NOTE}
+              onClick={() => props.parts.select(part)}
+              style={{ "font-weight": part === held() ? "bold" : "normal", "min-width": "2rem" }}
+            >
+              {part}
+            </button>
+          )}
+        </For>
+        <span style={{ color: "var(--e7-label-secondary)" }}>
+          The editor holds part {held()} of the multi, and the other three as they were read.
+        </span>
+      </fieldset>
+      <Show when={props.parts.pending()}>
+        {(part) => (
+          <div style={SAVE_ROW_STYLE}>
+            <span role="alert">{partSwitchQuestion(part(), props.parts.unsavedEdits())}</span>
+            <button
+              type="button"
+              aria-label={`Switch to part ${part()} anyway`}
+              onClick={props.parts.proceed}
+            >
+              Switch anyway
+            </button>
+            <button
+              type="button"
+              aria-label={`${KEEP_EDITING}, leaving part ${held()} in the editor`}
+              onClick={props.parts.cancel}
+            >
+              {KEEP_EDITING}
+            </button>
+          </div>
+        )}
+      </Show>
+    </div>
+  );
+}
+
+function SaveBar(props: SaveBarProps): JSX.Element {
   const place = (): SaveDestination => props.save.destination();
   const entry = (): Extract<SaveDestination, { kind: "Entry" }> | undefined => {
     const found = place();
@@ -130,7 +204,7 @@ function SaveBar(props: { readonly save: EditorSave }): JSX.Element {
                 >
                   Save
                 </button>
-                <SaveAsNewButton save={props.save} />
+                <SaveAsNewButton save={props.save} multi={props.multi} />
               </>
             )}
           </Match>
@@ -141,7 +215,7 @@ function SaveBar(props: { readonly save: EditorSave }): JSX.Element {
                   Loaded from {found().address.kind} {slotLabel(found().address)}, which the library
                   does not hold.
                 </span>
-                <SaveAsNewButton save={props.save} />
+                <SaveAsNewButton save={props.save} multi={props.multi} />
               </>
             )}
           </Match>
@@ -209,6 +283,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
   const live = createLiveEdit(controls, () => props.connection);
   const volume = createMasterVolume(controls, () => props.connection);
   const save = createEditorSave(controls, props.database);
+  const parts = createPartSelection(controls);
 
   const channel = (): number | undefined => targetChannel(controls.state.connection.receiveChannel);
 
@@ -286,7 +361,10 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           </Match>
         </Switch>
       </div>
-      <SaveBar save={save} />
+      <SaveBar save={save} multi={parts.held() !== undefined} />
+      <Show when={parts.held()}>
+        <PartRow parts={parts} />
+      </Show>
       <div
         style={{
           display: "flex",

@@ -3,17 +3,24 @@ export const KEEP_EDITING = "Keep editing";
 
 export const KEEP_STORED = "Keep what is stored";
 
+function counted(edits: number): string {
+  return edits === 1 ? "1 edit" : `${edits} edits`;
+}
+
 export function unsavedEditsQuestion(edits: number): string {
-  const counted = edits === 1 ? "1 edit" : `${edits} edits`;
-  return `Loading replaces the preset in the editor, discarding ${counted} not saved to the library.`;
+  return `Loading replaces the preset in the editor, discarding ${counted(edits)} not saved to the library.`;
+}
+
+export function partSwitchQuestion(part: number, edits: number): string {
+  return `Switching to part ${part} replaces the preset in the editor, discarding ${counted(edits)} not saved to the library.`;
 }
 
 export function overwriteQuestion(name: string): string {
   return `Saving replaces what “${name}” stores with the preset in the editor. What it stores now is not kept.`;
 }
 
-export function writeQuestion(slot: string): string {
-  return `Writing replaces what ${slot} holds on the instrument with the preset in the editor. What it holds now is not kept.`;
+export function writeQuestion(slot: string, holding: string): string {
+  return `Writing replaces what ${slot} holds on the instrument with the ${holding} in the editor. What it holds now is not kept.`;
 }
 
 export function writtenNote(slot: string): string {

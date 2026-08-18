@@ -1,11 +1,17 @@
 import type { Connection } from "../midi";
-import type { CcField } from "../protocol";
+import type { CcField, MultiPreset } from "../protocol";
 import type { AppStateControls } from "./app-state";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { EMPTY } from "rxjs";
 import { describe, expect, it } from "vitest";
-import { CHORUS_TYPE, fieldToCc, readField } from "../protocol";
-import { createAppState, emptyPreset } from "./app-state";
+import {
+  CHORUS_TYPE,
+  MULTI_PRESET_BYTES,
+  decodeMultiPreset,
+  fieldToCc,
+  readField,
+} from "../protocol";
+import { createAppState } from "./app-state";
 import { ChorusSection } from "./ChorusSection";
 import { createLiveEdit } from "./live-edit";
 
@@ -33,6 +39,10 @@ const connection: Connection = {
   close: () => Promise.resolve(),
 };
 
+function emptyMulti(): MultiPreset {
+  return decodeMultiPreset(new Uint8Array(MULTI_PRESET_BYTES));
+}
+
 const KNOBS: readonly (readonly [label: string, field: CcField])[] = [
   ["Rate", "chorusRate"],
   ["Depth", "chorusDepth"],
@@ -44,7 +54,7 @@ function renderSection(part?: 2): void {
   controls = createAppState();
   controls.setReceiveChannel({ kind: "channel", channel: 1 });
   if (part !== undefined) {
-    controls.loadEditor(emptyPreset(), { kind: "Empty" }, part);
+    controls.loadMulti(emptyMulti(), { kind: "Empty" }, part);
   }
   render(() => <ChorusSection live={createLiveEdit(controls, () => connection)} />);
 }
