@@ -1,7 +1,7 @@
 import type { Zone } from "./cc";
 import { describe, expect, it } from "vitest";
-import { FILTER_RESONANCE, LFO1_RATE, ccDirection, decodeZoned } from "./cc";
-import { ReservedValue } from "./errors";
+import { FILTER_RESONANCE, LFO1_RATE, ccDirection, decodeZoned, encodeControlChange } from "./cc";
+import { ControlChangeRangeError, ReservedValue } from "./errors";
 
 const evenZones: Zone<string>[] = [
   { max: 15, variant: "triangle" },
@@ -60,6 +60,40 @@ describe("decodeZoned", () => {
       expect(error).toBeInstanceOf(ReservedValue);
       expect((error as ReservedValue).value).toBe(100);
       expect((error as ReservedValue).lastMax).toBe(71);
+    }
+  });
+});
+
+describe("encodeControlChange", () => {
+  it("puts the channel in the status byte's low nibble", () => {
+    expect(encodeControlChange(1, LFO1_RATE, 64)).toEqual(Uint8Array.of(0xb0, 76, 64));
+    expect(encodeControlChange(16, LFO1_RATE, 0)).toEqual(Uint8Array.of(0xbf, 76, 0));
+  });
+
+  it("encodes a controller the CC map calls inbound-only just as any other", () => {
+    expect(encodeControlChange(1, FILTER_RESONANCE, 127)).toEqual(Uint8Array.of(0xb0, 71, 127));
+  });
+
+  it("refuses a channel outside 1-16", () => {
+    expect(() => encodeControlChange(0, LFO1_RATE, 0)).toThrow(ControlChangeRangeError);
+    expect(() => encodeControlChange(17, LFO1_RATE, 0)).toThrow(ControlChangeRangeError);
+  });
+
+  it("refuses a controller or a value outside a 7-bit data byte", () => {
+    expect(() => encodeControlChange(1, 128, 0)).toThrow(ControlChangeRangeError);
+    expect(() => encodeControlChange(1, LFO1_RATE, 128)).toThrow(ControlChangeRangeError);
+    expect(() => encodeControlChange(1, LFO1_RATE, -1)).toThrow(ControlChangeRangeError);
+  });
+
+  it("names the field it refused and the bounds it wanted", () => {
+    try {
+      encodeControlChange(1, LFO1_RATE, 200);
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(ControlChangeRangeError);
+      expect((error as ControlChangeRangeError).field).toBe("value");
+      expect((error as ControlChangeRangeError).value).toBe(200);
+      expect((error as ControlChangeRangeError).max).toBe(127);
     }
   });
 });

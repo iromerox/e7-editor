@@ -580,6 +580,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   says how many it dropped, so a session left open through an hour of
   knob-turning cannot exhaust memory. Pause freezes the view without stopping
   the recording; Clear empties it.
+- `src/protocol/cc.ts`: `encodeControlChange`, the wire form of a control
+  change, refusing a channel outside 1-16 and a controller or value outside a
+  7-bit data byte with a typed `ControlChangeRangeError` rather than putting a
+  wrapped byte on the wire.
+- The hardware console now sends as well as watches: any control change on any
+  controller, channel and value, and every command the protocol layer can
+  encode — Read Memory and Write Memory at a typed hex address, Read and Write
+  Configuration, Lock and Unlock Preset at a chosen bank, group and slot,
+  Initialize preset, All LEDs ON, Read Serial Number, Read Autotuning Status
+  and Factory Reset. Commands that only read are grouped apart from the ones
+  that change the instrument, which are labelled as having no undo, and each
+  says what it does above the fields it takes. Nothing is filtered by the CC
+  map or by `ccDirection`, so CC 71 — the inbound-only controller the editor
+  refuses to send — goes out from here. Nothing is clamped either: an address,
+  slot, configuration byte or CC value outside its documented range is refused
+  with the protocol layer's own error, and nothing is sent. Every send is
+  recorded in the same log as an outbound event, and an inbound frame arriving
+  within a second of one is annotated with the command it followed and how
+  long it took.
 
 ### Changed
 
@@ -800,3 +819,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   names several at once, what an inbound command frame implies about Soft
   Thru, and what the reassembler's three counters mean while nothing is
   arriving.
+- `docs/hardware-console.md`: what the console sends and what that costs — the
+  split between the commands that read and the ones the instrument has no undo
+  for, why there is no confirmation dialog, the hex forms the address and data
+  fields take, what is refused rather than clamped, and why a response is
+  named after the last command sent rather than matched to one.

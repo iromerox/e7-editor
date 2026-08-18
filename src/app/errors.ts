@@ -1,4 +1,4 @@
-// Typed error hierarchies for the memory-block reads that assemble a device slot, the writes that put one back, and putting a stored library entry in the editor.
+// Typed error hierarchies for the memory-block reads that assemble a device slot, the writes that put one back, putting a stored library entry in the editor, and the console's typed-in bytes.
 import type { LibraryEntryKind } from "../store";
 
 export type DeviceReadErrorCode = "slot-block-length" | "slot-block-unanswered";
@@ -93,6 +93,24 @@ export class SlotBlockEchoedOtherwiseError extends DeviceWriteError {
       `${stoppedAt(address, block, blocks)}: the device echoed back other bytes than it was sent`,
     );
     this.name = "SlotBlockEchoedOtherwiseError";
+  }
+}
+
+export type HexInputErrorCode = "hex-field";
+
+export abstract class HexInputError extends Error {
+  abstract readonly code: HexInputErrorCode;
+}
+
+export class HexFieldError extends HexInputError {
+  readonly code = "hex-field" as const;
+
+  constructor(
+    readonly field: string,
+    readonly text: string,
+  ) {
+    super(`${field} must be hexadecimal, got "${text}"`);
+    this.name = "HexFieldError";
   }
 }
 

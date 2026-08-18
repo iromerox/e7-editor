@@ -1,5 +1,6 @@
-// MIDI CC number constants and a shared zoned CC decode helper.
-import { ReservedValue } from "./errors";
+// MIDI CC number constants, a shared zoned CC decode helper, and the control change wire form.
+import type { ControlChangeField } from "./errors";
+import { ControlChangeRangeError, ReservedValue } from "./errors";
 
 export interface Zone<Variant> {
   readonly max: number;
@@ -26,6 +27,33 @@ export function encodeZoned<Variant>(variant: Variant, zones: readonly Zone<Vari
     min = zone.max + 1;
   }
   throw new Error(`variant not present in zones: ${String(variant)}`);
+}
+
+export const CONTROL_CHANGE_STATUS = 0xb0;
+export const MIN_CHANNEL = 1;
+export const MAX_CHANNEL = 16;
+export const MAX_DATA_BYTE = 0x7f;
+
+function assertControlChange(
+  field: ControlChangeField,
+  value: number,
+  min: number,
+  max: number,
+): void {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new ControlChangeRangeError(field, value, min, max);
+  }
+}
+
+export function encodeControlChange(
+  channel: number,
+  controller: number,
+  value: number,
+): Uint8Array {
+  assertControlChange("channel", channel, MIN_CHANNEL, MAX_CHANNEL);
+  assertControlChange("controller", controller, 0, MAX_DATA_BYTE);
+  assertControlChange("value", value, 0, MAX_DATA_BYTE);
+  return Uint8Array.of(CONTROL_CHANGE_STATUS | (channel - MIN_CHANNEL), controller, value);
 }
 
 export const BANK_SELECT_MSB = 0;

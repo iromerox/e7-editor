@@ -15,7 +15,8 @@ export type ProtocolErrorCode =
   | "mcm-template"
   | "preset-length"
   | "preset-byte-range"
-  | "program-change-range";
+  | "program-change-range"
+  | "control-change-range";
 
 export abstract class ProtocolError extends Error {
   abstract readonly code: ProtocolErrorCode;
@@ -201,6 +202,22 @@ export class PresetByteRangeError extends ProtocolError {
   ) {
     super(`${field} must be an integer between 0 and 255, got ${value}`);
     this.name = "PresetByteRangeError";
+  }
+}
+
+export type ControlChangeField = "channel" | "controller" | "value";
+
+export class ControlChangeRangeError extends ProtocolError {
+  readonly code = "control-change-range" as const;
+
+  constructor(
+    readonly field: ControlChangeField,
+    readonly value: number,
+    readonly min: number,
+    readonly max: number,
+  ) {
+    super(`${field} must be between ${min} and ${max}, got ${value}`);
+    this.name = "ControlChangeRangeError";
   }
 }
 

@@ -1,9 +1,27 @@
-// Dev-only page that logs every byte a connected e7 sends, as it arrives, for as long as it is open.
+// Dev-only page that logs every byte a connected e7 sends, as it arrives, for as long as it is open, and sends the commands and control changes the editor will not.
+import type { JSX } from "solid-js";
 import type { Connection, PortInfo } from "../midi";
-import type { WireLog } from "./wire-monitor";
+import type {
+  ControlChangeMessage,
+  WireEvent,
+  WireLog,
+  WireMonitorSubscription,
+} from "./wire-monitor";
+import type { CommandDraft, SenderCommand, SenderField } from "./wire-sender";
 import { For, Show, createMemo, createSignal, onCleanup } from "solid-js";
 import { enableMidi, listInputPorts, listOutputPorts, openConnection } from "../midi";
 import { emptyWireLog, formatWireMonitorReport, monitorWire, recorded } from "./wire-monitor";
+import {
+  CONFIGURATION_FIELDS,
+  INITIAL_CONTROL_CHANGE,
+  INITIAL_DRAFT,
+  NO_UNDO_NOTE,
+  SENDER_COMMANDS,
+  buildCommand,
+  commandNamed,
+  sendCommand,
+  sendControlChange,
+} from "./wire-sender";
 
 const DEVICE_HINT = "e7";
 
@@ -20,6 +38,61 @@ function preferred(ports: readonly PortInfo[]): string {
   return (match ?? ports[0])?.name ?? "";
 }
 
+interface NumberFieldProps {
+  readonly label: string;
+  readonly value: number;
+  readonly min: number;
+  readonly max: number;
+  readonly onInput: (value: number) => void;
+}
+
+function NumberField(props: NumberFieldProps): JSX.Element {
+  return (
+    <label>
+      {props.label}{" "}
+      <input
+        type="number"
+        min={props.min}
+        max={props.max}
+        size={4}
+        value={props.value}
+        onInput={(event) => props.onInput(event.currentTarget.valueAsNumber)}
+      />
+    </label>
+  );
+}
+
+interface CommandChoiceProps {
+  readonly legend: string;
+  readonly commands: readonly SenderCommand[];
+  readonly chosen: CommandDraft["kind"];
+  readonly onChoose: (kind: CommandDraft["kind"]) => void;
+}
+
+function CommandChoice(props: CommandChoiceProps): JSX.Element {
+  return (
+    <fieldset>
+      <legend>{props.legend}</legend>
+      <For each={props.commands}>
+        {(command) => (
+          <div>
+            <label>
+              <input
+                type="radio"
+                name="command"
+                value={command.kind}
+                checked={props.chosen === command.kind}
+                onChange={() => props.onChoose(command.kind)}
+              />{" "}
+              {command.label}
+            </label>
+          </div>
+        )}
+      </For>
+    </fieldset>
+  );
+}
+
 export function HardwareConsole() {
   const [inputs, setInputs] = createSignal<readonly PortInfo[]>([]);
   const [outputs, setOutputs] = createSignal<readonly PortInfo[]>([]);
@@ -30,10 +103,19 @@ export function HardwareConsole() {
   const [log, setLog] = createSignal<WireLog>(emptyWireLog());
   const [held, setHeld] = createSignal<WireLog | undefined>(undefined);
   const [busy, setBusy] = createSignal(false);
+  const [draft, setDraft] = createSignal<CommandDraft>(INITIAL_DRAFT);
+  const [controlChange, setControlChange] =
+    createSignal<ControlChangeMessage>(INITIAL_CONTROL_CHANGE);
+  const [sent, setSent] = createSignal("");
+  const [refusal, setRefusal] = createSignal("");
 
-  let stopMonitoring: (() => void) | undefined;
+  let monitor: WireMonitorSubscription | undefined;
 
   const paused = (): boolean => held() !== undefined;
+
+  const chosen = createMemo(() => commandNamed(draft().kind));
+
+  const takes = (field: SenderField): boolean => chosen().fields.includes(field);
 
   const report = createMemo(() => {
     const active = connection();
@@ -44,6 +126,41 @@ export function HardwareConsole() {
       reassembly: active === undefined ? IDLE_STATS : active.reassembly,
     });
   });
+
+  const record = (event: WireEvent): void => {
+    setLog((current) => recorded(current, event));
+  };
+
+  const attempt = (label: string, send: (active: Connection) => void): void => {
+    const active = connection();
+    if (active === undefined || monitor === undefined) {
+      return;
+    }
+    setSent("");
+    setRefusal("");
+    try {
+      send(active);
+      setSent(`Sent ${label}.`);
+    } catch (error) {
+      setRefusal(`${label} was not sent. ${describe(error)}`);
+    }
+  };
+
+  const send = (): void => {
+    attempt(chosen().label, (active) => {
+      sendCommand(active, buildCommand(draft()), record, () => monitor?.elapsedMs() ?? 0);
+    });
+  };
+
+  const sendCc = (): void => {
+    const message = controlChange();
+    attempt(
+      `CC ${message.controller} = ${message.value} on channel ${message.channel}`,
+      (active) => {
+        sendControlChange(active, message, record, () => monitor?.elapsedMs() ?? 0);
+      },
+    );
+  };
 
   const enable = async (): Promise<void> => {
     setBusy(true);
@@ -67,10 +184,7 @@ export function HardwareConsole() {
     setBusy(true);
     try {
       const active = await openConnection({ input: inputName(), output: outputName() });
-      const subscription = monitorWire(active, (event) => {
-        setLog((current) => recorded(current, event));
-      });
-      stopMonitoring = () => subscription.unsubscribe();
+      monitor = monitorWire(active, record);
       setConnection(active);
       setStatus(`Monitoring ${active.inputName}. Play, turn a knob, or send from a DAW.`);
     } catch (error) {
@@ -81,8 +195,8 @@ export function HardwareConsole() {
   };
 
   const disconnect = async (): Promise<void> => {
-    stopMonitoring?.();
-    stopMonitoring = undefined;
+    monitor?.unsubscribe();
+    monitor = undefined;
     const active = connection();
     setConnection(undefined);
     await active?.close();
@@ -99,7 +213,7 @@ export function HardwareConsole() {
   };
 
   onCleanup(() => {
-    stopMonitoring?.();
+    monitor?.unsubscribe();
     void connection()?.close();
   });
 
@@ -107,8 +221,9 @@ export function HardwareConsole() {
     <main>
       <h1>e7 hardware console</h1>
       <p>
-        Logs every SysEx frame and control change the device sends, timestamped and in hex, whether
-        or not this app understands it. Read-only — nothing is written to the device.
+        Logs every SysEx frame and control change crossing the wire, timestamped and in hex, whether
+        or not this app understands it, and sends the commands and control changes the editor will
+        not. Everything sent from here is logged beside what comes back.
       </p>
 
       <p>
@@ -169,6 +284,159 @@ export function HardwareConsole() {
         <Show when={paused()}> Paused — the log is still recording behind this view.</Show>
       </p>
 
+      <section aria-label="Send">
+        <h2>Send</h2>
+        <p>{NO_UNDO_NOTE}</p>
+
+        <fieldset>
+          <legend>Control change — moves a parameter and leaves it moved</legend>
+          <p>
+            Sent as typed, on any controller: the CC map has no say here, and neither does the
+            editor's refusal to send a controller it believes the device only reports.
+          </p>
+          <p>
+            <NumberField
+              label="Channel"
+              value={controlChange().channel}
+              min={1}
+              max={16}
+              onInput={(channel) => setControlChange((current) => ({ ...current, channel }))}
+            />{" "}
+            <NumberField
+              label="Controller"
+              value={controlChange().controller}
+              min={0}
+              max={127}
+              onInput={(controller) => setControlChange((current) => ({ ...current, controller }))}
+            />{" "}
+            <NumberField
+              label="Value"
+              value={controlChange().value}
+              min={0}
+              max={127}
+              onInput={(value) => setControlChange((current) => ({ ...current, value }))}
+            />{" "}
+            <button type="button" disabled={connection() === undefined} onClick={sendCc}>
+              Send control change
+            </button>
+          </p>
+        </fieldset>
+
+        <div style={{ display: "flex", "flex-wrap": "wrap", gap: "1rem" }}>
+          <CommandChoice
+            legend="Commands that read"
+            commands={SENDER_COMMANDS.filter((command) => !command.writes)}
+            chosen={draft().kind}
+            onChoose={(kind) => setDraft((current) => ({ ...current, kind }))}
+          />
+          <CommandChoice
+            legend="Commands that change the instrument — no undo"
+            commands={SENDER_COMMANDS.filter((command) => command.writes)}
+            chosen={draft().kind}
+            onChoose={(kind) => setDraft((current) => ({ ...current, kind }))}
+          />
+        </div>
+
+        <p>{chosen().note}</p>
+
+        <Show when={takes("address")}>
+          <p>
+            <label>
+              Address (hex){" "}
+              <input
+                type="text"
+                size={8}
+                value={draft().address}
+                onInput={(event) => {
+                  const address = event.currentTarget.value;
+                  setDraft((current) => ({ ...current, address }));
+                }}
+              />
+            </label>
+          </p>
+        </Show>
+
+        <Show when={takes("data")}>
+          <p>
+            <label>
+              Data bytes (hex, one byte per pair){" "}
+              <input
+                type="text"
+                size={48}
+                value={draft().data}
+                onInput={(event) => {
+                  const data = event.currentTarget.value;
+                  setDraft((current) => ({ ...current, data }));
+                }}
+              />
+            </label>
+          </p>
+        </Show>
+
+        <Show when={takes("slot")}>
+          <p>
+            <NumberField
+              label="Bank"
+              value={draft().bank}
+              min={1}
+              max={8}
+              onInput={(bank) => setDraft((current) => ({ ...current, bank }))}
+            />{" "}
+            <NumberField
+              label="Group"
+              value={draft().group}
+              min={1}
+              max={8}
+              onInput={(group) => setDraft((current) => ({ ...current, group }))}
+            />{" "}
+            <NumberField
+              label="Slot"
+              value={draft().slot}
+              min={1}
+              max={8}
+              onInput={(slot) => setDraft((current) => ({ ...current, slot }))}
+            />
+          </p>
+        </Show>
+
+        <Show when={takes("configuration")}>
+          <p>
+            <For each={CONFIGURATION_FIELDS}>
+              {(field) => (
+                <>
+                  <NumberField
+                    label={field.label}
+                    value={draft().configuration[field.name]}
+                    min={0}
+                    max={127}
+                    onInput={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        configuration: { ...current.configuration, [field.name]: value },
+                      }))
+                    }
+                  />{" "}
+                </>
+              )}
+            </For>
+          </p>
+        </Show>
+
+        <p>
+          <button type="button" disabled={connection() === undefined} onClick={send}>
+            Send {chosen().label}
+          </button>
+        </p>
+
+        <Show when={sent() !== ""}>
+          <p role="status">{sent()}</p>
+        </Show>
+        <Show when={refusal() !== ""}>
+          <p role="alert">{refusal()}</p>
+        </Show>
+      </section>
+
+      <h2>Log</h2>
       <pre>{report()}</pre>
     </main>
   );

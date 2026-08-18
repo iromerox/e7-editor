@@ -1,6 +1,7 @@
-// A running log of every SysEx frame and control change crossing the wire, in arrival order, bounded, and keeping what it cannot read.
-import type { CcEvent, Connection, SysExReassemblyStats } from "../midi";
+// A running log of every SysEx frame and control change crossing the wire, in arrival order, bounded, keeping what it cannot read, and naming the command a frame arrived after.
+import type { Connection, SysExReassemblyStats } from "../midi";
 import type { CcField, SysExCommandKind, SysExResponse } from "../protocol";
+import { DEFAULT_RESPONSE_TIMEOUT_MS } from "../midi";
 import {
   ProtocolError,
   ccToFields,
@@ -9,6 +10,7 @@ import {
   decodeConfigurationResponse,
   decodeMemoryDataResponse,
   decodeSerialNumberResponse,
+  encodeControlChange,
 } from "../protocol";
 import { formatHex } from "./hex";
 
@@ -32,6 +34,12 @@ interface WireEventFields {
 export interface SysExWireEvent extends WireEventFields {
   readonly kind: "sysex";
   readonly reading: SysExReading;
+}
+
+export interface ControlChangeMessage {
+  readonly channel: number;
+  readonly controller: number;
+  readonly value: number;
 }
 
 export interface ControlChangeWireEvent extends WireEventFields {
@@ -58,7 +66,14 @@ export interface WireMonitorReport {
 }
 
 export interface WireMonitorSubscription {
+  readonly elapsedMs: () => number;
   unsubscribe(): void;
+}
+
+export interface WireReply {
+  readonly request: SysExWireEvent;
+  readonly response: SysExWireEvent;
+  readonly elapsedMs: number;
 }
 
 type ResponseDecoder = (frame: Uint8Array) => SysExResponse;
@@ -70,9 +85,7 @@ const RESPONSE_DECODERS: readonly ResponseDecoder[] = [
   decodeMemoryDataResponse,
 ];
 
-const CONTROL_CHANGE_STATUS = 0xb0;
-
-const ANNOTATION_WIDTH = 32;
+const ANNOTATION_WIDTH = 46;
 
 function attempt<Read>(decode: () => Read): Read | undefined {
   try {
@@ -110,22 +123,18 @@ export function sysExEvent(
 
 export function controlChangeEvent(
   direction: WireDirection,
-  event: CcEvent,
+  message: ControlChangeMessage,
   atMs: number,
 ): ControlChangeWireEvent {
   return {
     kind: "control-change",
     atMs,
     direction,
-    bytes: Uint8Array.of(
-      CONTROL_CHANGE_STATUS | (event.channel - 1),
-      event.controller,
-      event.value,
-    ),
-    channel: event.channel,
-    controller: event.controller,
-    value: event.value,
-    fields: ccToFields(event.controller),
+    bytes: encodeControlChange(message.channel, message.controller, message.value),
+    channel: message.channel,
+    controller: message.controller,
+    value: message.value,
+    fields: ccToFields(message.controller),
   };
 }
 
@@ -149,19 +158,48 @@ export function monitorWire(
   now: () => number = () => performance.now(),
 ): WireMonitorSubscription {
   const startedAt = now();
+  const elapsedMs = (): number => now() - startedAt;
   const frames = connection.sysexMonitor.subscribe((bytes) => {
-    record(sysExEvent("inbound", bytes, now() - startedAt));
+    record(sysExEvent("inbound", bytes, elapsedMs()));
   });
   const controlChanges = connection.cc.subscribe((event) => {
-    record(controlChangeEvent("inbound", event, now() - startedAt));
+    record(controlChangeEvent("inbound", event, elapsedMs()));
   });
 
   return {
+    elapsedMs,
     unsubscribe(): void {
       frames.unsubscribe();
       controlChanges.unsubscribe();
     },
   };
+}
+
+export function replies(
+  log: WireLog,
+  windowMs: number = DEFAULT_RESPONSE_TIMEOUT_MS,
+): readonly WireReply[] {
+  const answered: WireReply[] = [];
+  let request: SysExWireEvent | undefined;
+
+  for (const event of log.events) {
+    if (event.kind !== "sysex") {
+      continue;
+    }
+    if (event.direction === "outbound") {
+      request = event;
+      continue;
+    }
+    if (request === undefined) {
+      continue;
+    }
+    const elapsedMs = event.atMs - request.atMs;
+    if (elapsedMs <= windowMs) {
+      answered.push({ request, response: event, elapsedMs });
+    }
+  }
+
+  return answered;
 }
 
 function annotate(event: WireEvent): string {
@@ -179,14 +217,25 @@ function annotate(event: WireEvent): string {
   }
 }
 
-export function formatWireEvent(event: WireEvent, seq: number): string {
+function requestName(request: SysExWireEvent): string {
+  return request.reading.kind === "command" ? request.reading.command : "an unparsed frame";
+}
+
+function answering(reply: WireReply | undefined): string {
+  if (reply === undefined) {
+    return "";
+  }
+  return ` (${reply.elapsedMs.toFixed(1)}ms after ${requestName(reply.request)})`;
+}
+
+export function formatWireEvent(event: WireEvent, seq: number, reply?: WireReply): string {
   const arrow = event.direction === "inbound" ? "<--" : "-->";
   const at = `+${event.atMs.toFixed(1)}ms`;
   return [
     seq.toString().padStart(6),
     arrow,
     at.padStart(12),
-    annotate(event).padEnd(ANNOTATION_WIDTH),
+    `${annotate(event)}${answering(reply)}`.padEnd(ANNOTATION_WIDTH),
     formatHex(event.bytes),
   ].join("  ");
 }
@@ -203,8 +252,11 @@ export function formatWireMonitorReport(report: WireMonitorReport): string {
     "",
   ];
 
+  const answered = new Map<WireEvent, WireReply>(
+    replies(log).map((reply) => [reply.response, reply]),
+  );
   for (const [index, event] of log.events.entries()) {
-    lines.push(formatWireEvent(event, log.dropped + index + 1));
+    lines.push(formatWireEvent(event, log.dropped + index + 1, answered.get(event)));
   }
 
   return lines.join("\n");
