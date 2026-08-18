@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js";
 import type { LibraryDatabase, LibraryEntry } from "../store";
 import type { AppStateControls } from "./app-state";
-import { fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MULTI_PRESET_BYTES,
@@ -13,7 +13,13 @@ import {
   decodeMultiPreset,
   decodeSinglePreset,
 } from "../protocol";
-import { createLibraryDatabase, deviceDumpPayload, encodeMemoryImage, syxEntry } from "../store";
+import {
+  ENTRY_COMMENT_MAX_LENGTH,
+  createLibraryDatabase,
+  deviceDumpPayload,
+  encodeMemoryImage,
+  syxEntry,
+} from "../store";
 import { AppStateProvider, useAppState } from "./AppStateProvider";
 import { LibraryPane } from "./LibraryPane";
 
@@ -452,6 +458,169 @@ describe("LibraryPane exporting", () => {
     expect(alerts()[0]).toContain("partially written");
     expect(showSaveFilePicker).not.toHaveBeenCalled();
     expect(written).toHaveLength(0);
+  });
+});
+
+describe("LibraryPane editing what the library stores", () => {
+  async function openEditor(name: string): Promise<void> {
+    await fireEvent.click(
+      screen.getByRole("button", { name: `Edit what the library stores about ${name}` }),
+    );
+  }
+
+  async function type(label: string, value: string): Promise<void> {
+    await fireEvent.input(screen.getByLabelText(label), { target: { value } });
+  }
+
+  async function saveEdits(name: string): Promise<void> {
+    await fireEvent.click(
+      screen.getByRole("button", { name: `Save what the library stores about ${name}` }),
+    );
+  }
+
+  it("renames an entry in place, without a manual refresh and without rewriting its bytes", async () => {
+    const entry = await storedEntry(
+      "Fat Brass",
+      new PresetSlot(1, 3, 5).byteAddress(),
+      presetImage("Fat Brass"),
+    );
+    const database = await openLibrary(entry);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await openEditor("Fat Brass");
+    await type("Name of Fat Brass", "Fatter Brass");
+    await saveEdits("Fat Brass");
+
+    await vi.waitFor(() => expect(screen.getByText("Fatter Brass")).toBeInTheDocument());
+    expect(screen.queryByText("Fat Brass")).toBeNull();
+    const after = await reread(database, entry.id);
+    expect(after?.sysex).toBe(entry.sysex);
+    expect(after?.sha256).toBe(entry.sha256);
+    expect(after).toEqual({ ...entry, name: "Fatter Brass" });
+    expect(alerts()).toHaveLength(0);
+  });
+
+  it("adds and removes tags, and keeps them through a reload of the pane", async () => {
+    const database = await openLibrary(multi);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await openEditor("Split Keys");
+    await type("Tags of Split Keys, separated by commas", "split, keys, split");
+    await saveEdits("Split Keys");
+    await vi.waitFor(() => expect(listed()[0]).toContain("split"));
+
+    cleanup();
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+    expect(await reread(database, multi.id)).toEqual({ ...multi, tags: ["split", "keys"] });
+
+    await openEditor("Split Keys");
+    await type("Tags of Split Keys, separated by commas", "keys");
+    await saveEdits("Split Keys");
+
+    await vi.waitFor(async () =>
+      expect((await reread(database, multi.id))?.tags).toEqual(["keys"]),
+    );
+  });
+
+  it("filters by kind alongside the tags an entry was given", async () => {
+    const database = await openLibrary(single, multi);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+
+    await openEditor("Split Keys");
+    await type("Tags of Split Keys, separated by commas", "split");
+    await saveEdits("Split Keys");
+    await vi.waitFor(() => expect(listed()[1]).toContain("split"));
+
+    await filterBy("Multi");
+
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+    expect(listed()[0]).toContain("Split Keys");
+    expect(listed()[0]).toContain("split");
+  });
+
+  it("keeps a comment of several hundred characters intact and shows it on the row", async () => {
+    const comment = "Cutoff tracks the keyboard, and the second oscillator is a fifth up. ".repeat(
+      8,
+    );
+    const database = await openLibrary(single);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await openEditor("Fat Brass");
+    await type("Comment on Fat Brass", comment);
+    await saveEdits("Fat Brass");
+
+    await vi.waitFor(async () =>
+      expect((await reread(database, single.id))?.comment).toBe(comment),
+    );
+    expect(comment.length).toBeGreaterThan(400);
+    expect(listed()[0]).toContain(comment);
+  });
+
+  it("leaves every other entry exactly as it was", async () => {
+    const database = await openLibrary(single, multi, backup);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(3));
+
+    await openEditor("Fat Brass");
+    await type("Name of Fat Brass", "Renamed");
+    await type("Tags of Fat Brass, separated by commas", "renamed");
+    await type("Comment on Fat Brass", "Edited from the pane.");
+    await saveEdits("Fat Brass");
+
+    await vi.waitFor(() => expect(screen.getByText("Renamed")).toBeInTheDocument());
+    expect(await reread(database, multi.id)).toEqual(multi);
+    expect(await reread(database, backup.id)).toEqual(backup);
+  });
+
+  it("discards the draft when the edit is cancelled, storing nothing", async () => {
+    const database = await openLibrary(single);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await openEditor("Fat Brass");
+    await type("Name of Fat Brass", "Never Saved");
+    await fireEvent.click(
+      screen.getByRole("button", {
+        name: "Stop editing Fat Brass, keeping what the library stores",
+      }),
+    );
+
+    expect(screen.queryByLabelText("Name of Fat Brass")).toBeNull();
+    expect(await reread(database, single.id)).toEqual(single);
+  });
+
+  it("refuses to save a name that is blank once trimmed", async () => {
+    const database = await openLibrary(single);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await openEditor("Fat Brass");
+    await type("Name of Fat Brass", "   ");
+
+    expect(
+      screen.getByRole("button", { name: "Save what the library stores about Fat Brass" }),
+    ).toBeDisabled();
+    expect(await reread(database, single.id)).toEqual(single);
+  });
+
+  it("reports a refused edit at the entry, keeping what was typed and storing nothing", async () => {
+    const database = await openLibrary(single);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await openEditor("Fat Brass");
+    await type("Name of Fat Brass", "Too Long A Note");
+    await type("Comment on Fat Brass", "c".repeat(ENTRY_COMMENT_MAX_LENGTH + 1));
+    await saveEdits("Fat Brass");
+
+    await vi.waitFor(() => expect(alerts()[0]).toContain("a comment is at most"));
+    expect(screen.getByLabelText("Name of Fat Brass")).toHaveValue("Too Long A Note");
+    expect(await reread(database, single.id)).toEqual(single);
   });
 });
 

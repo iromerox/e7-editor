@@ -1,15 +1,23 @@
-// Browsable list of stored library entries, filterable by kind, kept in step with the store, the import of .syx files from disk into it, the export of an entry back out to one, and the loading of an entry that holds one preset into the editor.
+// Browsable list of stored library entries, filterable by kind, kept in step with the store, the import of .syx files from disk into it, the export of an entry back out to one, the editing of what the library stores about one, and the loading of an entry that holds one preset into the editor.
 import type { JSX } from "solid-js";
 import type { LibraryDatabase, LibraryEntry, SyxImportReport } from "../store";
 import type { LibraryKindFilter } from "./app-state";
+import type { EntryMetadataEdits, MetadataDraft } from "./entry-metadata";
 import type { EntryTransfers } from "./entry-transfer";
 import type { LibraryExports } from "./library-export";
 import type { LibraryImport } from "./library-import";
 import { For, Match, Show, Switch, createEffect, createMemo, onCleanup } from "solid-js";
-import { LIBRARY_ENTRY_KINDS, allEntries, entriesByKind } from "../store";
+import {
+  ENTRY_COMMENT_MAX_LENGTH,
+  ENTRY_NAME_MAX_LENGTH,
+  LIBRARY_ENTRY_KINDS,
+  allEntries,
+  entriesByKind,
+} from "../store";
 import { useAppState } from "./AppStateProvider";
 import { EVERY_KIND } from "./app-state";
 import { EditorChip } from "./EditorChip";
+import { EDIT_NOTE, createEntryMetadataEdits } from "./entry-metadata";
 import { createEntryTransfers, holdsOnePreset, loadNote, manyPresetsNote } from "./entry-transfer";
 import { EXPORT_NOTE, createLibraryExports } from "./library-export";
 import {
@@ -135,10 +143,83 @@ function ImportReport(props: { readonly imports: LibraryImport }): JSX.Element {
   );
 }
 
+interface MetadataFormProps {
+  readonly entry: LibraryEntry;
+  readonly named: string;
+  readonly draft: MetadataDraft;
+  readonly metadata: EntryMetadataEdits;
+}
+
+function MetadataForm(props: MetadataFormProps): JSX.Element {
+  const saving = (): boolean => props.metadata.state(props.entry)?.status === "saving";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        "flex-direction": "column",
+        gap: "0.25rem",
+        padding: "0.25rem 0 0",
+      }}
+    >
+      <label>
+        Name{" "}
+        <input
+          type="text"
+          aria-label={`Name of ${props.named}`}
+          value={props.draft.name}
+          maxlength={ENTRY_NAME_MAX_LENGTH}
+          onInput={(event) => props.metadata.edit(props.entry, "name", event.currentTarget.value)}
+        />
+      </label>
+      <label>
+        Tags{" "}
+        <input
+          type="text"
+          aria-label={`Tags of ${props.named}, separated by commas`}
+          title="Separate tags with commas. Blank and repeated tags are dropped."
+          value={props.draft.tags}
+          onInput={(event) => props.metadata.edit(props.entry, "tags", event.currentTarget.value)}
+        />
+      </label>
+      <label style={{ display: "flex", "flex-direction": "column", gap: "0.25rem" }}>
+        Comment
+        <textarea
+          aria-label={`Comment on ${props.named}`}
+          rows={3}
+          value={props.draft.comment}
+          maxlength={ENTRY_COMMENT_MAX_LENGTH}
+          onInput={(event) =>
+            props.metadata.edit(props.entry, "comment", event.currentTarget.value)
+          }
+        />
+      </label>
+      <div style={{ display: "flex", "align-items": "baseline", gap: "0.5rem" }}>
+        <button
+          type="button"
+          aria-label={`Save what the library stores about ${props.named}`}
+          disabled={saving() || props.draft.name.trim() === ""}
+          onClick={() => props.metadata.save(props.entry)}
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          aria-label={`Stop editing ${props.named}, keeping what the library stores`}
+          onClick={() => props.metadata.cancel(props.entry)}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 interface EntryRowProps {
   readonly entry: LibraryEntry;
   readonly transfers: EntryTransfers;
   readonly exports: LibraryExports;
+  readonly metadata: EntryMetadataEdits;
 }
 
 function EntryRow(props: EntryRowProps): JSX.Element {
@@ -154,6 +235,14 @@ function EntryRow(props: EntryRowProps): JSX.Element {
   };
   const exportRefused = (): string | undefined => {
     const pending = props.exports.state(props.entry);
+    return pending?.status === "failed" ? pending.reason : undefined;
+  };
+  const saved = (): string | undefined => {
+    const pending = props.metadata.state(props.entry);
+    return pending?.status === "done" ? pending.note : undefined;
+  };
+  const saveRefused = (): string | undefined => {
+    const pending = props.metadata.state(props.entry);
     return pending?.status === "failed" ? pending.reason : undefined;
   };
 
@@ -201,10 +290,22 @@ function EntryRow(props: EntryRowProps): JSX.Element {
         >
           Export
         </button>
+        <button
+          type="button"
+          aria-label={`Edit what the library stores about ${named()}`}
+          title={EDIT_NOTE}
+          disabled={props.metadata.draft(props.entry) !== undefined}
+          onClick={() => props.metadata.start(props.entry)}
+        >
+          Edit
+        </button>
         <Show when={props.transfers.inEditor(props.entry)}>
           <EditorChip part={props.transfers.editorPart()} />
         </Show>
       </div>
+      <Show when={props.entry.comment !== ""}>
+        <p style={{ margin: "0", color: "var(--e7-label-secondary)" }}>{props.entry.comment}</p>
+      </Show>
       <Switch>
         <Match when={confirming()}>
           <div
@@ -238,6 +339,20 @@ function EntryRow(props: EntryRowProps): JSX.Element {
         <Match when={exported()}>{(note) => <span role="status">{note()}</span>}</Match>
         <Match when={exportRefused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
       </Switch>
+      <Switch>
+        <Match when={saved()}>{(note) => <span role="status">{note()}</span>}</Match>
+        <Match when={saveRefused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
+      </Switch>
+      <Show when={props.metadata.draft(props.entry)}>
+        {(draft) => (
+          <MetadataForm
+            entry={props.entry}
+            named={named()}
+            draft={draft()}
+            metadata={props.metadata}
+          />
+        )}
+      </Show>
     </li>
   );
 }
@@ -248,6 +363,7 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
   const transfers = createEntryTransfers(controls);
   const imports = createLibraryImport(props.database);
   const exports = createLibraryExports();
+  const metadata = createEntryMetadataEdits(props.database);
 
   const shown = createMemo(() => {
     const selected = state.library.kind;
@@ -325,7 +441,14 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
           >
             <ul style={{ "list-style": "none", margin: "0.5rem 0 0", padding: "0" }}>
               <For each={found()}>
-                {(entry) => <EntryRow entry={entry} transfers={transfers} exports={exports} />}
+                {(entry) => (
+                  <EntryRow
+                    entry={entry}
+                    transfers={transfers}
+                    exports={exports}
+                    metadata={metadata}
+                  />
+                )}
               </For>
             </ul>
           </Show>

@@ -536,6 +536,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Dismissing the save dialog writes nothing and is reported as a dismissal
   rather than a failure; an entry whose stored bytes no longer read back as
   SysEx says so at the entry instead of writing a file no tool could open.
+- What the library stores *about* an entry can be edited from the pane — an
+  `Edit` button on every row opens a form over the name it is listed under,
+  its tags and its comment, and the list picks up the change without a manual
+  refresh. Tags are typed as comma-separated text, with blank and repeated
+  tags dropped; a comment is shown on the row it belongs to, so a note left on
+  a patch is readable without reopening the form. The three fields are the
+  only ones written: the stored SysEx and its hash go back untouched, and the
+  name inside the preset's own bytes is a different field this does not reach.
+  An entry needs a name to be listed under, so a blank one cannot be saved,
+  and an edit refused for any other reason is reported at the entry with what
+  was typed still in the form to correct.
 
 ### Changed
 

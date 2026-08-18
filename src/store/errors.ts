@@ -14,7 +14,9 @@ export type StoreErrorCode =
   | "incompatible-backup"
   | "library-not-empty"
   | "syx-payload"
-  | "entry-payload";
+  | "entry-payload"
+  | "entry-metadata"
+  | "entry-missing";
 
 export abstract class StoreError extends Error {
   abstract readonly code: StoreErrorCode;
@@ -174,6 +176,27 @@ export class EntryPayloadError extends StoreError {
   ) {
     super(`the SysEx stored for entry ${id} cannot be read back: ${fault}`);
     this.name = "EntryPayloadError";
+  }
+}
+
+export class EntryMetadataError extends StoreError {
+  readonly code = "entry-metadata" as const;
+
+  constructor(
+    readonly id: string,
+    readonly faults: readonly string[],
+  ) {
+    super(`what the library stores about entry ${id} cannot be changed: ${faults.join("; ")}`);
+    this.name = "EntryMetadataError";
+  }
+}
+
+export class EntryMissingError extends StoreError {
+  readonly code = "entry-missing" as const;
+
+  constructor(readonly id: string) {
+    super(`entry ${id} is no longer in the library`);
+    this.name = "EntryMissingError";
   }
 }
 
