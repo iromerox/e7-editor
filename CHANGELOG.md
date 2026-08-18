@@ -617,6 +617,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   answer to a single Read Memory with the malformed preview frame ahead of the
   real response. The reassembler's fragmentation test now loads the first of
   them instead of building its bytes inline.
+- The hardware console now saves what it saw: a Capture section writes the log
+  on screen to a `.wire` file through the same file dialog the library's export
+  and backup use, and the bytes written read back through `parseWireLog` as the
+  events that were saved. Its five header fields are filled in before the save
+  rather than after — the device and what the session was doing typed by
+  whoever is at the instrument, the ports filled in from the connection, the
+  date opening on the local day — because none of them can be recovered from
+  the bytes afterwards. The file is suggested as the date and the session note
+  slugged, so an afternoon's captures are told apart by what they were. An
+  empty log and a header with a field left blank are both refused before any
+  dialog opens, a dismissed dialog is reported as nothing written, and a log
+  that dropped events says so in a comment above them.
 
 ### Changed
 
@@ -848,3 +860,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   pairing is stored, why frames are not validated as whole messages, why the
   file is line-oriented text rather than JSON, and how to mark a fixture
   written by hand rather than measured.
+- `docs/hardware-console.md`: how a session gets out of the browser — what the
+  five header fields are for and why they are typed before the save rather than
+  corrected after, what the suggested file name carries, which two saves are
+  refused and which is merely reported as nothing written, and that a paused
+  view saves the log it is showing.
+- `docs/hardware-fixtures.md`: how a capture is written as well as read — the
+  notes a file can carry as comments above its events, and why times are
+  recorded to a tenth of a millisecond and snapped to the same tenth before
+  writing, so a capture and the one read back from it are the same events
+  rather than rounded ones.

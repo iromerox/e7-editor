@@ -1,4 +1,4 @@
-// The committed form of a captured session: a provenance header, one line per event, and a parse that refuses everything else.
+// The committed form of a captured session: a provenance header, one line per event, a parse that refuses everything else, and the write that produces one.
 export type WireDirection = "inbound" | "outbound";
 
 export interface WireLogEvent {
@@ -43,9 +43,11 @@ export const WIRE_LOG_MAGIC = "e7 wire log v1";
 export const OUTBOUND_ARROW = "-->";
 export const INBOUND_ARROW = "<--";
 
-const HEADER_FIELDS = ["device", "input", "output", "date", "session"] as const;
+export const WIRE_LOG_HEADER_FIELDS = ["device", "input", "output", "date", "session"] as const;
 
-type HeaderField = (typeof HEADER_FIELDS)[number];
+export const WIRE_LOG_TIME_DECIMALS = 1;
+
+type HeaderField = (typeof WIRE_LOG_HEADER_FIELDS)[number];
 
 const ARROWS = new Map<string, WireDirection>([
   [INBOUND_ARROW, "inbound"],
@@ -70,7 +72,7 @@ interface HeaderValue {
 type Fault = (line: number, fault: string) => WireLogFormatError;
 
 function isHeaderField(key: string): key is HeaderField {
-  return (HEADER_FIELDS as readonly string[]).includes(key);
+  return (WIRE_LOG_HEADER_FIELDS as readonly string[]).includes(key);
 }
 
 function isCalendarDate(value: string): boolean {
@@ -190,4 +192,35 @@ export function parseWireLog(fileName: string, text: string): WireLogCapture {
   }
 
   return { header, events };
+}
+
+const HEADER_KEY_WIDTH = 9;
+const TIME_WIDTH = 10;
+const HEX_RADIX = 16;
+const HEX_BYTE_WIDTH = 2;
+
+export function wireLogTime(atMs: number): number {
+  return Number.parseFloat(atMs.toFixed(WIRE_LOG_TIME_DECIMALS));
+}
+
+function writeEvent(event: WireLogEvent): string {
+  const at = `+${event.atMs.toFixed(WIRE_LOG_TIME_DECIMALS)}ms`.padStart(TIME_WIDTH);
+  const arrow = event.direction === "inbound" ? INBOUND_ARROW : OUTBOUND_ARROW;
+  const hex = Array.from(event.bytes, (byte) =>
+    byte.toString(HEX_RADIX).toUpperCase().padStart(HEX_BYTE_WIDTH, "0"),
+  ).join(" ");
+  return `${at}  ${arrow}  ${hex}`;
+}
+
+export function formatWireLog(capture: WireLogCapture, notes: readonly string[] = []): string {
+  return [
+    WIRE_LOG_MAGIC,
+    ...WIRE_LOG_HEADER_FIELDS.map(
+      (field) => `${field.padEnd(HEADER_KEY_WIDTH)}${capture.header[field]}`,
+    ),
+    "",
+    ...notes.map((note) => `${COMMENT} ${note}`),
+    ...capture.events.map(writeEvent),
+    "",
+  ].join("\n");
 }

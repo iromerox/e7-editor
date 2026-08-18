@@ -144,6 +144,47 @@ Every send is recorded in the log as an outbound `-->` event before anything
 comes back, so one log is the whole conversation rather than two accounts of
 it.
 
+## Saving a capture
+
+The **Capture** section writes what the log is showing to a `.wire` file —
+the fixture format `docs/hardware-fixtures.md` describes, read back by
+`parseWireLog` — through the same file dialog the library's export and backup
+go through. What is saved is what is on screen: while the view is paused, the
+paused log is the one written, not the traffic that arrived behind it.
+
+Its five fields are the file's header, and they are filled in *before* the
+save rather than corrected afterwards, because provenance is the half of a
+capture that cannot be recovered from the bytes:
+
+- **Device** and **Session** are typed by whoever is at the instrument.
+  "serial 361, USB" and "sweeping Filter Cutoff by hand" are what make a file
+  worth reading a year later; "e7" and "testing" are not.
+- **Input** and **Output** fill themselves in from the ports on connect, and
+  stay editable — a capture kept after disconnecting still names the ports it
+  was taken on.
+- **Date** opens on today, from the local clock rather than UTC, so a session
+  running past midnight in one time zone is not filed under the next day in
+  another.
+
+The file is suggested as the date and the session note slugged —
+`2026-08-18-sweeping-filter-cutoff-by-hand.wire` — so six captures from one
+afternoon are told apart by what they were, not by an ordinal.
+
+Two saves are refused rather than written:
+
+- An empty log. A capture with no events in it is a file that its own loader
+  rejects, and the refusal says so before any dialog opens.
+- A header with a field left blank. All five are required by the format; the
+  refusal names the ones still missing.
+
+A dismissed dialog is reported as nothing written, the same way the library
+reports a cancelled export, and the log is untouched either way — saving
+neither clears it nor pauses it.
+
+If the log has dropped events (see Bounds below), the file records that as a
+comment above the first event, so a truncated capture cannot be read later as
+a whole one.
+
 ## Bounds
 
 The log keeps the most recent 2000 events and drops the oldest past that, so a
@@ -152,4 +193,5 @@ header says how many were dropped; the sequence numbers keep counting through
 a drop, so a gap between what the header claims and the first line shown is
 never silent.
 
-Nothing is written to disk — the log lives in the page and a reload loses it.
+A reload loses the log: nothing is kept in the page beyond the session, which
+is what **Save capture** above is for.

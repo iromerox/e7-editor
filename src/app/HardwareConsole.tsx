@@ -1,6 +1,6 @@
 // Dev-only page that logs every byte a connected e7 sends, as it arrives, for as long as it is open, and sends the commands and control changes the editor will not.
 import type { JSX } from "solid-js";
-import type { Connection, PortInfo } from "../midi";
+import type { Connection, PortInfo, WireLogHeader } from "../midi";
 import type {
   ControlChangeMessage,
   WireEvent,
@@ -10,6 +10,13 @@ import type {
 import type { CommandDraft, SenderCommand, SenderField } from "./wire-sender";
 import { For, Show, createMemo, createSignal, onCleanup } from "solid-js";
 import { enableMidi, listInputPorts, listOutputPorts, openConnection } from "../midi";
+import {
+  CAPTURE_NOTE,
+  NOTHING_WRITTEN,
+  emptyCaptureHeader,
+  saveWireCapture,
+  savedCaptureNote,
+} from "./wire-capture";
 import { emptyWireLog, formatWireMonitorReport, monitorWire, recorded } from "./wire-monitor";
 import {
   CONFIGURATION_FIELDS,
@@ -62,6 +69,27 @@ function NumberField(props: NumberFieldProps): JSX.Element {
   );
 }
 
+interface TextFieldProps {
+  readonly label: string;
+  readonly value: string;
+  readonly size: number;
+  readonly onInput: (value: string) => void;
+}
+
+function TextField(props: TextFieldProps): JSX.Element {
+  return (
+    <label>
+      {props.label}{" "}
+      <input
+        type="text"
+        size={props.size}
+        value={props.value}
+        onInput={(event) => props.onInput(event.currentTarget.value)}
+      />
+    </label>
+  );
+}
+
 interface CommandChoiceProps {
   readonly legend: string;
   readonly commands: readonly SenderCommand[];
@@ -108,10 +136,16 @@ export function HardwareConsole() {
     createSignal<ControlChangeMessage>(INITIAL_CONTROL_CHANGE);
   const [sent, setSent] = createSignal("");
   const [refusal, setRefusal] = createSignal("");
+  const [header, setHeader] = createSignal<WireLogHeader>(emptyCaptureHeader());
+  const [saving, setSaving] = createSignal(false);
+  const [saved, setSaved] = createSignal("");
+  const [saveRefusal, setSaveRefusal] = createSignal("");
 
   let monitor: WireMonitorSubscription | undefined;
 
   const paused = (): boolean => held() !== undefined;
+
+  const shown = (): WireLog => held() ?? log();
 
   const chosen = createMemo(() => commandNamed(draft().kind));
 
@@ -122,7 +156,7 @@ export function HardwareConsole() {
     return formatWireMonitorReport({
       inputName: active?.inputName ?? NO_PORT,
       outputName: active?.outputName ?? NO_PORT,
-      log: held() ?? log(),
+      log: shown(),
       reassembly: active === undefined ? IDLE_STATS : active.reassembly,
     });
   });
@@ -162,6 +196,30 @@ export function HardwareConsole() {
     );
   };
 
+  const save = (): void => {
+    setSaved("");
+    setSaveRefusal("");
+    setSaving(true);
+    void saveWireCapture(shown(), header()).then(
+      (result) => {
+        setSaving(false);
+        if (result.status === "refused") {
+          setSaveRefusal(result.reason);
+          return;
+        }
+        setSaved(
+          result.status === "written"
+            ? savedCaptureNote(result.fileName, result.events)
+            : NOTHING_WRITTEN,
+        );
+      },
+      (error: unknown) => {
+        setSaving(false);
+        setSaveRefusal(describe(error));
+      },
+    );
+  };
+
   const enable = async (): Promise<void> => {
     setBusy(true);
     try {
@@ -186,6 +244,11 @@ export function HardwareConsole() {
       const active = await openConnection({ input: inputName(), output: outputName() });
       monitor = monitorWire(active, record);
       setConnection(active);
+      setHeader((current) => ({
+        ...current,
+        input: active.inputName,
+        output: active.outputName,
+      }));
       setStatus(`Monitoring ${active.inputName}. Play, turn a knob, or send from a DAW.`);
     } catch (error) {
       setStatus(describe(error));
@@ -433,6 +496,66 @@ export function HardwareConsole() {
         </Show>
         <Show when={refusal() !== ""}>
           <p role="alert">{refusal()}</p>
+        </Show>
+      </section>
+
+      <section aria-label="Capture">
+        <h2>Capture</h2>
+        <p>{CAPTURE_NOTE}</p>
+
+        <p>
+          <TextField
+            label="Device"
+            value={header().device}
+            size={44}
+            onInput={(device) => setHeader((current) => ({ ...current, device }))}
+          />
+        </p>
+        <p>
+          <TextField
+            label="Input"
+            value={header().input}
+            size={20}
+            onInput={(input) => setHeader((current) => ({ ...current, input }))}
+          />{" "}
+          <TextField
+            label="Output"
+            value={header().output}
+            size={20}
+            onInput={(output) => setHeader((current) => ({ ...current, output }))}
+          />{" "}
+          <label>
+            Date{" "}
+            <input
+              type="date"
+              value={header().date}
+              onInput={(event) => {
+                const date = event.currentTarget.value;
+                setHeader((current) => ({ ...current, date }));
+              }}
+            />
+          </label>
+        </p>
+        <p>
+          <TextField
+            label="Session"
+            value={header().session}
+            size={72}
+            onInput={(session) => setHeader((current) => ({ ...current, session }))}
+          />
+        </p>
+
+        <p>
+          <button type="button" disabled={saving()} onClick={save}>
+            Save capture
+          </button>
+        </p>
+
+        <Show when={saved() !== ""}>
+          <p role="status">{saved()}</p>
+        </Show>
+        <Show when={saveRefusal() !== ""}>
+          <p role="alert">{saveRefusal()}</p>
         </Show>
       </section>
 

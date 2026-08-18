@@ -7,7 +7,9 @@ one, so a test can be written against traffic an instrument produced rather than
 against bytes somebody typed.
 
 Fixtures live in `fixtures/` at the repository root, one capture per file, named
-`*.wire`. They are read by `parseWireLog` in `src/midi/wire-log.ts`.
+`*.wire`. They are read by `parseWireLog` in `src/midi/wire-log.ts` and written
+by `formatWireLog` in the same module — the console's **Capture** section is
+what calls it; see `docs/hardware-console.md`.
 
 ## The format
 
@@ -121,13 +123,29 @@ with no events under it. Nothing partial is returned: a capture parses whole or
 not at all, because a fixture silently missing its last few events would be a
 test that passes for the wrong reason.
 
+## Writing one
+
+`formatWireLog` takes a capture and returns the file's text, one event per
+line, and takes an optional list of notes it writes as comments above the
+events — which is how a log that dropped events says so in the file rather
+than only on the screen it was dropped from.
+
+Times are written to a tenth of a millisecond. A capture built from the
+console's own log is snapped to the same tenth with `wireLogTime` before it is
+written, so what a file says is exactly what the capture held: a saved capture
+and the one read back from it are the same events, not the same events rounded.
+Anything finer would be recording the timer's noise as if it were a
+measurement.
+
 ## Taking one
 
 The header is provenance, and provenance is the part that cannot be
 reconstructed later. Fill it while the instrument is still plugged in, and be
 exact about `device` and `session` — "serial 361, USB" and "sweeping Filter
 Cutoff by hand" are what make a capture usable a year later; "e7" and "testing"
-are not.
+are not. The console refuses a save that leaves one of the five blank, and
+names the file after the date and the session note, so what was typed there is
+what a directory listing shows.
 
 Fixtures written by hand — because the case is one no instrument here has
 produced — sit in the same directory and are told apart by their header saying

@@ -1,6 +1,7 @@
+import type { WireLogCapture } from "./wire-log";
 import { describe, expect, it } from "vitest";
 import { wireLogFixture } from "../test-wire-log";
-import { WireLogFormatError, parseWireLog } from "./wire-log";
+import { WireLogFormatError, formatWireLog, parseWireLog, wireLogTime } from "./wire-log";
 
 const HEADER = [
   "e7 wire log v1",
@@ -179,5 +180,71 @@ describe("parseWireLog", () => {
     expect(() =>
       parseWireLog("capture.wire", capture("+0.0ms  <--  F0 F7", "+1.0ms  <--  ZZ")),
     ).toThrow(WireLogFormatError);
+  });
+});
+
+describe("formatWireLog", () => {
+  const HEADER: WireLogCapture["header"] = {
+    device: "GS Music e7, serial 361",
+    input: "e7 MIDI 1",
+    output: "e7 MIDI 1",
+    date: "2026-08-18",
+    session: "Reading preset 1.1.1 back a block at a time",
+  };
+
+  const WRITTEN: WireLogCapture = {
+    header: HEADER,
+    events: [
+      { atMs: 0, direction: "outbound", bytes: bytes(0xf0, 0x00, 0x21, 0x62, 0x01, 0x10, 0xf7) },
+      { atMs: 14.6, direction: "inbound", bytes: bytes(0xf0, 0x0f, 0xf7) },
+      { atMs: 812.4, direction: "inbound", bytes: bytes(0xb0, 0x4a, 0x60) },
+    ],
+  };
+
+  it("writes the header, a blank line and one line per event", () => {
+    expect(formatWireLog(WRITTEN)).toBe(
+      [
+        "e7 wire log v1",
+        "device   GS Music e7, serial 361",
+        "input    e7 MIDI 1",
+        "output   e7 MIDI 1",
+        "date     2026-08-18",
+        "session  Reading preset 1.1.1 back a block at a time",
+        "",
+        "    +0.0ms  -->  F0 00 21 62 01 10 F7",
+        "   +14.6ms  <--  F0 0F F7",
+        "  +812.4ms  <--  B0 4A 60",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("reads back through the loader as the capture it was given", () => {
+    expect(parseWireLog("capture.wire", formatWireLog(WRITTEN))).toEqual(WRITTEN);
+  });
+
+  it("writes a note as a comment the loader skips", () => {
+    const text = formatWireLog(WRITTEN, ["the first 40 events were dropped"]);
+
+    expect(text).toContain("\n# the first 40 events were dropped\n");
+    expect(parseWireLog("capture.wire", text).events).toEqual(WRITTEN.events);
+  });
+
+  it("writes a committed fixture back out as the same capture", () => {
+    for (const name of ["fragmented-frame", "preview-frame"]) {
+      const fixture = wireLogFixture(name);
+
+      expect(parseWireLog(`${name}.wire`, formatWireLog(fixture))).toEqual(fixture);
+    }
+  });
+
+  it("records a time to the tenth of a millisecond the log is read at", () => {
+    expect(wireLogTime(16.148_237)).toBe(16.1);
+    expect(
+      formatWireLog({
+        header: HEADER,
+        events: [{ atMs: wireLogTime(16.148_237), direction: "inbound", bytes: bytes(0xf7) }],
+      }),
+    ).toContain("   +16.1ms  <--  F7");
   });
 });
