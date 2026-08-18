@@ -1,6 +1,7 @@
 export * from "./backup";
 export * from "./database";
 export * from "./errors";
+export * from "./file-dialog";
 export * from "./import-export";
 export * from "./metadata";
 export * from "./queries";

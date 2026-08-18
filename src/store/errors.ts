@@ -200,11 +200,17 @@ export class EntryMissingError extends StoreError {
   }
 }
 
+function countedEntries(entries: number): string {
+  return entries === 1 ? "1 entry" : `${entries} entries`;
+}
+
 export class LibraryNotEmptyError extends StoreError {
   readonly code = "library-not-empty" as const;
 
   constructor(readonly entries: number) {
-    super(`a backup restores only into an empty library, and this one holds ${entries} entries`);
+    super(
+      `a backup restores only into an empty library, and this one holds ${countedEntries(entries)}`,
+    );
     this.name = "LibraryNotEmptyError";
   }
 }

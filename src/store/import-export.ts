@@ -1,11 +1,13 @@
 // Reading .syx files from disk into the library, storing a slot read off the instrument as an entry, and writing library entries back out to disk.
 import type { MultiPreset, SinglePreset } from "../protocol";
 import type { LibraryDatabase } from "./database";
+import type { FilePickerType } from "./file-dialog";
 import type { LibraryEntry, LibraryEntrySource, PresetSnapshot } from "./schema";
 import type { SyxFile } from "./syx-codec";
 import * as z from "zod";
 import { ADDRESS_BYTES, COMMAND_HEADER, SYSEX_END, SYSEX_START } from "../protocol";
 import { EntryPayloadError, SyxPayloadError } from "./errors";
+import { pickFiles, saveFile } from "./file-dialog";
 import { ENTRY_NAME_MAX_LENGTH } from "./schema";
 import { BACKUP_BLOCKS, MEMORY_BLOCK_BYTES, encodeMemoryImage, parseSyxFile } from "./syx-codec";
 
@@ -325,124 +327,28 @@ export function exportableBytes(entry: LibraryEntry, fileName: string): Uint8Arr
   return bytes;
 }
 
-interface FilePickerType {
-  readonly description: string;
-  readonly accept: Readonly<Record<string, readonly string[]>>;
-}
-
 const SYX_PICKER_TYPES: readonly FilePickerType[] = [
   { description: "MIDI System Exclusive", accept: { [SYX_MEDIA_TYPE]: [SYX_FILE_EXTENSION] } },
 ];
 
-interface OpenFilePicker {
-  showOpenFilePicker(options: {
-    readonly multiple: boolean;
-    readonly types: readonly FilePickerType[];
-  }): Promise<readonly FileSystemFileHandle[]>;
-}
-
-interface SaveFilePicker {
-  showSaveFilePicker(options: {
-    readonly suggestedName: string;
-    readonly types: readonly FilePickerType[];
-  }): Promise<FileSystemFileHandle>;
-}
-
-function canOpenWithPicker(
-  scope: Window & typeof globalThis,
-): scope is Window & typeof globalThis & OpenFilePicker {
-  return "showOpenFilePicker" in scope && typeof scope.showOpenFilePicker === "function";
-}
-
-function canSaveWithPicker(
-  scope: Window & typeof globalThis,
-): scope is Window & typeof globalThis & SaveFilePicker {
-  return "showSaveFilePicker" in scope && typeof scope.showSaveFilePicker === "function";
-}
-
-function cancelled(reason: unknown): boolean {
-  return reason instanceof DOMException && reason.name === "AbortError";
-}
-
-async function pickWithPicker(picker: OpenFilePicker): Promise<readonly File[]> {
-  try {
-    const handles = await picker.showOpenFilePicker({ multiple: true, types: SYX_PICKER_TYPES });
-    return await Promise.all(handles.map((handle) => handle.getFile()));
-  } catch (reason) {
-    if (cancelled(reason)) {
-      return [];
-    }
-    throw reason;
-  }
-}
-
-function pickWithInput(): Promise<readonly File[]> {
-  return new Promise((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = `${SYX_FILE_EXTENSION},${SYX_MEDIA_TYPE}`;
-    input.multiple = true;
-    input.hidden = true;
-    const settle = (files: readonly File[]): void => {
-      input.remove();
-      resolve(files);
-    };
-    input.addEventListener("change", () => settle(Array.from(input.files ?? [])));
-    input.addEventListener("cancel", () => settle([]));
-    document.body.append(input);
-    input.click();
-  });
-}
-
 export function pickSyxFiles(): Promise<readonly File[]> {
-  return canOpenWithPicker(window) ? pickWithPicker(window) : pickWithInput();
+  return pickFiles({
+    types: SYX_PICKER_TYPES,
+    accept: `${SYX_FILE_EXTENSION},${SYX_MEDIA_TYPE}`,
+    multiple: true,
+  });
 }
 
 export async function importSyxFromDisk(database: LibraryDatabase): Promise<SyxImportReport> {
   return importSyxFiles(database, await pickSyxFiles());
 }
 
-async function saveWithPicker(
-  picker: SaveFilePicker,
-  bytes: Uint8Array,
-  fileName: string,
-): Promise<boolean> {
-  let handle: FileSystemFileHandle;
-  try {
-    handle = await picker.showSaveFilePicker({
-      suggestedName: fileName,
-      types: SYX_PICKER_TYPES,
-    });
-  } catch (reason) {
-    if (cancelled(reason)) {
-      return false;
-    }
-    throw reason;
-  }
-  const writable = await handle.createWritable();
-  await writable.write(Uint8Array.from(bytes));
-  await writable.close();
-  return true;
-}
-
-function saveWithDownload(bytes: Uint8Array, fileName: string): void {
-  const url = URL.createObjectURL(new Blob([Uint8Array.from(bytes)], { type: SYX_MEDIA_TYPE }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.hidden = true;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-}
-
 export async function exportEntryToDisk(entry: LibraryEntry): Promise<boolean> {
   const fileName = entryFileName(entry);
   const bytes = exportableBytes(entry, fileName);
-  if (canSaveWithPicker(window)) {
-    return saveWithPicker(window, bytes, fileName);
-  }
-  saveWithDownload(bytes, fileName);
-  return true;
+  return saveFile(bytes, {
+    fileName,
+    mediaType: SYX_MEDIA_TYPE,
+    types: SYX_PICKER_TYPES,
+  });
 }

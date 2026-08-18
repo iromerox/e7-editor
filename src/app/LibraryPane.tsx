@@ -1,19 +1,30 @@
-// Browsable list of stored library entries, filterable by kind, kept in step with the store, the import of .syx files from disk into it, the export of an entry back out to one, the editing of what the library stores about one, the deletion of one from the library, and the loading of an entry that holds one preset into the editor.
+// Browsable list of stored library entries, filterable by kind, kept in step with the store, the import of .syx files from disk into it, the export of an entry back out to one, the editing of what the library stores about one, the deletion of one from the library, the backup of the whole library to a file and its restore from one, and the loading of an entry that holds one preset into the editor.
 import type { JSX } from "solid-js";
 import type { LibraryDatabase, LibraryEntry, SyxImportReport } from "../store";
 import type { LibraryKindFilter } from "./app-state";
 import type { EntryMetadataEdits, MetadataDraft } from "./entry-metadata";
 import type { EntryRemovals } from "./entry-removal";
 import type { EntryTransfers } from "./entry-transfer";
+import type { LibraryBackups } from "./library-backup";
 import type { LibraryExports } from "./library-export";
 import type { LibraryImport } from "./library-import";
-import { For, Match, Show, Switch, createEffect, createMemo, onCleanup } from "solid-js";
+import {
+  For,
+  Match,
+  Show,
+  Switch,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 import {
   ENTRY_COMMENT_MAX_LENGTH,
   ENTRY_NAME_MAX_LENGTH,
   LIBRARY_ENTRY_KINDS,
   allEntries,
   entriesByKind,
+  entryCount,
 } from "../store";
 import { useAppState } from "./AppStateProvider";
 import { EVERY_KIND } from "./app-state";
@@ -21,6 +32,7 @@ import { EditorChip } from "./EditorChip";
 import { EDIT_NOTE, createEntryMetadataEdits, entryLabel } from "./entry-metadata";
 import { DELETE_NOTE, KEEP_ENTRY, createEntryRemovals, deleteQuestion } from "./entry-removal";
 import { createEntryTransfers, holdsOnePreset, loadNote, manyPresetsNote } from "./entry-transfer";
+import { BACKUP_NOTE, RESTORE_NOTE, createLibraryBackups } from "./library-backup";
 import { EXPORT_NOTE, createLibraryExports } from "./library-export";
 import {
   IMPORT_NOTE,
@@ -141,6 +153,65 @@ function ImportReport(props: { readonly imports: LibraryImport }): JSX.Element {
         )}
       </Match>
       <Match when={refused()}>{(reason) => <span role="alert">{reason()}</span>}</Match>
+    </Switch>
+  );
+}
+
+function BackupReport(props: { readonly backups: LibraryBackups }): JSX.Element {
+  const running = (): string | undefined => {
+    const pending = props.backups.state();
+    if (pending?.status === "backing-up") {
+      return "Writing the backup file…";
+    }
+    return pending?.status === "restoring" ? "Reading the backup file…" : undefined;
+  };
+  const reported = (): string | undefined => {
+    const pending = props.backups.state();
+    return pending?.status === "done" ? pending.note : undefined;
+  };
+  const refused = (): string | undefined => {
+    const pending = props.backups.state();
+    return pending?.status === "failed" ? pending.reason : undefined;
+  };
+
+  return (
+    <Switch>
+      <Match when={running()}>
+        {(note) => (
+          <p role="status" style={{ margin: "0.5rem 0 0" }}>
+            {note()}
+          </p>
+        )}
+      </Match>
+      <Match when={reported()}>
+        {(note) => (
+          <div
+            style={{
+              display: "flex",
+              "align-items": "baseline",
+              "flex-wrap": "wrap",
+              gap: "0.5rem",
+              margin: "0.5rem 0 0",
+            }}
+          >
+            <span role="status">{note()}</span>
+            <button
+              type="button"
+              aria-label="Dismiss what the backup reported"
+              onClick={() => props.backups.dismiss()}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+      </Match>
+      <Match when={refused()}>
+        {(reason) => (
+          <p role="alert" style={{ margin: "0.5rem 0 0" }}>
+            {reason()}
+          </p>
+        )}
+      </Match>
     </Switch>
   );
 }
@@ -403,6 +474,11 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
   const exports = createLibraryExports();
   const metadata = createEntryMetadataEdits(props.database);
   const removals = createEntryRemovals(controls, props.database);
+  const backups = createLibraryBackups(props.database);
+
+  const [stored, setStored] = createSignal<number | undefined>();
+  const counting = entryCount(props.database).subscribe((count) => setStored(count));
+  onCleanup(() => counting.unsubscribe());
 
   const deleted = (): string | undefined => {
     const reported = removals.outcome();
@@ -454,8 +530,20 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
         </label>
         <Show when={state.library.entries}>{(found) => <span>{counted(found())}</span>}</Show>
         <ImportButton label="Import .syx files into the library" imports={imports} />
+        <Show when={(stored() ?? 0) > 0}>
+          <button
+            type="button"
+            aria-label="Back the library up to a file"
+            title={BACKUP_NOTE}
+            disabled={backups.running()}
+            onClick={() => backups.backUp()}
+          >
+            Back up library
+          </button>
+        </Show>
       </div>
       <ImportReport imports={imports} />
+      <BackupReport backups={backups} />
       <Switch>
         <Match when={deleted()}>
           {(note) => (
@@ -492,13 +580,22 @@ export function LibraryPane(props: LibraryPaneProps): JSX.Element {
                   }}
                 >
                   <p>
-                    The library is empty. Import a .syx file, or save a preset from the device, to
-                    fill it.
+                    The library is empty. Import a .syx file, restore a backup, or save a preset
+                    from the device, to fill it.
                   </p>
                   <ImportButton
                     label="Import .syx files into the empty library"
                     imports={imports}
                   />
+                  <button
+                    type="button"
+                    aria-label="Restore the library from a backup file"
+                    title={RESTORE_NOTE}
+                    disabled={backups.running()}
+                    onClick={() => backups.restore()}
+                  >
+                    Restore backup
+                  </button>
                 </div>
               </Show>
             }

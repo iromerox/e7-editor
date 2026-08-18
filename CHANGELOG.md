@@ -556,6 +556,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   was loaded from leaves the preset in the editor exactly as it is and stops
   it pointing at an entry that no longer exists, which is said in the same
   breath as the deletion.
+- The whole library can be backed up to a JSON file and restored from one —
+  `Back up library` in the pane's header whenever anything is stored,
+  `Restore backup` in the empty state — so a collection survives the browser
+  clearing what this site kept. The file carries the format and schema
+  version markers a restore checks, and restoring reproduces every entry as
+  it was stored, raw SysEx and hash included. A restore fills an empty
+  library only: one asked for while entries are still stored is refused with
+  the count standing in the way, before any file dialog opens. A file that is
+  not a library backup, or one written against another schema version, is
+  named for what it is rather than reported as a crash, and a dismissed
+  dialog is a note that nothing was written rather than a failure.
 
 ### Changed
 

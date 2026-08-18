@@ -18,6 +18,7 @@ import {
   createLibraryDatabase,
   deviceDumpPayload,
   encodeMemoryImage,
+  exportLibrary,
   syxEntry,
 } from "../store";
 import { AppStateProvider, useAppState } from "./AppStateProvider";
@@ -837,5 +838,152 @@ describe("LibraryPane loading", () => {
 
     expect(controls.state.editor.source).toEqual({ kind: "LibraryEntry", id: entry.id });
     expect(controls.state.history.undo).toEqual([]);
+  });
+});
+
+describe("LibraryPane backing up and restoring", () => {
+  const BACK_UP = "Back the library up to a file";
+  const RESTORE = "Restore the library from a backup file";
+
+  function captureBackup(written: Uint8Array[]): void {
+    vi.stubGlobal(
+      "showSaveFilePicker",
+      vi.fn(async () => ({
+        createWritable: async () => ({
+          write: async (chunk: Uint8Array) => {
+            written.push(chunk);
+          },
+          close: async () => undefined,
+        }),
+      })),
+    );
+  }
+
+  function backupText(written: readonly Uint8Array[]): string {
+    return new TextDecoder().decode(written[0] ?? new Uint8Array());
+  }
+
+  function offerBackup(text: string, fileName: string): void {
+    const file = new File([text], fileName, { type: "application/json" });
+    vi.stubGlobal(
+      "showOpenFilePicker",
+      vi.fn(async () => [{ getFile: async () => file }]),
+    );
+  }
+
+  async function savedLibrary(...entries: readonly LibraryEntry[]): Promise<string> {
+    const source = await openLibrary(...entries);
+    const text = JSON.stringify(await exportLibrary(source));
+    return text;
+  }
+
+  it("writes the whole library to a file and says what it wrote", async () => {
+    const database = await openLibrary(single, multi);
+    const written: Uint8Array[] = [];
+    captureBackup(written);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+
+    await fireEvent.click(screen.getByRole("button", { name: BACK_UP }));
+
+    await vi.waitFor(() =>
+      expect(
+        screen.getByText(/Backed the library's 2 entries up as e7-library-/),
+      ).toBeInTheDocument(),
+    );
+    const backedUp = JSON.parse(backupText(written)) as { readonly format: string };
+    expect(backedUp.format).toBe("e7-editor-library-backup");
+    expect(listed()).toHaveLength(2);
+  });
+
+  it("offers a restore from the empty state, and no backup of a library with nothing in it", async () => {
+    const database = await openLibrary();
+    renderPane(database);
+
+    await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: RESTORE })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: BACK_UP })).toBeNull();
+  });
+
+  it("restores a picked backup into the empty library and lists what it held", async () => {
+    const text = await savedLibrary(single, multi);
+    const database = await openLibrary();
+    offerBackup(text, "e7-library-2026-08-18.json");
+    renderPane(database);
+    await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
+
+    await fireEvent.click(screen.getByRole("button", { name: RESTORE }));
+
+    await vi.waitFor(() => expect(listed()).toHaveLength(2));
+    expect(await reread(database, single.id)).toEqual(single);
+    expect(await reread(database, multi.id)).toEqual(multi);
+    expect(
+      screen.getByText("Restored 2 entries from e7-library-2026-08-18.json."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: RESTORE })).toBeNull();
+    expect(screen.getByRole("button", { name: BACK_UP })).toBeInTheDocument();
+  });
+
+  it("keeps the backup within reach when a kind filter empties the list", async () => {
+    const database = await openLibrary(single);
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await filterBy("Bank");
+
+    await vi.waitFor(() => expect(screen.getByText(/No Bank entries/)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: BACK_UP })).toBeInTheDocument();
+  });
+
+  it("names a picked file that is not a library backup, leaving the library empty", async () => {
+    const database = await openLibrary();
+    offerBackup("a text file wearing a .json extension", "notes.json");
+    renderPane(database);
+    await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
+
+    await fireEvent.click(screen.getByRole("button", { name: RESTORE }));
+
+    await vi.waitFor(() => expect(alerts()[0]).toContain("this is not a library backup"));
+    expect(alerts()[0]).toContain("MalformedBackupError");
+    expect(await database.entries.count().exec()).toBe(0);
+    expect(screen.getByText(/The library is empty/)).toBeInTheDocument();
+  });
+
+  it("reports a backup written against another entry schema by name", async () => {
+    const source = await openLibrary();
+    const text = JSON.stringify({ ...(await exportLibrary(source)), schemaVersion: 99 });
+    const database = await openLibrary();
+    offerBackup(text, "e7-library-2026-08-18.json");
+    renderPane(database);
+    await vi.waitFor(() => expect(screen.getByText(/The library is empty/)).toBeInTheDocument());
+
+    await fireEvent.click(screen.getByRole("button", { name: RESTORE }));
+
+    await vi.waitFor(() => expect(alerts()[0]).toContain("IncompatibleBackupError"));
+    expect(alerts()[0]).toContain("schemaVersion is 99");
+    expect(await database.entries.count().exec()).toBe(0);
+  });
+
+  it("reports a dismissed save dialog as a note rather than a fault", async () => {
+    const database = await openLibrary(single);
+    vi.stubGlobal(
+      "showSaveFilePicker",
+      vi.fn(() => Promise.reject(new DOMException("dismissed", "AbortError"))),
+    );
+    renderPane(database);
+    await vi.waitFor(() => expect(listed()).toHaveLength(1));
+
+    await fireEvent.click(screen.getByRole("button", { name: BACK_UP }));
+
+    await vi.waitFor(() =>
+      expect(
+        screen.getByText("The save was dismissed, so no file was written."),
+      ).toBeInTheDocument(),
+    );
+    expect(alerts()).toHaveLength(0);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Dismiss what the backup reported" }));
+
+    expect(screen.queryByText(/The save was dismissed/)).toBeNull();
   });
 });

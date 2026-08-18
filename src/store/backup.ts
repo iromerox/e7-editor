@@ -1,15 +1,19 @@
-// Full-library backup and restore through RxDB's JSON dump.
+// Full-library backup and restore through RxDB's JSON dump, and the file the user saves it as and reads it back from.
 import type { LibraryDatabase } from "./database";
+import type { FilePickerType } from "./file-dialog";
 import type { LibraryEntry } from "./schema";
 import { addRxPlugin } from "rxdb";
 import { RxDBJsonDumpPlugin } from "rxdb/plugins/json-dump";
 import { IncompatibleBackupError, LibraryNotEmptyError, MalformedBackupError } from "./errors";
+import { pickFiles, saveFile } from "./file-dialog";
 import { LIBRARY_ENTRY_KINDS, LIBRARY_ENTRY_SCHEMA_VERSION, LIBRARY_ENTRY_SOURCES } from "./schema";
 
 addRxPlugin(RxDBJsonDumpPlugin);
 
 export const LIBRARY_BACKUP_FORMAT = "e7-editor-library-backup";
 export const LIBRARY_BACKUP_FORMAT_VERSION = 1;
+export const LIBRARY_BACKUP_FILE_EXTENSION = ".json";
+export const LIBRARY_BACKUP_MEDIA_TYPE = "application/json";
 
 export interface LibraryBackupCollection {
   readonly name: string;
@@ -149,4 +153,70 @@ export async function importLibrary(database: LibraryDatabase, value: unknown): 
       docs: [...collection.docs],
     })),
   });
+}
+
+export function backupEntryCount(backup: LibraryBackup): number {
+  return backup.dump.collections.reduce((total, collection) => total + collection.docs.length, 0);
+}
+
+const DATE_STAMP_LENGTH = 10;
+
+export function libraryBackupFileName(createdAt: string): string {
+  return `e7-library-${createdAt.slice(0, DATE_STAMP_LENGTH)}${LIBRARY_BACKUP_FILE_EXTENSION}`;
+}
+
+const BACKUP_PICKER_TYPES: readonly FilePickerType[] = [
+  {
+    description: "e7 library backup",
+    accept: { [LIBRARY_BACKUP_MEDIA_TYPE]: [LIBRARY_BACKUP_FILE_EXTENSION] },
+  },
+];
+
+const BACKUP_JSON_INDENT = 2;
+
+export interface LibraryBackupFile {
+  readonly fileName: string;
+  readonly entries: number;
+}
+
+export async function backupLibraryToDisk(
+  database: LibraryDatabase,
+): Promise<LibraryBackupFile | undefined> {
+  const backup = await exportLibrary(database);
+  const fileName = libraryBackupFileName(backup.createdAt);
+  const bytes = new TextEncoder().encode(JSON.stringify(backup, undefined, BACKUP_JSON_INDENT));
+  const written = await saveFile(bytes, {
+    fileName,
+    mediaType: LIBRARY_BACKUP_MEDIA_TYPE,
+    types: BACKUP_PICKER_TYPES,
+  });
+  return written ? { fileName, entries: backupEntryCount(backup) } : undefined;
+}
+
+function readBackupJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new MalformedBackupError("it does not hold readable JSON");
+  }
+}
+
+export async function restoreLibraryFromDisk(
+  database: LibraryDatabase,
+): Promise<LibraryBackupFile | undefined> {
+  const stored = await database.entries.count().exec();
+  if (stored > 0) {
+    throw new LibraryNotEmptyError(stored);
+  }
+  const [file] = await pickFiles({
+    types: BACKUP_PICKER_TYPES,
+    accept: `${LIBRARY_BACKUP_FILE_EXTENSION},${LIBRARY_BACKUP_MEDIA_TYPE}`,
+    multiple: false,
+  });
+  if (file === undefined) {
+    return undefined;
+  }
+  const backup = parseLibraryBackup(readBackupJson(await file.text()));
+  await importLibrary(database, backup);
+  return { fileName: file.name, entries: backupEntryCount(backup) };
 }
