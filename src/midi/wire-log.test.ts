@@ -231,7 +231,12 @@ describe("formatWireLog", () => {
   });
 
   it("writes a committed fixture back out as the same capture", () => {
-    for (const name of ["fragmented-frame", "preview-frame"]) {
+    for (const name of [
+      "fragmented-frame",
+      "preview-frame",
+      "read-memory-clean",
+      "stale-frame-tail",
+    ]) {
       const fixture = wireLogFixture(name);
 
       expect(parseWireLog(`${name}.wire`, formatWireLog(fixture))).toEqual(fixture);

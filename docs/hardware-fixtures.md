@@ -154,10 +154,27 @@ were transcribed from is the honest form; nothing else marks a file as
 synthetic, and a hand-written capture that claims a serial number is
 indistinguishable from a measurement.
 
-Two are committed today, both hand-written:
+Four are committed today. Two are hand-written:
 
 - `fixtures/fragmented-frame.wire` — one frame delivered in three pieces, the
   bytes `src/midi/reassembly.test.ts` used to build inline.
 - `fixtures/preview-frame.wire` — the two-frame answer to one Read Memory that
   `protocol-quirks.md` #12 describes, with the response data zeroed so nothing
-  in it can be mistaken for a measurement.
+  in it can be mistaken for a measurement. Kept as the shape the entry was
+  written from, not as evidence for it; the two captures below are what the
+  instrument actually did.
+
+Two came off serial 361:
+
+- `fixtures/read-memory-clean.wire` — preset 1.1.1 read a block at a time, one
+  frame per command and every frame a documented response. The normal case, and
+  what `protocol-quirks.md` #12 now rests on.
+- `fixtures/stale-frame-tail.wire` — one Read Memory drawing two frames, the
+  first of them short and undecodable, on a session that opened while an
+  earlier one's answer was still pending. #12's shape with no device behavior
+  behind it.
+
+Both were taken from Node over CoreMIDI rather than through the console, which
+their `device` line says, because a browser that will not grant SysEx has no way
+to reach the instrument. They were written by `formatWireLog` all the same, so
+what is committed is the same shape the console saves.

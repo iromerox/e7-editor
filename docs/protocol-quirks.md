@@ -122,37 +122,68 @@ memory. The documented layout (p.27) covers only the first 5 bytes. The
 remaining 1019 bytes are untyped, reachable only via generic Read/Write
 Memory.
 
-## 12. Device sends an undocumented preview frame before Read Memory responses
+## 12. The "preview frame" is a host artifact, not a device behavior
 
-Observed against firmware on serial #361: a single Read Memory command
-produces **two** SysEx frames on the wire, ~16ms apart — a short malformed
-preview frame (odd-length nibble payload, not spec-shaped) followed by the
-real spec-shaped response. Not in the spec, but reproducible. The
-request/response helper in `src/midi` must treat parse failures within the
-timeout window as transient (keep waiting for a frame that parses) rather
-than fatal, to absorb this.
+This entry used to say the device sends an undocumented short frame before
+each Read Memory response. **It does not.** Nothing the instrument transmits
+has ever been shown to be malformed, and the claim is withdrawn: read the
+paragraphs below as the correction, not as a caveat on a standing claim.
 
-**In-browser, it does not appear.** A smoke test run against the same device
-(serial #361, USB, Brave/Chromium, Web MIDI) read the serial number and all
-eight 16-byte blocks of preset 1.1.1 and saw **zero** unparsed frames across
-all nine commands — one frame per command, each parsing as the documented
-response, the Read Memory responses arriving a consistent 15.7-16.0ms after
-their command. So the tolerance in `requestResponse` is **defensive, not
-load-bearing**: keep it, but nothing may assume a preview frame arrives.
+What was originally observed against serial #361 was a single Read Memory
+command producing **two** SysEx frames ~16ms apart — a short frame no decoder
+accepts, then the real spec-shaped response. The shape is real. What produces
+it is the host's MIDI client, not the synthesizer.
 
-That is not evidence the device stopped sending it. Three explanations fit,
-and HW-02 should tell them apart rather than assume the first:
+**Two independent transports, same instrument and same cable, see no such
+frame.** The in-browser smoke test (Brave/Chromium, Web MIDI, USB) read the
+serial number and all eight blocks of preset 1.1.1 and saw zero unparsed
+frames across nine commands. A later session drove the same device from Node
+over CoreMIDI and saw the same thing: eight Read Memory commands, eight
+34-byte spec-shaped responses, nothing short and nothing malformed. That
+capture is `fixtures/read-memory-clean.wire`.
 
-1. Chromium validates inbound SysEx and drops malformed frames before they
-   reach the page, so a frame still on the wire is invisible to Web MIDI.
-2. The original sighting was the device echoing the outbound command back
-   with Soft Thru enabled — the command frame carries an odd-length payload
-   after its header and would fail response decoding exactly as described,
-   and it would arrive at once rather than after the device's ~16ms read
-   latency, matching "~16ms early". Read the Soft Thru configuration byte on
-   both rigs before ruling this out.
-3. The `midir` backend produced it, which would make this quirk and #16 the
-   same underlying bug seen from two angles.
+That second run is what settles it, and it eliminates the three candidates
+this entry used to list:
+
+1. **Chromium dropping malformed frames — ruled out.** A native CoreMIDI
+   client does no such validation and would have delivered a malformed frame
+   untouched. It received nothing to deliver, so there was nothing on the wire
+   for a browser to be hiding.
+2. **A Soft Thru echo of the outbound command — ruled out on this rig,
+   though not for the expected reason.** Soft Thru was assumed to be off; it
+   is not. Read Configuration on serial #361 returns `00 00 07 01`, so the
+   Soft Thru byte is **1**, not 0. It still does not echo: a SysEx frame from
+   another manufacturer (`F0 7D 01 02 03 04 F7`), which the device cannot
+   answer and could only return by replication, was never returned, and none
+   of the outbound Read Memory commands came back either. Whatever bit 0 of
+   that byte selects, it does not replicate an inbound USB SysEx to the USB
+   output. The rig of the original sighting cannot be reconstructed, but
+   configuration memory is persistent and nothing in this project has ever
+   written it, so 1 is most likely what it read then too.
+3. **A native-MIDI-client artifact — this is what it was.** Not a bug in
+   `midir` specifically: it is how a SysEx frame reaches any client that talks
+   to CoreMIDI directly, in pieces rather than whole. Web MIDI is specified to
+   deliver one complete `F0...F7` frame per event and does; a native client
+   sees the fragments.
+
+**The mechanism reproduces on demand.** On the Node path every answer trails
+its command by one (HW-11), so a session that sends a command and exits leaves
+an answer undelivered — and no amount of *waiting* drains it, because the
+device only ships a pending answer when something is next sent to it. The next
+session to open the port receives the tail of that answer as a frame of its
+own, and its first real response behind it. That is one short undecodable
+frame followed by one spec-shaped response: #12's description exactly, with
+the instrument sending no prelude at any point. The capture is
+`fixtures/stale-frame-tail.wire`.
+
+So #12 and #16 are the same phenomenon seen from two angles, which is what the
+third candidate predicted. The consequence for the code is unchanged and the
+tolerance stays: `requestResponse` must still treat a parse failure inside the
+timeout window as transient rather than fatal, because a fragment arriving
+ahead of a real response is exactly what this produces on a non-browser
+transport. It is **defensive on Web MIDI and load-bearing off it** — but
+nothing may assume a preview frame arrives, and nothing should describe one as
+something the device does.
 
 ---
 
@@ -186,11 +217,16 @@ questions, not assumptions:
     from that knob. That is a hint about which field the device associates
     with CC 3, not an answer, and it says nothing about what an *inbound*
     CC 3 does when the editor sends one. See `panel-layout.md` Finding 3.
-15. Whether other Read commands (Configuration, Autotuning, Lock echo, Write
-    Memory echo) exhibit the same preview-frame prelude as Read Memory (#12)
-    is still unconfirmed — the defensive handling should already be correct
-    for any of them, but it's untested. Read Serial Number is no longer among
-    them: the smoke test recorded a single clean response frame for it.
+15. Whether other Read commands (Autotuning, Lock echo, Write Memory echo)
+    exhibit the same prelude as Read Memory (#12) is **mostly moot now that
+    #12 is a host artifact**: there is no device prelude for any command to
+    exhibit, and what a given command shows depends on the transport rather
+    than on the command. Read Serial Number and Read Configuration are both
+    confirmed clean — the smoke test recorded a single response frame for the
+    first, and HW-02's Node session recorded a single 6-byte frame
+    (`F0 00 00 07 01 F7`) for the second. The three untried commands are worth
+    a line in a capture when someone is next at the instrument, but nothing is
+    waiting on them.
 16. **No browser has been seen to split an inbound SysEx frame.** The Rust
     implementation needed real reassembly because of a `midir`-backend
     fragmentation quirk; Web MIDI is specified to deliver one complete
@@ -208,6 +244,15 @@ questions, not assumptions:
     as a non-zero `fragmentedFrames` but as a timeout with bytes left
     pending. If that is ever observed, what feeds the reassembler has to
     change, not just the reassembler.
+
+    **Off Web MIDI, splitting is real and observed.** HW-02's Node session
+    against serial #361 over CoreMIDI received a lone `F7` as an event of its
+    own — the tail of a frame whose head went to a port that had since
+    closed. That is the same phenomenon as the Rust implementation's `midir`
+    fragmentation and as #12, and it is why those two entries are one finding:
+    a client talking to CoreMIDI directly sees the pieces of a frame, and a
+    browser does not. The open question above is specifically about *browsers*
+    and stays open; nothing here says a browser will ever fragment.
 19. **Whether the device accepts a pipelined request is untested, and a full
     backup takes over two minutes if it doesn't.** Every command in the smoke
     test answered in 15.7-16.0ms — a fixed cost, identical for a 2-byte

@@ -1,4 +1,4 @@
-// Sends a command and waits for the response it draws, tolerating the device's undocumented preview frame.
+// Sends a command and waits for the response it draws, tolerating frames that arrive ahead of it.
 import type { Observable } from "rxjs";
 import type {
   AutotuningStatusResponse,

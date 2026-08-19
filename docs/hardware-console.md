@@ -73,9 +73,10 @@ The four readings a line can carry:
 
 - **`command <kind>`** — the frame carries the 5-byte manufacturer header, so
   it decodes as a command rather than a response. An *inbound* one is a
-  command coming back, which is what Soft Thru does; see `protocol-quirks.md`
-  #12, explanation 2, where an echo of this shape is one of the three things
-  the "preview frame" could have been.
+  command coming back, which is what Soft Thru does. `protocol-quirks.md` #12
+  once had an echo of this shape as a candidate for the "preview frame" and
+  ruled it out: serial 361 replicates no inbound USB SysEx to its USB output,
+  Soft Thru byte notwithstanding.
 - **`response <kinds>`** — the frame decodes as at least one documented
   response. Often several, and the line names all of them: responses omit the
   manufacturer header (`protocol-quirks.md` #3), so a bare-data frame carries

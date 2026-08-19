@@ -190,6 +190,28 @@ describe("readSysExFrame", () => {
       { kind: "response", reads: ["memory-data"] },
     ]);
   });
+
+  it("finds nothing unparsed in a capture of the instrument answering Read Memory", () => {
+    const inbound = wireLogFixture("read-memory-clean").events.filter(
+      (event) => event.direction === "inbound",
+    );
+
+    expect(inbound).toHaveLength(8);
+    expect(inbound.map((event) => readSysExFrame(event.bytes))).toEqual(
+      inbound.map(() => ({ kind: "response", reads: ["memory-data"] })),
+    );
+  });
+
+  it("reads the two-frame shape a stale session start produces, from hardware", () => {
+    const capture = wireLogFixture("stale-frame-tail");
+
+    expect(capture.events.map((event) => readSysExFrame(event.bytes))).toEqual([
+      { kind: "command", command: "read-memory" },
+      { kind: "unparsed" },
+      { kind: "command", command: "read-memory" },
+      { kind: "response", reads: ["memory-data"] },
+    ]);
+  });
 });
 
 describe("replies", () => {

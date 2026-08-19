@@ -1,0 +1,20 @@
+e7 wire log v1
+device   GS Music e7, serial 361, USB, driven from Node over CoreMIDI
+input    GS-e7 Analog Synthesizer
+output   GS-e7 Analog Synthesizer
+date     2026-08-19
+session  A session opened while an earlier one's answer was still pending, which is how a single Read Memory comes to draw two frames without the device sending two
+
+# The shape protocol-quirks.md #12 called a preview frame, manufactured entirely
+# host-side. A previous session sent a Read Memory and closed before its answer
+# shipped; this session opened without draining and its first command flushed the
+# tail of that answer as a frame of its own. What follows is one short frame no
+# decoder accepts, then the real spec-shaped response behind it.
+#
+# The instrument sent no prelude in either session. Web MIDI never shows this
+# because it delivers a whole F0..F7 frame per event; a native CoreMIDI client
+# sees the pieces.
+    +0.0ms  -->  F0 00 21 62 01 10 0E 00 00 00 F7
+    +8.1ms  <--  F7
+  +901.4ms  -->  F0 00 21 62 01 10 0E 00 00 00 F7
+  +909.2ms  <--  F0 00 05 05 07 0D 06 00 07 09 06 0E 06 00 02 00 05 01 06 04 06 00 02 00 02 00 02 00 02 00 02 00 02 F7

@@ -30,9 +30,9 @@ Thin `webmidi` wrapper: port enumeration/resolution (by index, exact name, or
 unique substring), a `Connection` exposing two independent streams — SysEx
 frames (for request/response) and raw CC events (for live forwarding), plus
 a non-exclusive monitor stream mirroring every SysEx frame for logging — and
-a `requestResponse(command, timeout)` helper that tolerates the device's
-undocumented preview frame before real responses (see
-`protocol-quirks.md`, #12). Outbound CC is rate-limited/coalesced to avoid
+a `requestResponse(command, timeout)` helper that tolerates an undecodable
+frame arriving ahead of a real response (see `protocol-quirks.md`, #12 —
+the device does not send one, but a native MIDI client can deliver one). Outbound CC is rate-limited/coalesced to avoid
 flooding the device during a knob drag. Inbound SysEx passes through a
 reassembly guard that buffers until a complete `F0...F7` frame is on hand —
 defensive only: whether any browser actually fragments a frame is unverified

@@ -103,7 +103,7 @@ function harness(): Harness {
 }
 
 describe("requestResponse preview-frame tolerance", () => {
-  it("keeps waiting through the device's malformed preview frame and resolves with the real response", async () => {
+  it("keeps waiting through a malformed frame ahead of the response and resolves with the real one", async () => {
     const { connection, receive } = harness();
     const response = requestResponse(connection, { kind: "read-memory", address: 0x00 });
 

@@ -906,3 +906,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   than `0`, that Unlock writes `0` instead of restoring `0xFF`, and that
   saving from the panel leaves a slot unlocked — which is what makes testing
   the byte for `=== 1` rather than `!== 0` load-bearing.
+- Withdrew the claim that the device sends an undocumented preview frame ahead
+  of a Read Memory response. It does not: the same instrument answers one
+  frame per command over Web MIDI and over CoreMIDI alike, which rules out a
+  browser hiding a malformed frame, and a foreign-manufacturer SysEx sent to
+  it was never replicated back, which rules out a Soft Thru echo despite the
+  Soft Thru byte reading `1` rather than the assumed `0`. The two-frame shape
+  is a native MIDI client receiving one frame in pieces, reproduced on demand
+  by opening a session while an earlier answer is still pending. The
+  tolerance in `requestResponse` and the reassembly guard both stay, and are
+  load-bearing off Web MIDI rather than defensive.
+- `fixtures/read-memory-clean.wire` and `fixtures/stale-frame-tail.wire`: the
+  first captures from a real instrument — preset 1.1.1 read a block at a time
+  with no malformed frame anywhere, and one Read Memory drawing two frames
+  with no device behavior behind it.

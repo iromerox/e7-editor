@@ -134,7 +134,7 @@ describe("runHardwareSmokeTest", () => {
     expect(report.presetName).toBe(PRESET_NAME);
   });
 
-  it("records the preview frame that precedes each Read Memory response", async () => {
+  it("records an unparsed frame arriving ahead of each Read Memory response", async () => {
     const report = await runHardwareSmokeTest(
       connect(true),
       new PresetSlot(1, 1, 1),

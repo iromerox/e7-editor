@@ -58,9 +58,11 @@ The four counters are what the open questions in `protocol-quirks.md` are
 waiting on:
 
 - **unparsed frames** answers #12. A non-zero count against Read Memory means
-  the undocumented preview frame is real in-browser, and the tolerance in
-  `requestResponse` is load-bearing rather than defensive. Zero means the
-  browser never surfaced it.
+  a frame the decoders reject reached the page ahead of a real response, and
+  the tolerance in `requestResponse` is load-bearing rather than defensive.
+  Zero means the browser never surfaced one. #12 has since established that
+  the instrument does not send such a frame on any transport, so a non-zero
+  count here would be a finding about the browser, not about the device.
 - **fragmented** and **pending bytes** answer #16. Both zero means no browser
   ever split a frame across message events and the reassembly guard is pure
   insurance. A run that times out with **pending bytes** above zero is the
@@ -81,9 +83,15 @@ command.
 
 So neither behavior the transport was built to absorb showed up in a browser:
 no preview frame (#12) and no fragmentation (#16). Both guards stay — they
-cost nothing and no other driver has been tried — but neither is load-bearing,
-and nothing may be built on the assumption that either fires. See those two
-entries for what the run does and doesn't rule out.
+cost nothing and no other driver has been tried — but neither is load-bearing
+here, and nothing may be built on the assumption that either fires in a
+browser. See those two entries for what the run does and doesn't rule out.
+
+A later session drove the same instrument from Node over CoreMIDI and found
+both behaviors there, which is how #12 came to be a statement about the host
+rather than about the device: a native MIDI client receives a SysEx frame in
+pieces, and a piece arriving ahead of a real response is the whole of what the
+"preview frame" ever was. Off Web MIDI, both guards are load-bearing.
 
 ### What ~16ms per request costs
 
