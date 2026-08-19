@@ -15,6 +15,13 @@ contradict each other. The authoritative byte-map text on page 26 settles
 it: **0 = unlocked, 1 = locked** (matches the section titles and body text).
 The *example labels* on pp. 16-17 are inverted — don't trust them.
 
+**Hardware-confirmed 2026-08-19**, serial #361. Writing `1` to byte 127 of
+slot 8.8.8, then attempting a panel save to that address (Shift + Bank/Save,
+buttons 8-8-8, Save), was refused with **"Write protected"** on the display.
+Writing `0` to the same byte and repeating the identical gesture reported
+**"Preset saved"**. Byte 127 = 1 locks, 0 unlocks, page 26 is right, and the
+pp. 16-17 example labels are confirmed inverted.
+
 ## 2. Read Configuration and Write Configuration are asymmetric
 
 Read Configuration response: 4 bytes (RxCh, TxCh, Filter, SoftThru). Write
@@ -282,3 +289,15 @@ were learned by running the instrument rather than by reading.
     they mean is unknown, but they carry a value the device put there, which
     is why `src/protocol/preset.ts` round-trips undocumented bytes verbatim
     instead of zeroing them on encode. Don't "clean" them.
+
+19. **An unwritten lock byte reads `0xFF`, and a panel save leaves it
+    unlocked.** Page 26's wording is deliberate — "if the value is *not* 1,
+    the preset is unlocked" — because a third value occurs: slots that have
+    never been written read `255` at byte 127, not `0` (8.8.8 and 3.1.1 of
+    serial #361 both did). `Unlock Preset` writes `0` rather than restoring
+    `255`, so the two unlocked values are not interchangeable when comparing
+    a slot byte-for-byte against a backup. Saving a preset from the panel
+    into an unlocked slot leaves byte 127 at `0`; the panel does not re-lock
+    what it writes. This is why `isPresetLocked` testing `=== 1` rather than
+    `!== 0` is load-bearing: a `!== 0` test reports every blank slot as
+    locked.

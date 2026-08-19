@@ -898,3 +898,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   outstanding is, why the outbound rate limiter is bypassed rather than
   obeyed, what Stop does and does not wait for, and that a long run fills the
   log with its own sends.
+- Confirmed the preset lock byte against real hardware, settling the
+  contradiction between the document's lock/unlock example labels and its
+  byte map: writing `1` to byte 127 makes the instrument refuse a panel save
+  with "Write protected", and writing `0` lets the same gesture through.
+  Recorded alongside it that a never-written lock byte reads `0xFF` rather
+  than `0`, that Unlock writes `0` instead of restoring `0xFF`, and that
+  saving from the panel leaves a slot unlocked — which is what makes testing
+  the byte for `=== 1` rather than `!== 0` load-bearing.
