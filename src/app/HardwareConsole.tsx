@@ -1,6 +1,7 @@
 // Dev-only page that logs every byte a connected e7 sends, as it arrives, for as long as it is open, and sends the commands and control changes the editor will not.
 import type { JSX } from "solid-js";
 import type { Connection, PortInfo, WireLogHeader } from "../midi";
+import type { BurstRun, BurstSend } from "./wire-burst";
 import type {
   ControlChangeMessage,
   WireEvent,
@@ -10,6 +11,18 @@ import type {
 import type { CommandDraft, SenderCommand, SenderField } from "./wire-sender";
 import { For, Show, createMemo, createSignal, onCleanup } from "solid-js";
 import { enableMidi, listInputPorts, listOutputPorts, openConnection } from "../midi";
+import {
+  BURST_NOTE,
+  MAX_BURST_INTERVAL_MS,
+  MAX_BURST_REPEATS,
+  MAX_BURST_STEP_BYTES,
+  STEP_NOTE,
+  commandBurst,
+  controlChangeBurst,
+  formatBurstReport,
+  liveBurstClock,
+  runBurst,
+} from "./wire-burst";
 import {
   CAPTURE_NOTE,
   NOTHING_WRITTEN,
@@ -35,6 +48,10 @@ const DEVICE_HINT = "e7";
 const NO_PORT = "—";
 
 const IDLE_STATS = { pendingBytes: 0, fragmentedFrames: 0, discardedPartials: 0 };
+
+const INITIAL_REPEATS = 100;
+
+const INITIAL_INTERVAL_MS = 16;
 
 function describe(error: unknown): string {
   return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
@@ -136,12 +153,18 @@ export function HardwareConsole() {
     createSignal<ControlChangeMessage>(INITIAL_CONTROL_CHANGE);
   const [sent, setSent] = createSignal("");
   const [refusal, setRefusal] = createSignal("");
+  const [repeats, setRepeats] = createSignal(INITIAL_REPEATS);
+  const [intervalMs, setIntervalMs] = createSignal(INITIAL_INTERVAL_MS);
+  const [stepBytes, setStepBytes] = createSignal(0);
+  const [running, setRunning] = createSignal(false);
+  const [burst, setBurst] = createSignal("");
   const [header, setHeader] = createSignal<WireLogHeader>(emptyCaptureHeader());
   const [saving, setSaving] = createSignal(false);
   const [saved, setSaved] = createSignal("");
   const [saveRefusal, setSaveRefusal] = createSignal("");
 
   let monitor: WireMonitorSubscription | undefined;
+  let run: BurstRun | undefined;
 
   const paused = (): boolean => held() !== undefined;
 
@@ -194,6 +217,60 @@ export function HardwareConsole() {
         sendControlChange(active, message, record, () => monitor?.elapsedMs() ?? 0);
       },
     );
+  };
+
+  const repeatable = (): boolean => {
+    const within = (value: number, most: number): boolean =>
+      Number.isInteger(value) && value >= 0 && value <= most;
+    return (
+      within(repeats() - 1, MAX_BURST_REPEATS - 1) &&
+      within(intervalMs(), MAX_BURST_INTERVAL_MS) &&
+      within(stepBytes(), MAX_BURST_STEP_BYTES)
+    );
+  };
+
+  const repeat = (sends: readonly BurstSend[]): void => {
+    const active = connection();
+    if (active === undefined || monitor === undefined || running()) {
+      return;
+    }
+    setBurst("");
+    setRunning(true);
+    const started = runBurst(
+      active,
+      { sends, intervalMs: intervalMs() },
+      record,
+      liveBurstClock(() => monitor?.elapsedMs() ?? 0),
+    );
+    run = started;
+    void started.report.then(
+      (finished) => {
+        run = undefined;
+        setRunning(false);
+        setBurst(formatBurstReport(finished));
+      },
+      (error: unknown) => {
+        run = undefined;
+        setRunning(false);
+        setRefusal(describe(error));
+      },
+    );
+  };
+
+  const repeatCommand = (): void => {
+    setSent("");
+    setRefusal("");
+    try {
+      repeat(commandBurst(buildCommand(draft()), repeats(), stepBytes()));
+    } catch (error) {
+      setRefusal(`${chosen().label} was not sent. ${describe(error)}`);
+    }
+  };
+
+  const repeatControlChange = (): void => {
+    setSent("");
+    setRefusal("");
+    repeat(controlChangeBurst(controlChange(), repeats()));
   };
 
   const save = (): void => {
@@ -276,6 +353,7 @@ export function HardwareConsole() {
   };
 
   onCleanup(() => {
+    run?.stop();
     monitor?.unsubscribe();
     void connection()?.close();
   });
@@ -379,7 +457,11 @@ export function HardwareConsole() {
               max={127}
               onInput={(value) => setControlChange((current) => ({ ...current, value }))}
             />{" "}
-            <button type="button" disabled={connection() === undefined} onClick={sendCc}>
+            <button
+              type="button"
+              disabled={connection() === undefined || running()}
+              onClick={sendCc}
+            >
               Send control change
             </button>
           </p>
@@ -486,7 +568,7 @@ export function HardwareConsole() {
         </Show>
 
         <p>
-          <button type="button" disabled={connection() === undefined} onClick={send}>
+          <button type="button" disabled={connection() === undefined || running()} onClick={send}>
             Send {chosen().label}
           </button>
         </p>
@@ -497,6 +579,65 @@ export function HardwareConsole() {
         <Show when={refusal() !== ""}>
           <p role="alert">{refusal()}</p>
         </Show>
+
+        <fieldset>
+          <legend>Repeat — the same send, over and over, timed</legend>
+          <p>{BURST_NOTE}</p>
+          <Show when={takes("address")}>
+            <p>{STEP_NOTE}</p>
+          </Show>
+          <p>
+            <NumberField
+              label="Repeats"
+              value={repeats()}
+              min={1}
+              max={MAX_BURST_REPEATS}
+              onInput={setRepeats}
+            />{" "}
+            <NumberField
+              label="Interval in ms (0 waits for nothing)"
+              value={intervalMs()}
+              min={0}
+              max={MAX_BURST_INTERVAL_MS}
+              onInput={setIntervalMs}
+            />{" "}
+            <Show when={takes("address")}>
+              <NumberField
+                label="Step the address by (bytes)"
+                value={stepBytes()}
+                min={0}
+                max={MAX_BURST_STEP_BYTES}
+                onInput={setStepBytes}
+              />{" "}
+            </Show>
+            <button
+              type="button"
+              disabled={connection() === undefined || running() || !repeatable()}
+              onClick={repeatCommand}
+            >
+              Repeat {chosen().label}
+            </button>{" "}
+            <button
+              type="button"
+              disabled={connection() === undefined || running() || !repeatable()}
+              onClick={repeatControlChange}
+            >
+              Repeat the control change
+            </button>{" "}
+            <button type="button" disabled={!running()} onClick={() => run?.stop()}>
+              Stop
+            </button>
+          </p>
+
+          <Show when={running()}>
+            <p role="status">
+              Running. Stop halts the sending; the answers already owed are still waited out.
+            </p>
+          </Show>
+          <Show when={burst() !== ""}>
+            <pre>{burst()}</pre>
+          </Show>
+        </fieldset>
       </section>
 
       <section aria-label="Capture">

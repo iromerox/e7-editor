@@ -144,6 +144,105 @@ Every send is recorded in the log as an outbound `-->` event before anything
 comes back, so one log is the whole conversation rather than two accounts of
 it.
 
+## Repeating a send
+
+One send at a time answers most questions; some need many. The **Repeat**
+control at the foot of the Send section sends whatever is staged above it —
+the chosen command, or the control change — over and over, either at the
+interval typed beside it or, at `0`, all of them back to back with nothing
+waiting for an answer. That second form is the point of the control: it is
+the only way to ask whether the device will accept a new command while it is
+still preparing a response to the last (`protocol-quirks.md` #19), which
+`requestResponse` cannot do because it waits.
+
+A finished run prints a report of its own, under the controls. Illustrating
+the shape only — these are not numbers any run produced:
+
+```
+sends            200 of 200, back to back, none of them awaiting the answer to the last
+answers          198 received, 0 out of order, 2 missing, 1 answering nothing outstanding
+round trip       min 15.7ms   median 16.0ms   max 31.4ms
+pairing          198 paired in arrival order — nothing in these answers names the request they answer, so a reordering among those 198 cannot be seen
+first fault      send 41 came back not at all
+elapsed          3204.5ms
+rate limit       sends bypass it — MIN_CC_INTERVAL_MS (5ms) does not apply
+```
+
+An answer counted **out of order** is also counted among the received, so
+`received` is every send that got an answer at all. Round trips are a spread
+rather than a figure because the question a repeat asks is usually whether the
+figure holds: a median matching the smoke test's ~16ms beside a maximum three
+times it says something a single average would have hidden. **first fault**
+names the first send that went unanswered or came back out of turn, which is
+the depth the run is really being asked for.
+
+**What the pairing line is admitting.** An answer carries nothing that says
+which command it answers (`protocol-quirks.md` #3), so the run pairs answers
+with requests two different ways and says which it used:
+
+- **Named by their own bytes** — a Write Memory is echoed back as exactly the
+  bytes it wrote, so an answer identifies its request outright, and an
+  answer arriving before the one sent ahead of it is reported as out of
+  order. This holds only while the *data* differs from send to send: the echo
+  carries the data and not the address (spec p.15), so repeating one write —
+  even to a walked address — produces echoes that are all the same bytes,
+  which name nothing.
+- **Paired in arrival order** — everything else, reads included. The first
+  answer is attributed to the first request, and a reordering among them
+  cannot be seen at all. The report says how many were paired this way rather
+  than presenting the pairing as a match.
+
+**Stepping the address.** A command that takes an address gets a third field:
+how far to move the address on each repeat. At `0` the same address is read
+two hundred times, which is a strange thing to measure — every answer is
+identical, so nothing about the run could ever look wrong. At `16` the run
+walks consecutive memory blocks, which is the read a full backup makes and
+the one whose throughput is worth knowing. It does not make the answers
+identifiable — see the pairing note above — but it does make a reordering
+*visible* in the log, since consecutive blocks of a real preset differ from
+each other where two reads of one block do not. Read the log rather than the
+summary when that is the question being asked, and keep the depth small
+enough to read: pipelining fails at 2 or 4 long before it fails at 200.
+
+A stepped **Write Memory** writes to every address it walks, which is a much
+larger footprint than repeating one write. The step is capped at 128 bytes,
+one preset's worth, and a walk that would run past the top of the 21-bit
+address space is refused with the protocol layer's own error before anything
+goes out.
+
+An answer counted as **answering nothing outstanding** is a frame that
+arrived while the run was going but fits no request still waiting — the
+malformed preview frame of `protocol-quirks.md` #12 is one, and so is a
+command frame echoed back by Soft Thru. It is counted rather than attributed,
+which is what stops a preview frame from being timed as though it were a
+response.
+
+**The rate limiter does not apply.** Sends from this page go out past it, the
+same as every other send here, so an interval below `MIN_CC_INTERVAL_MS`
+(5ms) is delivered as typed rather than coalesced. That is deliberate: the
+constant was chosen without hardware and is itself the open question in
+`protocol-quirks.md` #20, so a page meant to test it cannot be subject to it.
+Every report says so on its last line.
+
+**Stop** halts the sending; the answers already owed are still waited out, up
+to the same second `requestResponse` waits, so what a stopped run reports is
+what it measured rather than an estimate. Sends never reached are reported as
+not sent, and are not confused with sends the device failed to answer.
+
+Two cautions:
+
+- A repeat that carries a control change **writes to the instrument once per
+  repeat**, and leaves the parameter wherever the last one put it. A
+  pipelined read is read-only, however deep it goes.
+- A long run fills the log with its own sends. The log holds 2000 events
+  (see Bounds), so a run of 2000 read commands and their answers pushes
+  everything before it out, including the sends from the beginning of the
+  same run. Save the capture you care about before starting one.
+
+Repeats are capped at 8192 — a full pass over preset memory, 16 bytes at a
+time — the interval at 10 seconds, and the step at 128 bytes; the buttons stay
+disabled while any of the three holds something else.
+
 ## Saving a capture
 
 The **Capture** section writes what the log is showing to a `.wire` file —

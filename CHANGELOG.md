@@ -629,6 +629,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   empty log and a header with a field left blank are both refused before any
   dialog opens, a dismissed dialog is reported as nothing written, and a log
   that dropped events says so in a comment above them.
+- The hardware console now repeats a send and times what comes back: the
+  staged command or control change goes out as many times as asked, at a typed
+  interval or — at an interval of 0 — all of them back to back with none of
+  them waiting for the answer to the last, which is the pipelined read no
+  request/response helper can perform. A finished run reports every send as
+  received, missing, out of order or not sent, the round trips as a minimum,
+  median and maximum rather than as one figure, and the first send that went
+  unanswered or came back out of turn. It says which way each answer was
+  paired: a Write Memory echoes the bytes it wrote and so names its own
+  request, while a read's answer names nothing and is paired in arrival order,
+  where a reordering cannot be seen at all. A frame that fits no request still
+  waiting — the undocumented preview frame, or a command echoed back by Soft
+  Thru — is counted rather than attributed and timed. A command that takes an
+  address can walk it across the repeat, so a run reads consecutive memory
+  blocks the way a full backup would rather than reading one block over and
+  over; a walk that would run past the top of the address space is refused
+  before anything goes out. Stop halts the sending
+  and still waits out the answers already owed, so a run cut short reports
+  what it measured. Sends bypass the outbound rate limiter, as every send from
+  this page does, so an interval below `MIN_CC_INTERVAL_MS` is delivered as
+  typed; every report says so on its last line.
 
 ### Changed
 
@@ -870,3 +891,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   recorded to a tenth of a millisecond and snapped to the same tenth before
   writing, so a capture and the one read back from it are the same events
   rather than rounded ones.
+- `docs/hardware-console.md`: how a repeat is run and how to read what it
+  reports — why the round trips are a spread rather than a figure, what the
+  pairing line is admitting about answers that name no request, what walking
+  the address is for and what it does not fix, what a frame answering nothing
+  outstanding is, why the outbound rate limiter is bypassed rather than
+  obeyed, what Stop does and does not wait for, and that a long run fills the
+  log with its own sends.
