@@ -170,15 +170,19 @@ describe("EditorPane", () => {
     expect(knob("OSC1")).toBe("99");
   });
 
-  it("leaves a control change that names more than one field where it is", async () => {
+  it("follows a control change on CC 3 onto OSC 1's transpose", async () => {
     const cc = new Subject<CcEvent>();
     await renderPane(stubConnection(cc));
 
     cc.next({ channel: 1, controller: OSC1_TRANSPOSE, value: 120, timestamp: 0 });
+    const shift = screen.getAllByRole("button", { name: "Transpose" })[0];
+    if (shift !== undefined) {
+      await fireEvent.click(shift);
+    }
 
-    expect(screen.getAllByRole("slider", { name: "Tune" })[0]?.getAttribute("aria-valuenow")).toBe(
-      "0",
-    );
+    expect(
+      screen.getAllByRole("slider", { name: "Transpose" })[0]?.getAttribute("aria-valuenow"),
+    ).toBe("120");
   });
 
   it("follows the master volume the device reports, which no preset field holds", async () => {

@@ -712,6 +712,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   to it; the instrument turns out to accept the controller, so the editor
   sends it like any other and no control is read-only for reasons of CC
   direction. `ccDirection` stays, with nothing marked.
+- CC 3 resolves to OSC 1's transpose alone. It was mapped to both that field
+  and the preset's own global `transpose`, with `applyCc` refusing to pick
+  between them; the instrument settles it, so the ambiguous outcome is gone,
+  `ccToFields` is now `ccToField` returning one field or none, and an inbound
+  CC 3 moves the OSC 1 knob instead of being dropped. `transpose` (byte 105)
+  is no longer a `CcField` at all, having no controller to be reached by, and
+  the wire monitor names the single field a controller drives rather than a
+  list of candidates.
 
 ### Fixed
 
@@ -934,3 +942,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   so the controller is known only from the instrument and can be cited to no
   page, and that byte 71 of the preset structure holding Resonance is a
   coincidence of numbering rather than a rule.
+- Settled the transpose ambiguity against real hardware: CC 3 drives OSC 1
+  Transpose (byte 20) and never the preset's own Transpose (byte 105). Sent
+  on the receive channel it moves byte 20 to exactly the value sent while
+  byte 105 stays put, a controller the CC table assigns to nothing moves
+  neither, and holding Shift while turning the panel's `Tune` knob transmits
+  that controller and no other. Recorded alongside it that byte 105 has no
+  controller anywhere in the printed table, which — volatile memory being
+  closed to SysEx writes — leaves the preset's global transpose unreachable
+  on a running instrument by the editor or by anything else. Sweeping that
+  byte from the Preset Menu transmits nothing at all, where sweeping the
+  `Tune` knob transmits a continuous run of CC 3, so no controller is an
+  observation rather than an argument from the table's silence; the same
+  sweep put the byte's range at 16-112 rather than 0-127, which rules out the
+  49-band `Transpose` lookup and leaves its own encoding unresolved.

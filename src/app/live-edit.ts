@@ -3,7 +3,7 @@ import type { CcEvent, Connection } from "../midi";
 import type { CcField, ReceiveChannel } from "../protocol";
 import type { AppStateControls } from "./app-state";
 import type { ControlValue } from "./control-value";
-import { ccDirection, ccToFields, fieldToCc, isPart1OnlyField, readField } from "../protocol";
+import { ccDirection, ccToField, fieldToCc, isPart1OnlyField, readField } from "../protocol";
 import { unlessReserved } from "./reserved-values";
 
 export const OMNI_TARGET_CHANNEL = 1;
@@ -94,8 +94,8 @@ export function createLiveEdit(
   };
 
   const receive = (event: CcEvent): CcField | undefined => {
-    const [field, ...rest] = ccToFields(event.controller);
-    if (field === undefined || rest.length > 0) {
+    const field = ccToField(event.controller);
+    if (field === undefined) {
       return undefined;
     }
     return applied(field, event.value) ? field : undefined;

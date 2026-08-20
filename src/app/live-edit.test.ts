@@ -150,12 +150,12 @@ describe("createLiveEdit", () => {
     expect(sent).toEqual([]);
   });
 
-  it("leaves an inbound control change with more than one candidate field alone", () => {
+  it("moves OSC 1's transpose on an inbound CC 3, not the preset's own transpose", () => {
     const { controls, live } = setUp({ kind: "channel", channel: 1 });
 
-    expect(live.receive(ccEvent(OSC1_TRANSPOSE, 100))).toBeUndefined();
-    expect(readField(controls.state.editor.preset, "osc1Transpose")).toBe(0);
-    expect(readField(controls.state.editor.preset, "transpose")).toBe(0);
+    expect(live.receive(ccEvent(OSC1_TRANSPOSE, 100))).toBe("osc1Transpose");
+    expect(readField(controls.state.editor.preset, "osc1Transpose")).toBe(100);
+    expect(controls.state.editor.preset.transpose).toBe(0);
   });
 
   it("ignores an inbound control change with no field behind it", () => {

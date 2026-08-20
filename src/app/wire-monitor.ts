@@ -4,7 +4,7 @@ import type { CcField, SysExCommandKind, SysExResponse } from "../protocol";
 import { DEFAULT_RESPONSE_TIMEOUT_MS } from "../midi";
 import {
   ProtocolError,
-  ccToFields,
+  ccToField,
   decodeAutotuningStatusResponse,
   decodeCommand,
   decodeConfigurationResponse,
@@ -39,7 +39,7 @@ export interface ControlChangeWireEvent extends WireLogEvent {
   readonly channel: number;
   readonly controller: number;
   readonly value: number;
-  readonly fields: readonly CcField[];
+  readonly field: CcField | undefined;
 }
 
 export type WireEvent = SysExWireEvent | ControlChangeWireEvent;
@@ -126,7 +126,7 @@ export function controlChangeEvent(
     channel: message.channel,
     controller: message.controller,
     value: message.value,
-    fields: ccToFields(message.controller),
+    field: ccToField(message.controller),
   };
 }
 
@@ -196,8 +196,7 @@ export function replies(
 
 function annotate(event: WireEvent): string {
   if (event.kind === "control-change") {
-    const fields = event.fields.length === 0 ? "unmapped" : event.fields.join(" ");
-    return `ch${event.channel} CC ${event.controller} = ${event.value} ${fields}`;
+    return `ch${event.channel} CC ${event.controller} = ${event.value} ${event.field ?? "unmapped"}`;
   }
   switch (event.reading.kind) {
     case "command":

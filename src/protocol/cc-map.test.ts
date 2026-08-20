@@ -13,7 +13,7 @@ import {
 import {
   CC_FIELDS,
   applyCc,
-  ccToFields,
+  ccToField,
   fieldToCc,
   isPart1OnlyField,
   readField,
@@ -21,8 +21,6 @@ import {
 } from "./cc-map";
 import { ReservedValue } from "./errors";
 import { SINGLE_PRESET_BYTES, decodeSinglePreset, encodeSinglePreset } from "./preset";
-
-const CC3_CANDIDATES: readonly CcField[] = ["osc1Transpose", "transpose"];
 
 function blankPreset() {
   return decodeSinglePreset(new Uint8Array(SINGLE_PRESET_BYTES));
@@ -37,26 +35,22 @@ function changedByteIndices(field: CcField, value: number): readonly number[] {
 describe("cc-map", () => {
   it("maps every field to a CC that resolves back to it", () => {
     for (const field of CC_FIELDS) {
-      expect(ccToFields(fieldToCc(field))).toContain(field);
+      expect(ccToField(fieldToCc(field))).toBe(field);
     }
   });
 
-  it("resolves every CC to exactly one field except the CC 3 transpose collision", () => {
-    for (let cc = 0; cc <= 127; cc++) {
-      const fields = ccToFields(cc);
-      if (cc === OSC1_TRANSPOSE) {
-        expect(fields).toEqual(CC3_CANDIDATES);
-      } else {
-        expect(fields.length).toBeLessThanOrEqual(1);
-      }
-    }
-  });
-
-  it("round-trips applyCc into readField for every unambiguous field", () => {
+  it("gives every CC at most one field, so no controller needs disambiguating", () => {
+    const claimed = new Map<number, CcField>();
     for (const field of CC_FIELDS) {
-      if (CC3_CANDIDATES.includes(field)) {
-        continue;
-      }
+      const cc = fieldToCc(field);
+      const owner = claimed.get(cc);
+      expect(owner, `CC ${cc} claimed by both ${owner} and ${field}`).toBeUndefined();
+      claimed.set(cc, field);
+    }
+  });
+
+  it("round-trips applyCc into readField for every field", () => {
+    for (const field of CC_FIELDS) {
       const cc = fieldToCc(field);
       for (const value of [0, 1, 66]) {
         const applied = applyCc(blankPreset(), cc, value);
@@ -95,19 +89,14 @@ describe("cc-map", () => {
     expect(readField(updated, "filterCutoff")).toBe(96);
   });
 
-  it("reports CC 3 as ambiguous instead of picking a transpose field", () => {
-    const preset = blankPreset();
-    const applied = applyCc(preset, OSC1_TRANSPOSE, 66);
-    expect(applied).toEqual({ kind: "ambiguous", candidates: CC3_CANDIDATES });
-    expect(readField(preset, "osc1Transpose")).toBe(0);
-    expect(readField(preset, "transpose")).toBe(0);
-  });
-
-  it("still writes either transpose candidate through the explicit field accessor", () => {
-    for (const field of CC3_CANDIDATES) {
-      expect(fieldToCc(field)).toBe(OSC1_TRANSPOSE);
-      expect(readField(writeField(blankPreset(), field, 66), field)).toBe(66);
+  it("drives OSC 1's transpose from CC 3, leaving the preset's own transpose alone", () => {
+    const applied = applyCc(blankPreset(), OSC1_TRANSPOSE, 66);
+    expect(applied).toMatchObject({ kind: "applied", field: "osc1Transpose" });
+    if (applied.kind !== "applied") {
+      return;
     }
+    expect(applied.preset.osc1.transpose).toBe(66);
+    expect(applied.preset.transpose).toBe(0);
   });
 
   it("reports performance-only CCs as unmapped", () => {
@@ -118,7 +107,7 @@ describe("cc-map", () => {
 
   it("maps Expression to Amplifier Level, the preset byte it drives", () => {
     expect(EXPRESSION).toBe(AMPLIFIER_LEVEL);
-    expect(ccToFields(EXPRESSION)).toEqual(["amplifierLevel"]);
+    expect(ccToField(EXPRESSION)).toBe("amplifierLevel");
   });
 
   it("marks the fields a multi takes from part 1 alone, and only those", () => {
@@ -137,7 +126,7 @@ describe("cc-map", () => {
   });
 
   it("leaves LFO2 EG1 Mod unmapped because it has no preset byte", () => {
-    expect(ccToFields(LFO2_EG1_MOD)).toEqual([]);
+    expect(ccToField(LFO2_EG1_MOD)).toBeUndefined();
   });
 
   it("unpacks Voices into the Poly Voice and Mono Voice bytes", () => {

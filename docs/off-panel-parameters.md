@@ -38,7 +38,7 @@ touches.
 | Field | Byte | CC | Reached from | Status |
 |---|---|---|---|---|
 | `portamento.on` | 48 | 65 | Nothing — the panel has `Portamento Time` and no on/off | Real — **written by the `Portamento Time` knob**, on above zero |
-| `transpose` | 105 | 3 | Preset Menu (Shift + button 5) | Contested — see below |
+| `transpose` | 105 | — | Preset Menu (Shift + button 5) | Menu-only, and **unreachable live** — see below |
 | `monoVoice` / `polyVoice` | 106 / 107 | 97, packed as `16*V1 + V2` | Preset Menu; the `VOICES` LED row is an indicator, not a control | Menu-only — **built**, as the two selectors in `VOICES` |
 | `part1Only.name` | 0-19 | — | The save flow: `Bank`+`Shift`, then character entry on buttons 1-5 | Menu-only |
 | `part1Only.lock` | 127 | — | Not reachable from the panel at all — SysEx only | Real |
@@ -72,11 +72,24 @@ manual tells them apart.
 
 ### `transpose` versus `osc1.transpose`
 
-Both plausibly claim CC 3, unresolved — see `protocol-quirks.md` #14, owned by
-HW-04. `cc-map.ts` maps CC 3 to both and `applyCc` reports it as ambiguous
-rather than guessing. The oscillator section writes `osc1Transpose` by name,
-so the ambiguity only blocks the *global* transpose, which needs a home in the
-editor outside any panel section.
+Both plausibly claimed CC 3. The instrument gives it to `osc1.transpose` and
+never moves byte 105 — see `protocol-quirks.md` #14 — so `cc-map.ts` resolves
+CC 3 to `osc1Transpose` and `transpose` is no longer in the CC map at all.
+
+That leaves byte 105 with no controller of any kind, and volatile memory
+cannot be written by SysEx, so nothing can change the preset's global
+transpose on a running instrument: it takes a preset written to flash and
+loaded, or the Preset Menu on the panel. A control for it still needs a home
+outside any panel section, and it cannot write through to the device the way
+every other editor control does.
+
+Two measurements to build that control against, both from the same session
+and neither of them from a page: byte 105 ranges over **16-112**, not 0-127,
+so it does not use the 49-band `Transpose` lookup the oscillator transpose
+bytes use — how it does encode semitones is unresolved. And sweeping it from
+the Preset Menu transmits nothing, where sweeping the `Tune` knob transmits a
+continuous run of CC 3, which is what makes "no controller" an observation
+here rather than an argument from the table's silence.
 
 ### `lfo1.eg1Mod`
 

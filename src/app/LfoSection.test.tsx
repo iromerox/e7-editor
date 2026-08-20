@@ -5,7 +5,7 @@ import type { LfoFields } from "./LfoSection";
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { EMPTY } from "rxjs";
 import { beforeEach, describe, expect, it } from "vitest";
-import { LFO1_SHAPE, LFO2_EG1_MOD, ccToFields, fieldToCc, readField } from "../protocol";
+import { LFO1_SHAPE, LFO2_EG1_MOD, ccToField, fieldToCc, readField } from "../protocol";
 import { createAppState } from "./app-state";
 import {
   EG1_MOD_DETAIL,
@@ -218,7 +218,7 @@ describe("LfoSection", () => {
     const scope = lfo("LFO 2");
 
     expect(within(scope).queryByRole("button", { name: "EG1 Mod" })).toBeNull();
-    expect(ccToFields(LFO2_EG1_MOD)).toEqual([]);
+    expect(ccToField(LFO2_EG1_MOD)).toBeUndefined();
     expect(scope.textContent).toContain(EG1_MOD_NOTE);
     expect(within(scope).getByRole("slider", { name: "Rate" }).getAttribute("title")).toContain(
       EG1_MOD_DETAIL,

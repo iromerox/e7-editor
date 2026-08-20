@@ -3,7 +3,7 @@ import type { CcEvent, Connection } from "../midi";
 import type { WireEvent } from "./wire-monitor";
 import { describe, expect, it } from "vitest";
 import { createConnection } from "../midi";
-import { FILTER_RESONANCE, ccToFields, encodeCommand, encodeResponse } from "../protocol";
+import { FILTER_RESONANCE, ccToField, encodeCommand, encodeResponse } from "../protocol";
 import { wireLogFixture } from "../test-wire-log";
 import {
   WIRE_LOG_CAPACITY,
@@ -146,21 +146,21 @@ describe("recorded", () => {
 
 describe("controlChangeEvent", () => {
   it("records a controller the CC map has no field for, with its value and its bytes", () => {
-    expect(ccToFields(UNMAPPED_CONTROLLER)).toEqual([]);
+    expect(ccToField(UNMAPPED_CONTROLLER)).toBeUndefined();
 
     const event = controlChangeEvent("inbound", ccEvent(UNMAPPED_CONTROLLER, 127, 4), 1);
 
     expect(event.controller).toBe(UNMAPPED_CONTROLLER);
     expect(event.value).toBe(127);
     expect(event.channel).toBe(4);
-    expect(event.fields).toEqual([]);
+    expect(event.field).toBeUndefined();
     expect(event.bytes).toEqual(Uint8Array.of(0xb3, UNMAPPED_CONTROLLER, 127));
   });
 
   it("names the fields a mapped controller drives without replacing the bytes", () => {
     const event = controlChangeEvent("inbound", ccEvent(FILTER_RESONANCE, 64), 1);
 
-    expect(event.fields).toEqual(["filterResonance"]);
+    expect(event.field).toBe("filterResonance");
     expect(event.bytes).toEqual(Uint8Array.of(0xb0, FILTER_RESONANCE, 64));
   });
 });
@@ -242,7 +242,11 @@ describe("monitorWire", () => {
 
     expect(events.map((event) => event.atMs)).toEqual([4, 20, 33]);
     expect(events.map((event) => event.kind)).toEqual(["sysex", "control-change", "sysex"]);
-    expect(events[1]).toMatchObject({ controller: UNMAPPED_CONTROLLER, value: 99, fields: [] });
+    expect(events[1]).toMatchObject({
+      controller: UNMAPPED_CONTROLLER,
+      value: 99,
+      field: undefined,
+    });
   });
 });
 

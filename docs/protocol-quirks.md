@@ -220,25 +220,47 @@ questions, not assumptions:
     (p.25), which is a coincidence of numbering rather than a rule — Cutoff
     is byte 70 and CC 74. The controller is real and undocumented, which is
     why nothing in the repo can cite a page for it.
-14. **`GlobalTranspose` vs. `Osc1Transpose`** both plausibly claim CC 3.
-    The CC table (p.5) lists CC 3 as OSC1 Transpose, but the byte map (p.25)
-    has both an OSC1 Transpose byte (20) and a bare Transpose byte (105) —
-    and only the former has a documented CC. Which byte does the physical
-    CC 3 actually drive? Needs a hardware test (HW-04). Until then
-    `src/protocol/cc-map.ts` maps CC 3 to *both* candidate fields
-    (`osc1Transpose` and `transpose`): `ccToFields(3)` returns the pair and
-    `applyCc` returns `{ kind: "ambiguous" }` rather than picking one.
-    Callers that know which control the user touched can still write either
-    field directly with `writeField`. Don't collapse the pair to a single
-    field until the hardware test resolves it.
+14. **CC 3 is OSC 1 Transpose, and the preset's own Transpose has no CC** —
+    this entry stays numbered here rather than moving to the confirmed
+    section below so the cross-references to "#14" keep resolving.
 
-    The panel narrows the *inbound* half of this: global transpose has no
-    front-panel control at all — it is reachable only from the Preset Menu —
-    while OSC 1 Transpose is the shift layer of the `Tune` knob. So a CC 3
-    the device *transmits* during ordinary playing almost certainly comes
-    from that knob. That is a hint about which field the device associates
-    with CC 3, not an answer, and it says nothing about what an *inbound*
-    CC 3 does when the editor sends one. See `panel-layout.md` Finding 3.
+    **Hardware-confirmed 2026-08-20**, serial #361, over USB, both
+    directions. Sending CC 3 on the receive channel moved byte 20 (OSC 1
+    Transpose) of the edit buffer — volatile `0x030800`, the Current Preset —
+    to 0, 41, 96 and 127 in turn, each landing on the value sent with no
+    scaling, and byte 105 (Transpose) never moved. CC 30 (OSC 2 Transpose)
+    was the positive control and moved byte 34 the same way; CC 102, which
+    the CC table does not assign, moved neither byte. Holding Shift and
+    turning the `Tune`/`Transpose` knob transmitted a continuous run of
+    `B0 03 xx` and no other controller.
+
+    So the CC table (p.5) is right where it lists CC 3 under OSC1, and the
+    byte map's bare Transpose byte 105 has no controller behind it: the
+    printed table's OTHER section carries only Mode (116) and Voices (97),
+    and no row anywhere assigns byte 105. `cc-map.ts` therefore resolves
+    CC 3 to `osc1Transpose` alone, `ccToField(3)` returns that one field, and
+    the `transpose` field is gone from the CC map rather than mapped to a
+    controller it does not have. Byte 105 is still decoded, preserved and
+    re-encoded like every other preset byte — what it no longer has is a live
+    path to the instrument.
+
+    That last point is a constraint on the editor rather than a quirk of the
+    documents. Volatile memory cannot be written by SysEx (p.24), so with no
+    CC of its own the preset's global transpose cannot be changed on a
+    running instrument at all — only by writing a preset to flash and loading
+    it, or from the Preset Menu on the panel.
+
+    Whether an *undocumented* CC drives byte 105, the way CC 71 turned out to
+    drive resonance (#13), is not settled, but the same session's evidence
+    runs against it: sweeping the byte across its whole range from the Preset
+    Menu transmitted **nothing at all**, where a comparable sweep of the
+    `Tune` knob transmits a continuous run of CC 3. That says the instrument
+    associates no controller with this parameter on the way out; only a sweep
+    of all 128 controllers against the byte would settle the way in. Recorded
+    with it, from the same run and unexplained: byte 105 ranges over
+    **16-112** rather than 0-127, which rules out the 49-band `Transpose`
+    lookup the oscillator transpose bytes use, and leaves the byte's own
+    semitone encoding an open question. See `panel-layout.md` Finding 3.
 15. Whether other Read commands (Autotuning, Lock echo, Write Memory echo)
     exhibit the same prelude as Read Memory (#12) is **mostly moot now that
     #12 is a host artifact**: there is no device prelude for any command to

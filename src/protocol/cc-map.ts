@@ -325,18 +325,14 @@ export type CcField =
   | "delayFeedback"
   | "delayMix"
   | "mode"
-  | "voices"
-  | "transpose";
+  | "voices";
 
 const ENTRIES: Readonly<Record<CcField, CcFieldEntry>> = {
   portamentoTime: { cc: PORTAMENTO_TIME, ...portamento("time") },
   portamentoSwitch: { cc: PORTAMENTO_SWITCH, ...portamento("on") },
   pitchBendRange: { cc: PITCH_BEND_RANGE, ...scalar("pitchBendRange") },
 
-  // docs/protocol-quirks.md #14: CC 3 has two candidate fields until HW-04 settles it.
   osc1Transpose: { cc: OSC1_TRANSPOSE, ...osc("osc1", "transpose") },
-  transpose: { cc: OSC1_TRANSPOSE, ...scalar("transpose") },
-
   osc1Tune: { cc: OSC1_TUNE, ...osc("osc1", "tune") },
   osc1Shape: { cc: OSC1_SHAPE, ...osc("osc1", "shape") },
   osc1PulseWidth: { cc: OSC1_PULSE_WIDTH, ...osc("osc1", "pulseWidth") },
@@ -440,13 +436,13 @@ const ENTRIES: Readonly<Record<CcField, CcFieldEntry>> = {
 
 export const CC_FIELDS: readonly CcField[] = Object.keys(ENTRIES) as readonly CcField[];
 
-const FIELDS_BY_CC: ReadonlyMap<number, readonly CcField[]> = CC_FIELDS.reduce((index, field) => {
-  const cc = ENTRIES[field].cc;
-  return index.set(cc, [...(index.get(cc) ?? []), field]);
-}, new Map<number, readonly CcField[]>());
+const FIELD_BY_CC: ReadonlyMap<number, CcField> = CC_FIELDS.reduce(
+  (index, field) => index.set(ENTRIES[field].cc, field),
+  new Map<number, CcField>(),
+);
 
-export function ccToFields(cc: number): readonly CcField[] {
-  return FIELDS_BY_CC.get(cc) ?? [];
+export function ccToField(cc: number): CcField | undefined {
+  return FIELD_BY_CC.get(cc);
 }
 
 export function fieldToCc(field: CcField): number {
@@ -467,16 +463,12 @@ export function writeField(preset: SinglePreset, field: CcField, value: number):
 
 export type CcApplication =
   | { readonly kind: "applied"; readonly field: CcField; readonly preset: SinglePreset }
-  | { readonly kind: "ambiguous"; readonly candidates: readonly CcField[] }
   | { readonly kind: "unmapped" };
 
 export function applyCc(preset: SinglePreset, cc: number, value: number): CcApplication {
-  const [field, ...rest] = ccToFields(cc);
+  const field = ccToField(cc);
   if (field === undefined) {
     return { kind: "unmapped" };
-  }
-  if (rest.length > 0) {
-    return { kind: "ambiguous", candidates: ccToFields(cc) };
   }
   return { kind: "applied", field, preset: writeField(preset, field, value) };
 }

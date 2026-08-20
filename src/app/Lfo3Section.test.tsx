@@ -9,7 +9,7 @@ import {
   LFO3_MOD_WHEEL,
   LFO3_RATE,
   LFO3_SHAPE,
-  ccToFields,
+  ccToField,
   readField,
 } from "../protocol";
 import { createAppState } from "./app-state";
@@ -133,7 +133,7 @@ describe("Lfo3Section", () => {
 
   it("reflects each of the four control changes onto one field of its own", () => {
     for (const cc of [LFO3_SHAPE, LFO3_RATE, LFO3_MOD_WHEEL, LFO3_AFTERTOUCH]) {
-      expect(ccToFields(cc)).toHaveLength(1);
+      expect(ccToField(cc)).toBeDefined();
     }
   });
 

@@ -508,7 +508,7 @@ the editor cycles triangle → saw-tri → sawtooth → none, which is the only
 |---|---|---|---|---|
 | (waveform selector, unlabelled) | — | Button + LED column (3) | `osc1.shape` / CC 14 | Selects triangle / saw-tri / sawtooth. All three LEDs off is a valid state: no waveform selected (manual p.7). That alone is `off` (CC 48-63) and silent — pulse-generator-only is the same three LEDs off *with* the pulse LED lit, `pulse` (CC 112-127). |
 | (pulse generator, unlabelled) | `Autotuning` | Button + LED | `osc1.shape` / CC 14 (same byte); shift: **not addressable** | The pulse LED and the three waveform LEDs both read from `shape`; `OscShape` encodes the combination in its upper 3 bits — `oscShapeParts`/`oscShapeFromParts` split and rejoin the two buttons' states. Shift runs the ~2s oscillator auto-calibration — a device command with no preset byte, no CC, and no SysEx command either, so the editor has no equivalent of it. |
-| `Tune` | `Transpose` | Knob | `osc1.tune` / CC 9; shift: `osc1.transpose` / CC 3 | `Tune` is ±½ semitone via the 128-entry millisemitone table. `Transpose` is ±24 semitones via the 49-band `Transpose` lookup. **CC 3 is ambiguous** — see [Finding 3](#finding-3-cc-3-drives-either-osc-1-transpose-or-global-transpose). |
+| `Tune` | `Transpose` | Knob | `osc1.tune` / CC 9; shift: `osc1.transpose` / CC 3 | `Tune` is ±½ semitone via the 128-entry millisemitone table. `Transpose` is ±24 semitones via the 49-band `Transpose` lookup. CC 3 drives this knob and not the preset's own `transpose` — see [Finding 3](#finding-3-cc-3-drives-osc-1-transpose-and-the-presets-own-transpose-has-no-cc). |
 | `LFO1 Mod` | `EG1 Mod` | Knob | `osc1.lfo1Mod` / CC 22; shift: `osc1.eg1Mod` / CC 25 | Pitch modulation depth. |
 | `LFO2 Mod` | `LFO3 Mod` | Knob | `osc1.lfo2Mod` / CC 23; shift: `osc1.lfo3Mod` / CC 24 | Pitch modulation depth. |
 | (pulse width, unlabelled) | — | Knob | `osc1.pulseWidth` / CC 15 | No text label at all — two pulse-waveform glyphs sit below the knob, a narrow one at the left of its travel and a wider one at the right. 10%-50% duty cycle (manual p.8). Label it `Pulse Width` in the UI; the panel can rely on the glyphs and the editor can't. |
@@ -521,7 +521,7 @@ the editor cycles triangle → saw-tri → sawtooth → none, which is the only
 |---|---|---|---|---|
 | (waveform selector, unlabelled) | — | Button + LED column (3) | `osc2.shape` / CC 34 | As OSC 1. |
 | (pulse generator, unlabelled) | `Sync` | Button + LED | `osc2.shape` / CC 34; shift: `osc2Sync` / CC 51 | `osc2Sync` is a top-level `SinglePreset` field, not an `Oscillator` one — hard-sync is a relationship between the two oscillators, not a property of either. `OscSync`, 0-63 off / 64-127 on. |
-| `Tune` | `Transpose` | Knob | `osc2.tune` / CC 31; shift: `osc2.transpose` / CC 30 | CC 30 is unambiguous, unlike OSC 1's CC 3. |
+| `Tune` | `Transpose` | Knob | `osc2.tune` / CC 31; shift: `osc2.transpose` / CC 30 | As OSC 1, on its own controller. |
 | `LFO1 Mod` | `EG1 Mod` | Knob | `osc2.lfo1Mod` / CC 39; shift: `osc2.eg1Mod` / CC 42 | |
 | `LFO2 Mod` | `LFO3 Mod` | Knob | `osc2.lfo2Mod` / CC 40; shift: `osc2.lfo3Mod` / CC 41 | |
 | (pulse width, unlabelled) | — | Knob | `osc2.pulseWidth` / CC 35 | As OSC 1. |
@@ -994,24 +994,25 @@ CC 7 if the instrument sends one; since nothing can read the level back, it
 starts at full and says at the control that it shows what the editor has
 sent.
 
-### Finding 3: CC 3 drives either OSC 1 Transpose or global Transpose
+### Finding 3: CC 3 drives OSC 1 Transpose, and the preset's own Transpose has no CC
 
 The `Tune`/`Transpose` knob's shift layer is `osc1.transpose` (byte 20).
 There is also a separate global `transpose` field at byte 105 — reachable
 only from the Preset Menu on the hardware, with no panel control of its own.
 
-Both plausibly claim CC 3 and the ambiguity is unresolved
-(protocol-quirks open question #14, owned by HW-04). `cc-map.ts`
-maps CC 3 to **both** candidates; `applyCc(preset, 3, v)` returns
-`{ kind: "ambiguous" }` rather than picking one.
+**Both plausibly claimed CC 3; the hardware says it is the knob.** Serial
+#361 moves byte 20 to exactly the value an inbound CC 3 carries and leaves
+byte 105 alone, and the knob transmits CC 3 and nothing else; see
+`protocol-quirks.md` #14 for the measurement. `cc-map.ts` resolves CC 3 to
+`osc1Transpose` alone, so the Oscillators section's shift knob follows an
+inbound CC 3 like any other control.
 
-For the Oscillators section this is fine — the UI knows the user touched the
-OSC 1 knob, so it can call `writeField(preset, "osc1Transpose", v)`
-directly instead of going through `applyCc`. What it must not do is collapse
-the pair, or assume an inbound CC 3 from the hardware means OSC 1.
-
-Global `transpose` (byte 105) needs a home in the editor that isn't a panel
-section, since the panel gives it none.
+What the resolution takes away is the *other* field's controller. Byte 105
+is driven by no CC in the printed table, so the editor has no live path to
+it: SysEx cannot write volatile memory, which leaves writing a preset to
+flash and loading it, or the Preset Menu on the panel. A control for it
+still needs a home outside any panel section, and that control cannot behave
+like the panel knobs around it.
 
 ### Finding 4: the Resonance knob is writable after all
 
