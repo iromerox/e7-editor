@@ -165,8 +165,7 @@ export const OTHER_VOICES = 97;
 
 export type CcDirection = "bidirectional" | "inbound-only";
 
-// docs/protocol-quirks.md #13: unverified pending HW-03.
-const INBOUND_ONLY_CCS: ReadonlySet<number> = new Set([FILTER_RESONANCE]);
+const INBOUND_ONLY_CCS: ReadonlySet<number> = new Set();
 
 export function ccDirection(cc: number): CcDirection {
   return INBOUND_ONLY_CCS.has(cc) ? "inbound-only" : "bidirectional";

@@ -123,10 +123,12 @@ clicked through:
 
 Control changes are their own control, above both groups. They are the reason
 the section exists: the editor sends only controllers a preset field maps to,
-and refuses outright any whose `ccDirection` is `inbound-only` — which is
-exactly CC 71, the controller `protocol-quirks.md` #13 is unverified about.
-The console sends it. Control changes from here also bypass the outbound rate
-limiter, so what the log records is what went out, at the moment it went out.
+and refuses any whose `ccDirection` is `inbound-only`, while the console
+sends whatever number is typed. That is how CC 71 was settled — the editor
+would not send it precisely because it was marked inbound-only, which is the
+flag the test existed to check (`protocol-quirks.md` #13). Control changes
+from here also bypass the outbound rate limiter, so what the log records is
+what went out, at the moment it went out.
 
 Addresses and data bytes are typed as hex (`01FE00`, or `0x01FE00`; data as
 space-separated byte pairs, `4F 10 00`, the same form the log prints, so a

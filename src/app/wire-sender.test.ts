@@ -11,7 +11,6 @@ import {
   SYSEX_COMMAND_IDS,
   SysExAddressRangeError,
   SysExDataByteRangeError,
-  ccDirection,
   encodeResponse,
 } from "../protocol";
 import { HexFieldError } from "./errors";
@@ -128,8 +127,7 @@ function hex(...bytes: number[]): Uint8Array {
 }
 
 describe("sendControlChange", () => {
-  it("sends a controller the editor refuses to send, on the operator's channel and value", () => {
-    expect(ccDirection(FILTER_RESONANCE)).toBe("inbound-only");
+  it("sends any controller at all, on the operator's channel and value", () => {
     const { connection, output } = bench();
     const events: WireEvent[] = [];
 

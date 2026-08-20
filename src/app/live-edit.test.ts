@@ -119,19 +119,19 @@ describe("createLiveEdit", () => {
     expect(sent).toEqual([]);
   });
 
-  it("holds back a control change the device is not known to accept", () => {
+  it("sends Filter Resonance, which the device turned out to accept", () => {
     const { controls, live, sent } = setUp({ kind: "channel", channel: 1 });
 
     live.write("filterResonance", 64);
 
     expect(readField(controls.state.editor.preset, "filterResonance")).toBe(64);
-    expect(sent.map((cc) => cc.controller)).not.toContain(FILTER_RESONANCE);
+    expect(sent).toEqual([{ channel: 1, controller: FILTER_RESONANCE, value: 64 }]);
   });
 
-  it("hands the UI a read-only control for a field the device only reports", () => {
+  it("hands the UI a turnable control for every filter field", () => {
     const { live } = setUp({ kind: "channel", channel: 1 });
 
-    expect(live.control("filterResonance", { label: "Resonance" }).readOnly).toBe(true);
+    expect(live.control("filterResonance", { label: "Resonance" }).readOnly).toBe(false);
     expect(live.control("filterCutoff", { label: "Cutoff" }).readOnly).toBe(false);
   });
 

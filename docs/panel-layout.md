@@ -572,7 +572,7 @@ cutoff.
 | `EG1 Mod` | `Velocity EG1 Mod` | Knob | `filter.eg1Mod` / CC 89; shift: `filter.velocityEg1Mod` / CC 86 | EG1 is the filter-oriented envelope (manual p.9). |
 | `LFO1 Mod` | — | Knob | `filter.lfo1Mod` / CC 90 | The manual's LFO1 MOD entry on p.10 says "modulation from the EG1 to the cutoff frequency" — a copy-paste error in the document. It is LFO 1. |
 | `LFO2 Mod` | `LFO3 Mod` | Knob | `filter.lfo2Mod` / CC 91; shift: `filter.lfo3Mod` / CC 92 | |
-| `Resonance` | — | Knob | `filter.resonance` / CC 71 | **CC 71 is modelled inbound-only** (`ccDirection` in `src/protocol/cc.ts`) pending hardware confirmation: the device reports panel changes but may not accept outbound writes. The editor therefore draws this knob read-only until the hardware test settles it. See [Finding 4](#finding-4-the-resonance-knob-may-not-be-writable). |
+| `Resonance` | — | Knob | `filter.resonance` / CC 71 | CC 71 is bidirectional and undocumented — the printed CC table lists no Resonance at all. See [Finding 4](#finding-4-the-resonance-knob-is-writable-after-all). |
 | `Keyboard tracking` | — | Knob | `filter.keyboardTracking` / CC 85 | |
 | `Mod Wheel` | `Aftertouch` | Knob | `filter.modWheelMod` / CC 88; shift: `filter.aftertouchMod` / CC 87 | |
 
@@ -1013,27 +1013,22 @@ the pair, or assume an inbound CC 3 from the hardware means OSC 1.
 Global `transpose` (byte 105) needs a home in the editor that isn't a panel
 section, since the panel gives it none.
 
-### Finding 4: the Resonance knob may not be writable
+### Finding 4: the Resonance knob is writable after all
 
-`filter.resonance` / CC 71 is modelled **inbound-only** (`ccDirection` in
-`src/protocol/cc.ts`): the device is understood to report front-panel
-resonance changes but may not accept outbound CC 71. That framing is
-unverified, pending HW-03.
+`filter.resonance` / CC 71 was modelled **inbound-only** — the device was
+understood to report front-panel resonance changes but not to accept them —
+and the Filter section drew the knob dimmed and unturnable on that basis.
 
-If it holds, a resonance knob in the editor updates the view and the library
-entry but never reaches the instrument — a knob that looks like every other
-knob and silently doesn't work. Don't remove the inbound-only framing while
-it is still unverified.
+**The hardware says otherwise.** Serial #361 both receives CC 71 and
+transmits it from the panel knob; see `protocol-quirks.md` #13 for the
+measurement. `Resonance` is now an ordinary knob, turnable like every other
+control in the section, and nothing in the panel is read-only for reasons of
+CC direction.
 
-**Resolved for now: the knob is read-only.** The Filter section draws
-`Resonance` like every other knob, dimmed and not turnable, so it shows what
-the instrument reports and refuses the edit that would go nowhere. Any
-control bound to a CC `ccDirection` calls inbound-only comes out this way —
-the read-only flag is set where a field becomes a control value, not per
-section. The cost is that resonance can't be dialled in from the editor at
-all, including for a preset destined for the library; that is the deliberate
-trade against a knob that lies. Revisit when the hardware test resolves the
-directionality.
+What survives the correction is that **CC 71 is undocumented**: the printed
+CC table has no Resonance row, so this controller is known only from the
+instrument. Its number cannot be cited to a page the way every other CC in
+the section can.
 
 ### Finding 5: parameters with a CC and no control behind it
 

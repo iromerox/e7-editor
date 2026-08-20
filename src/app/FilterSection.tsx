@@ -134,7 +134,7 @@ export function FilterSection(props: FilterSectionProps): JSX.Element {
             primary={props.live.control("filterResonance", {
               label: "Resonance",
               description:
-                "Emphasis around the cutoff frequency; at maximum the filter oscillates into a pure tone. The device reports this knob but is not known to accept it, so the editor only follows the instrument here.",
+                "Emphasis around the cutoff frequency; at maximum the filter oscillates into a pure tone.",
             })}
           />
         </Cell>

@@ -99,11 +99,8 @@ describe("encodeControlChange", () => {
 });
 
 describe("ccDirection", () => {
-  it("flags Filter Resonance as inbound-only", () => {
-    expect(ccDirection(FILTER_RESONANCE)).toBe("inbound-only");
-  });
-
-  it("treats every other CC as bidirectional", () => {
+  it("treats every CC as bidirectional, Filter Resonance included", () => {
+    expect(ccDirection(FILTER_RESONANCE)).toBe("bidirectional");
     expect(ccDirection(LFO1_RATE)).toBe("bidirectional");
   });
 });

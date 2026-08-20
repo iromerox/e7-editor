@@ -37,6 +37,7 @@ type KnobEntry = readonly [label: string, field: CcField, shift: boolean];
 
 const KNOBS: readonly KnobEntry[] = [
   ["Cutoff", "filterCutoff", false],
+  ["Resonance", "filterResonance", false],
   ["EG1 Mod", "filterEg1Mod", false],
   ["Velocity EG1 Mod", "filterVelocityEg1Mod", true],
   ["LFO1 Mod", "filterLfo1Mod", false],
@@ -99,7 +100,7 @@ describe("FilterSection", () => {
     expect(screen.getByRole("slider", { name: "Resonance" }).style.width).toBe("3rem");
   });
 
-  it("drives every writable filter field, sending the control change the spec gives it", async () => {
+  it("drives every filter knob, sending the control change behind it", async () => {
     for (const entry of KNOBS) {
       await nudge(entry);
       expect(readField(controls.state.editor.preset, entry[1])).toBe(1);
@@ -107,17 +108,16 @@ describe("FilterSection", () => {
     }
   });
 
-  it("leaves Resonance to the device, since CC 71 is not known to be writable", async () => {
+  it("turns Resonance like any other knob, on a drag as well as a key", () => {
     const resonance = screen.getByRole("slider", { name: "Resonance" });
-    expect(resonance).toHaveAttribute("aria-readonly", "true");
+    expect(resonance).not.toHaveAttribute("aria-readonly", "true");
 
-    await fireEvent.keyDown(resonance, { key: "ArrowUp" });
     fireEvent.pointerDown(resonance, { button: 0, clientX: 0, clientY: 300 });
     fireEvent.pointerMove(window, { clientX: 0, clientY: 100 });
     fireEvent.pointerUp(window);
 
-    expect(readField(controls.state.editor.preset, "filterResonance")).toBe(0);
-    expect(sent.filter((cc) => cc.controller === FILTER_RESONANCE)).toHaveLength(0);
+    expect(readField(controls.state.editor.preset, "filterResonance")).toBeGreaterThan(0);
+    expect(sent.filter((cc) => cc.controller === FILTER_RESONANCE).length).toBeGreaterThan(0);
   });
 
   it("still follows the resonance the device reports", () => {
@@ -126,12 +126,6 @@ describe("FilterSection", () => {
     expect(screen.getByRole("slider", { name: "Resonance" })).toHaveAttribute(
       "aria-valuenow",
       "96",
-    );
-  });
-
-  it("says at Resonance why it is the one knob that does not turn", () => {
-    expect(screen.getByRole("slider", { name: "Resonance" }).getAttribute("title")).toContain(
-      "follows the instrument",
     );
   });
 });

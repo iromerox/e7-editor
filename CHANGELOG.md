@@ -707,6 +707,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the 128 — and writes to it are now refused as writes to the single factory
   range are. The refusal names the first address that kind can be written to:
   `1.8.1` for a single, `1.2.1` for a multi.
+- The `Resonance` knob turns. CC 71 was modelled inbound-only on an
+  unverified note, which drew the knob dimmed and held back every edit made
+  to it; the instrument turns out to accept the controller, so the editor
+  sends it like any other and no control is read-only for reasons of CC
+  direction. `ccDirection` stays, with nothing marked.
 
 ### Fixed
 
@@ -920,3 +925,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   first captures from a real instrument — preset 1.1.1 read a block at a time
   with no malformed frame anywhere, and one Read Memory drawing two frames
   with no device behavior behind it.
+- Settled Filter Resonance against real hardware: CC 71 is bidirectional, not
+  inbound-only. Sent on the receive channel it moves byte 71 of the edit
+  buffer to exactly the value sent, while a controller the CC table does not
+  assign moves nothing; turned on the panel it transmits a continuous run of
+  the same controller. Recorded alongside it that CC 71 appears nowhere in
+  the printed CC table — the FILTER section lists no Resonance row at all —
+  so the controller is known only from the instrument and can be cited to no
+  page, and that byte 71 of the preset structure holding Resonance is a
+  coincidence of numbering rather than a rule.

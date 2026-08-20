@@ -192,12 +192,34 @@ something the device does.
 These have not been resolved against real hardware yet — track as open
 questions, not assumptions:
 
-13. **Filter Resonance (CC 71)** is now defined (`FILTER_RESONANCE` in
-    `src/protocol/cc.ts`) and marked **inbound-only** (`ccDirection`) per
-    informal hardware notes (device reports panel changes, may not accept
-    outbound writes) — this framing is still **unverified**, pending
-    confirmation in HW-03. Don't remove the unverified framing until HW-03
-    resolves it.
+13. **Filter Resonance (CC 71) is resolved and bidirectional** — this entry
+    stays numbered here rather than moving to the confirmed section below so
+    the cross-references to "#13" keep resolving.
+
+    **Hardware-confirmed 2026-08-19**, serial #361, over USB. The device
+    receives CC 71: sending it on the receive channel moved byte 71 of the
+    edit buffer (`0x030800`, the volatile Current Preset) to 0, 32, 96 and
+    127 in turn, each landing on the value sent with no scaling. CC 74
+    (Cutoff) was the positive control and moved byte 70 the same way; CC 102,
+    which the CC table does not assign, moved neither byte, so the instrument
+    is answering the controller rather than any control change. The device
+    also transmits CC 71: turning the panel `Resonance` knob produced a
+    continuous run of `B0 47 xx` and nothing else. The run that measured the
+    inbound half was separate from the one that measured the outbound half,
+    because the panel writes the same byte the outbound test reads back.
+
+    So the earlier reading — device reports panel changes, may not accept
+    outbound writes — was half right and is withdrawn. `ccDirection` no
+    longer flags CC 71, the editor sends it like any other controller, and
+    the `Resonance` knob turns.
+
+    **CC 71 is not in the printed CC table.** The FILTER section on p.4 lists
+    Cutoff, EG1 Mod, Velocity EG1 Mod, LFO1-3 Mod, Keyboard Tracking, Mod
+    Wheel and Aftertouch, and no Resonance; 71 is assigned to nothing else in
+    that table either. Byte 71 of the preset structure *is* FILTER Resonance
+    (p.25), which is a coincidence of numbering rather than a rule — Cutoff
+    is byte 70 and CC 74. The controller is real and undocumented, which is
+    why nothing in the repo can cite a page for it.
 14. **`GlobalTranspose` vs. `Osc1Transpose`** both plausibly claim CC 3.
     The CC table (p.5) lists CC 3 as OSC1 Transpose, but the byte map (p.25)
     has both an OSC1 Transpose byte (20) and a bare Transpose byte (105) —
