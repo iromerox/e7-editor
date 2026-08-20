@@ -651,6 +651,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   this page does, so an interval below `MIN_CC_INTERVAL_MS` is delivered as
   typed; every report says so on its last line.
 
+- `src/protocol/transpose.ts`: `presetTransposeFromByte` and
+  `presetTransposeToByte` for the preset's own `transpose` (byte 105), which
+  is linear — `64 + n`, one byte per semitone — over ±48 semitones in bytes
+  16-112. Deliberately a second conversion beside the oscillators' 49-band CC
+  lookup rather than a reuse of it: the two ranges and encodings differ and
+  agree only at byte 64, so a readout built on the wrong one looks correct at
+  rest and is wrong everywhere else. Covered by a fixture test built from the
+  readings the instrument gave.
+
 ### Changed
 
 - Consolidated every protocol error class into `src/protocol/errors.ts` as a
@@ -956,3 +965,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   observation rather than an argument from the table's silence; the same
   sweep put the byte's range at 16-112 rather than 0-127, which rules out the
   49-band `Transpose` lookup and leaves its own encoding unresolved.
+- Settled how the preset's global transpose encodes semitones, closing the
+  question the CC 3 work left open. Byte 105 is linear — `64 + n`, byte 64 at
+  rest — over ±48 semitones, occupying bytes 16-112. Nine readings taken from
+  the instrument while the Preset Menu displayed the value beside the byte,
+  the outermost pair being the menu's own limits, and the manual states the
+  same range twice (p.19 for the Preset Menu, p.22 for a multi part's
+  `CH/TRANSP`, which is the same byte of that part's own preset). This is not
+  the oscillators' encoding and not their range: they use the 49-band CC
+  lookup over ±24, the two agree on byte 64 alone, and one silkscreened word
+  covers both — recorded so the off-panel control is not built on the
+  section knobs' conversion.

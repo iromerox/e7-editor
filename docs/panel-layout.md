@@ -1014,6 +1014,14 @@ flash and loading it, or the Preset Menu on the panel. A control for it
 still needs a home outside any panel section, and that control cannot behave
 like the panel knobs around it.
 
+**It is not the same parameter as the knob in a second way.** The panel's
+`Transpose` shift layer is ±24 semitones through the 49-band CC lookup
+(manual p.8); the Preset Menu's is **±48**, stored linearly as `64 + n` in
+bytes 16-112 (manual p.19, hardware-confirmed — `protocol-quirks.md` #14).
+Two controls, two ranges, two encodings, one silkscreened word. Label the
+off-panel control so it cannot be read as the oscillator's, and give it
+`presetTransposeFromByte` rather than the lookup the section knobs use.
+
 ### Finding 4: the Resonance knob is writable after all
 
 `filter.resonance` / CC 71 was modelled **inbound-only** — the device was

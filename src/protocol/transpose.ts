@@ -1,6 +1,7 @@
-// Irregular 49-band CC-to-semitone lookup for Transpose.
+// The two transpose encodings: an irregular 49-band CC lookup for the oscillators, and a linear byte for the preset's own.
 import type { Zone } from "./cc";
 import { decodeZoned, encodeZoned } from "./cc";
+import { ReservedValue } from "./errors";
 
 export type Transpose =
   | -24
@@ -111,4 +112,32 @@ export function transposeFromCc(value: number): Transpose {
 
 export function transposeToCc(transpose: Transpose): number {
   return encodeZoned(transpose, TRANSPOSE_ZONES);
+}
+
+export const PRESET_TRANSPOSE_MIN = -48;
+export const PRESET_TRANSPOSE_MAX = 48;
+export const PRESET_TRANSPOSE_ZERO_BYTE = 64;
+export const PRESET_TRANSPOSE_BYTE_MIN = PRESET_TRANSPOSE_ZERO_BYTE + PRESET_TRANSPOSE_MIN;
+export const PRESET_TRANSPOSE_BYTE_MAX = PRESET_TRANSPOSE_ZERO_BYTE + PRESET_TRANSPOSE_MAX;
+
+export function presetTransposeFromByte(byte: number): number {
+  if (
+    !Number.isInteger(byte) ||
+    byte < PRESET_TRANSPOSE_BYTE_MIN ||
+    byte > PRESET_TRANSPOSE_BYTE_MAX
+  ) {
+    throw new ReservedValue(byte, PRESET_TRANSPOSE_BYTE_MAX);
+  }
+  return byte - PRESET_TRANSPOSE_ZERO_BYTE;
+}
+
+export function presetTransposeToByte(semitones: number): number {
+  if (
+    !Number.isInteger(semitones) ||
+    semitones < PRESET_TRANSPOSE_MIN ||
+    semitones > PRESET_TRANSPOSE_MAX
+  ) {
+    throw new ReservedValue(semitones, PRESET_TRANSPOSE_MAX);
+  }
+  return semitones + PRESET_TRANSPOSE_ZERO_BYTE;
 }

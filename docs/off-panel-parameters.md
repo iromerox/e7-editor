@@ -38,7 +38,7 @@ touches.
 | Field | Byte | CC | Reached from | Status |
 |---|---|---|---|---|
 | `portamento.on` | 48 | 65 | Nothing — the panel has `Portamento Time` and no on/off | Real — **written by the `Portamento Time` knob**, on above zero |
-| `transpose` | 105 | — | Preset Menu (Shift + button 5) | Menu-only, and **unreachable live** — see below |
+| `transpose` | 105 | — | Preset Menu (Shift + button 5); a multi part's `CH/TRANSP` | Menu-only, and **unreachable live** — ±48 semitones as `64 + n`, see below |
 | `monoVoice` / `polyVoice` | 106 / 107 | 97, packed as `16*V1 + V2` | Preset Menu; the `VOICES` LED row is an indicator, not a control | Menu-only — **built**, as the two selectors in `VOICES` |
 | `part1Only.name` | 0-19 | — | The save flow: `Bank`+`Shift`, then character entry on buttons 1-5 | Menu-only |
 | `part1Only.lock` | 127 | — | Not reachable from the panel at all — SysEx only | Real |
@@ -83,13 +83,18 @@ loaded, or the Preset Menu on the panel. A control for it still needs a home
 outside any panel section, and it cannot write through to the device the way
 every other editor control does.
 
-Two measurements to build that control against, both from the same session
-and neither of them from a page: byte 105 ranges over **16-112**, not 0-127,
-so it does not use the 49-band `Transpose` lookup the oscillator transpose
-bytes use — how it does encode semitones is unresolved. And sweeping it from
-the Preset Menu transmits nothing, where sweeping the `Tune` knob transmits a
-continuous run of CC 3, which is what makes "no controller" an observation
-here rather than an argument from the table's silence.
+**Its encoding is not the oscillators'.** Byte 105 is linear — `64 + n`, one
+byte per semitone, byte 64 at rest — over **±48 semitones**, twice the
+oscillators' range, occupying bytes 16-112. Measured across nine readings
+against serial #361 and stated in the manual twice (p.19 for the Preset Menu,
+p.22 for a multi part's `CH/TRANSP`). The oscillators go through the 49-band
+CC lookup over ±24 instead, and the two agree only at byte 64, so building
+this control on `transposeFromCc` would look right at rest and be wrong
+everywhere else. Use `presetTransposeFromByte` / `presetTransposeToByte`.
+
+Sweeping it from the Preset Menu transmits nothing, where sweeping the `Tune`
+knob transmits a continuous run of CC 3 — which is what makes "no controller"
+an observation here rather than an argument from the table's silence.
 
 ### `lfo1.eg1Mod`
 

@@ -251,16 +251,31 @@ questions, not assumptions:
     it, or from the Preset Menu on the panel.
 
     Whether an *undocumented* CC drives byte 105, the way CC 71 turned out to
-    drive resonance (#13), is not settled, but the same session's evidence
-    runs against it: sweeping the byte across its whole range from the Preset
-    Menu transmitted **nothing at all**, where a comparable sweep of the
-    `Tune` knob transmits a continuous run of CC 3. That says the instrument
-    associates no controller with this parameter on the way out; only a sweep
-    of all 128 controllers against the byte would settle the way in. Recorded
-    with it, from the same run and unexplained: byte 105 ranges over
-    **16-112** rather than 0-127, which rules out the 49-band `Transpose`
-    lookup the oscillator transpose bytes use, and leaves the byte's own
-    semitone encoding an open question. See `panel-layout.md` Finding 3.
+    drive resonance (#13), is not settled, but the evidence runs against it:
+    sweeping the byte across its whole range from the Preset Menu transmitted
+    **nothing at all**, where a comparable sweep of the `Tune` knob transmits
+    a continuous run of CC 3. That says the instrument associates no
+    controller with this parameter on the way out; only a sweep of all 128
+    controllers against the byte would settle the way in.
+
+    **Byte 105 encodes semitones as `64 + n`, over -48..+48.** Confirmed
+    2026-08-20 against serial #361: nine readings of the byte taken while the
+    Preset Menu displayed the value beside it — 0/64, ±12/52/76, ±24/40/88,
+    ±36/28/100, ±48/16/112 — with the last pair being the menu's own limits.
+    One byte per semitone, byte 64 for no transposition, hard-limited to
+    16-112.
+
+    **This is not the encoding the oscillators use, and the range is not
+    theirs either.** OSC 1 and OSC 2 Transpose go through the 49-band CC
+    lookup on p.7 over ±24 semitones (manual p.8); byte 105 is linear over
+    ±48 (manual p.19, and p.22 for a multi part's `CH/TRANSP`, which is the
+    same byte of that part's own 128). The two agree on exactly one value —
+    byte 64 is 0 in both — so a control built on the wrong conversion looks
+    correct at rest and is wrong everywhere else, by a factor of roughly two
+    near the middle and by more at the extremes. `presetTransposeFromByte` /
+    `presetTransposeToByte` in `src/protocol/transpose.ts` are the right pair,
+    deliberately sitting beside `transposeFromCc` so the difference is visible
+    at the point of use. See `panel-layout.md` Finding 3.
 15. Whether other Read commands (Autotuning, Lock echo, Write Memory echo)
     exhibit the same prelude as Read Memory (#12) is **mostly moot now that
     #12 is a host artifact**: there is no device prelude for any command to
