@@ -1,12 +1,11 @@
-// Delay clock-sync rate divisions (15 musical divisions); hardware-captured
-// zone boundaries in a different byte order than LfoClockRate, unverified
-// pending hardware re-validation.
+// Delay clock-sync rate: the LFO's 15 divisions again, over a reversed controller axis.
 import type { Zone } from "./cc";
 import { decodeZoned, encodeZoned } from "./cc";
 
 export type DelayClockRate =
-  | "sixteenth"
+  | "thirty-second"
   | "sixteenth-triplet"
+  | "sixteenth"
   | "eighth-triplet"
   | "dotted-sixteenth"
   | "eighth"
@@ -18,25 +17,24 @@ export type DelayClockRate =
   | "half"
   | "whole-triplet"
   | "dotted-half"
-  | "whole"
-  | "thirty-second";
+  | "whole";
 
 const DELAY_CLOCK_RATE_ZONES: readonly Zone<DelayClockRate>[] = [
-  { max: 15, variant: "sixteenth" },
-  { max: 17, variant: "sixteenth-triplet" },
-  { max: 25, variant: "eighth-triplet" },
-  { max: 33, variant: "dotted-sixteenth" },
-  { max: 41, variant: "eighth" },
-  { max: 49, variant: "quarter-triplet" },
-  { max: 58, variant: "dotted-eighth" },
-  { max: 66, variant: "quarter" },
-  { max: 73, variant: "half-triplet" },
-  { max: 81, variant: "dotted-quarter" },
-  { max: 90, variant: "half" },
-  { max: 98, variant: "whole-triplet" },
-  { max: 106, variant: "dotted-half" },
-  { max: 119, variant: "whole" },
-  { max: 127, variant: "thirty-second" },
+  { max: 15, variant: "thirty-second" },
+  { max: 23, variant: "sixteenth-triplet" },
+  { max: 31, variant: "sixteenth" },
+  { max: 39, variant: "eighth-triplet" },
+  { max: 47, variant: "dotted-sixteenth" },
+  { max: 55, variant: "eighth" },
+  { max: 63, variant: "quarter-triplet" },
+  { max: 71, variant: "dotted-eighth" },
+  { max: 79, variant: "quarter" },
+  { max: 87, variant: "half-triplet" },
+  { max: 95, variant: "dotted-quarter" },
+  { max: 103, variant: "half" },
+  { max: 111, variant: "whole-triplet" },
+  { max: 119, variant: "dotted-half" },
+  { max: 127, variant: "whole" },
 ];
 
 export function delayClockRateFromCc(value: number): DelayClockRate {

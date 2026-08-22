@@ -154,7 +154,7 @@ were transcribed from is the honest form; nothing else marks a file as
 synthetic, and a hand-written capture that claims a serial number is
 indistinguishable from a measurement.
 
-Four are committed today. Two are hand-written:
+Six are committed today. Two are hand-written:
 
 - `fixtures/fragmented-frame.wire` — one frame delivered in three pieces, the
   bytes `src/midi/reassembly.test.ts` used to build inline.
@@ -164,7 +164,7 @@ Four are committed today. Two are hand-written:
   written from, not as evidence for it; the two captures below are what the
   instrument actually did.
 
-Two came off serial 361:
+Four came off serial 361:
 
 - `fixtures/read-memory-clean.wire` — preset 1.1.1 read a block at a time, one
   frame per command and every frame a documented response. The normal case, and
@@ -173,8 +173,16 @@ Two came off serial 361:
   first of them short and undecodable, on a session that opened while an
   earlier one's answer was still pending. #12's shape with no device behavior
   behind it.
+- `fixtures/lfo-clock-rate-zones.wire` and `fixtures/delay-clock-rate-zones.wire`
+  — each knob turned by hand across its whole travel, twice, while the value was
+  read back a block at a time. These are what `protocol-quirks.md` #20 rests on,
+  and they are the first captures here whose point is not in the bytes: the
+  divisions were read off the instrument's display by eye, so the header notes
+  carry the readings and the frames only carry where the knob was. A capture
+  whose meaning lives in its comments is unusual enough to say out loud —
+  nothing loads those notes, and no test can check them.
 
-Both were taken from Node over CoreMIDI rather than through the console, which
+All were taken from Node over CoreMIDI rather than through the console, which
 their `device` line says, because a browser that will not grant SysEx has no way
 to reach the instrument. They were written by `formatWireLog` all the same, so
 what is committed is the same shape the console saves.

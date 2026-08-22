@@ -743,6 +743,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   above 71 is the reachable case — the packed Voices accessor rejects such a
   value on write — and it previously threw out of the control-change
   subscription, ending live tracking for every other parameter too.
+- `LfoClockRate` and `DelayClockRate` now select the division the instrument
+  actually selects. Every boundary in both tables was wrong, by up to eight
+  controller values, so a clock-synced rate set from the editor landed on a
+  neighbouring note value for most of each knob's travel. Both turn out to be
+  regular 8-wide bands over the manual's division order rather than the
+  irregular layouts they were carried as, and the delay's is the LFO's with
+  the controller axis reversed.
 
 ### Documentation
 
@@ -976,3 +983,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   lookup over ±24, the two agree on byte 64 alone, and one silkscreened word
   covers both — recorded so the off-panel control is not built on the
   section knobs' conversion.
+- Recorded the clock-sync rate divisions as measured, with the two wire
+  captures behind them. The instrument's display is the only thing that names
+  a division and it answers only to the panel, never to an incoming CC —
+  Filter Cutoff moved its byte without ever lighting the screen — so both
+  tables were captured by turning the knob and reading the value back. Noted
+  with them that `Delay Time` sweeps from the shortest division to the
+  longest while `LFO 1 Rate` sweeps the other way, so a control that sweeps
+  both the same direction is wrong on one of them.

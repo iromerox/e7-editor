@@ -732,6 +732,15 @@ carrying the type on its shift layer.
 
 Delay is `part1Only` for the same reason Chorus is.
 
+**In the sync types, this knob runs backwards relative to LFO 1/2's `Rate`.**
+Clockwise here goes from the shortest division to the longest — `1/32 Note` at
+minimum, `Whole Note` at maximum — where the LFO rate knobs go the other way.
+Both are the same 15 divisions in the same order; the delay's controller axis
+is simply reversed, which `protocol-quirks.md` #20 records with the measured
+bands. It is real hardware behavior rather than a labelling accident, so a
+shared clock-division control that sweeps one direction for both is wrong on
+one of them, and the two need opposite mappings from knob angle to value.
+
 ---
 
 ## Portamento / Polyphony modes

@@ -2,23 +2,24 @@ import type { DelayClockRate } from "./delay-clock-rate";
 import { describe, expect, it } from "vitest";
 import { delayClockRateFromCc, delayClockRateToCc } from "./delay-clock-rate";
 import { ReservedValue } from "./errors";
+import { lfoClockRateFromCc, lfoClockRateToCc } from "./lfo-clock-rate";
 
 const BOUNDARIES: readonly [min: number, max: number, rate: DelayClockRate][] = [
-  [0, 15, "sixteenth"],
-  [16, 17, "sixteenth-triplet"],
-  [18, 25, "eighth-triplet"],
-  [26, 33, "dotted-sixteenth"],
-  [34, 41, "eighth"],
-  [42, 49, "quarter-triplet"],
-  [50, 58, "dotted-eighth"],
-  [59, 66, "quarter"],
-  [67, 73, "half-triplet"],
-  [74, 81, "dotted-quarter"],
-  [82, 90, "half"],
-  [91, 98, "whole-triplet"],
-  [99, 106, "dotted-half"],
-  [107, 119, "whole"],
-  [120, 127, "thirty-second"],
+  [0, 15, "thirty-second"],
+  [16, 23, "sixteenth-triplet"],
+  [24, 31, "sixteenth"],
+  [32, 39, "eighth-triplet"],
+  [40, 47, "dotted-sixteenth"],
+  [48, 55, "eighth"],
+  [56, 63, "quarter-triplet"],
+  [64, 71, "dotted-eighth"],
+  [72, 79, "quarter"],
+  [80, 87, "half-triplet"],
+  [88, 95, "dotted-quarter"],
+  [96, 103, "half"],
+  [104, 111, "whole-triplet"],
+  [112, 119, "dotted-half"],
+  [120, 127, "whole"],
 ];
 
 describe("DelayClockRate", () => {
@@ -40,9 +41,15 @@ describe("DelayClockRate", () => {
     expect(() => delayClockRateFromCc(128)).toThrow(ReservedValue);
   });
 
-  it("uses a different byte ordering than LfoClockRate despite sharing division names", () => {
-    expect(delayClockRateToCc("sixteenth")).toBe(0);
-    expect(delayClockRateToCc("whole")).toBe(107);
-    expect(delayClockRateToCc("thirty-second")).toBe(120);
+  it("mirrors LfoClockRate across the controller range", () => {
+    for (let cc = 0; cc <= 127; cc++) {
+      expect(delayClockRateFromCc(cc)).toBe(lfoClockRateFromCc(127 - cc));
+    }
+  });
+
+  it("is not interchangeable with LfoClockRate at the same CC value", () => {
+    expect(delayClockRateToCc("whole")).toBe(120);
+    expect(lfoClockRateToCc("whole")).toBe(0);
+    expect(delayClockRateFromCc(0)).not.toBe(lfoClockRateFromCc(0));
   });
 });

@@ -405,3 +405,34 @@ were learned by running the instrument rather than by reading.
     what it writes. This is why `isPresetLocked` testing `=== 1` rather than
     `!== 0` is load-bearing: a `!== 0` test reports every blank slot as
     locked.
+
+20. **The clock-sync rate divisions are regular 8-wide bands, and the delay's
+    run backwards.** The MIDI implementation gives these no table at all; the
+    user manual names the 15 divisions and fixes their order (p.14, and p.15
+    for the delay, which defers to p.14) but says nothing about which CC
+    values select which. Measured on serial #361, both are the same regular
+    shape the document's other zoned CCs use — bands of 8, the fifteenth
+    division absorbing the 16-value remainder — over the manual's order:
+
+    | | band for division *i* | remainder band |
+    |---|---|---|
+    | `LfoClockRate` (CC 76) | `[8i, 8i+7]`, ascending from `Whole Note` at 0 | `1/32 Note`, 112-127 |
+    | `DelayClockRate` (CC 111) | the same bands, descending from `Whole Note` at 127 | `1/32 Note`, 0-15 |
+
+    So `delayClockRateFromCc(cc)` equals `lfoClockRateFromCc(127 - cc)` at
+    every one of the 128 values, and `delay-clock-rate.test.ts` asserts
+    exactly that. The two are a mirrored axis rather than two unrelated
+    orderings — which is visible at the panel, where `Delay Time` sweeps from
+    the shortest division to the longest and `LFO 1 Rate` sweeps the other
+    way. A control built to sweep both the same direction is wrong on one of
+    them.
+
+    Neither table's previously shipped boundaries were right; they came from
+    an earlier reverse-engineering pass and drifted by up to eight values.
+    Captured by turning each knob against the instrument's own display, since
+    **the display answers only to the panel and never to an incoming CC** —
+    Filter Cutoff was tested as a control and moved the byte without ever
+    lighting the screen. The edit buffer is no help either: byte 54 tracks CC
+    76 and byte 116 tracks CC 111 exactly, so nothing readable over MIDI names
+    the division. See `fixtures/lfo-clock-rate-zones.wire` and
+    `fixtures/delay-clock-rate-zones.wire`.

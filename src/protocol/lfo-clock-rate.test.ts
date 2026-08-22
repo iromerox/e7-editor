@@ -4,21 +4,21 @@ import { ReservedValue } from "./errors";
 import { lfoClockRateFromCc, lfoClockRateToCc } from "./lfo-clock-rate";
 
 const BOUNDARIES: readonly [min: number, max: number, rate: LfoClockRate][] = [
-  [0, 0, "whole"],
-  [1, 8, "dotted-half"],
-  [9, 16, "whole-triplet"],
-  [17, 23, "half"],
-  [24, 32, "dotted-quarter"],
-  [33, 40, "half-triplet"],
-  [41, 48, "quarter"],
-  [49, 55, "dotted-eighth"],
-  [56, 64, "quarter-triplet"],
-  [65, 71, "eighth"],
-  [72, 80, "dotted-sixteenth"],
-  [81, 87, "eighth-triplet"],
-  [88, 96, "sixteenth"],
-  [97, 103, "sixteenth-triplet"],
-  [104, 127, "thirty-second"],
+  [0, 7, "whole"],
+  [8, 15, "dotted-half"],
+  [16, 23, "whole-triplet"],
+  [24, 31, "half"],
+  [32, 39, "dotted-quarter"],
+  [40, 47, "half-triplet"],
+  [48, 55, "quarter"],
+  [56, 63, "dotted-eighth"],
+  [64, 71, "quarter-triplet"],
+  [72, 79, "eighth"],
+  [80, 87, "dotted-sixteenth"],
+  [88, 95, "eighth-triplet"],
+  [96, 103, "sixteenth"],
+  [104, 111, "sixteenth-triplet"],
+  [112, 127, "thirty-second"],
 ];
 
 describe("LfoClockRate", () => {
@@ -38,5 +38,12 @@ describe("LfoClockRate", () => {
 
   it("rejects a CC value past the last zone", () => {
     expect(() => lfoClockRateFromCc(128)).toThrow(ReservedValue);
+  });
+
+  it("bands the range in eights, the last division taking the remainder", () => {
+    const order = BOUNDARIES.map(([, , rate]) => rate);
+    for (let cc = 0; cc <= 127; cc++) {
+      expect(lfoClockRateFromCc(cc)).toBe(order[Math.min(Math.floor(cc / 8), order.length - 1)]);
+    }
   });
 });

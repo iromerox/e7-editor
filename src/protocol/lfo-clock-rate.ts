@@ -1,5 +1,4 @@
-// LFO clock-sync rate divisions (15 musical divisions); hardware-captured
-// zone boundaries, unverified pending hardware re-validation.
+// LFO clock-sync rate: the 15 musical divisions and the CC zones that select them.
 import type { Zone } from "./cc";
 import { decodeZoned, encodeZoned } from "./cc";
 
@@ -21,20 +20,20 @@ export type LfoClockRate =
   | "thirty-second";
 
 const LFO_CLOCK_RATE_ZONES: readonly Zone<LfoClockRate>[] = [
-  { max: 0, variant: "whole" },
-  { max: 8, variant: "dotted-half" },
-  { max: 16, variant: "whole-triplet" },
-  { max: 23, variant: "half" },
-  { max: 32, variant: "dotted-quarter" },
-  { max: 40, variant: "half-triplet" },
-  { max: 48, variant: "quarter" },
-  { max: 55, variant: "dotted-eighth" },
-  { max: 64, variant: "quarter-triplet" },
-  { max: 71, variant: "eighth" },
-  { max: 80, variant: "dotted-sixteenth" },
-  { max: 87, variant: "eighth-triplet" },
-  { max: 96, variant: "sixteenth" },
-  { max: 103, variant: "sixteenth-triplet" },
+  { max: 7, variant: "whole" },
+  { max: 15, variant: "dotted-half" },
+  { max: 23, variant: "whole-triplet" },
+  { max: 31, variant: "half" },
+  { max: 39, variant: "dotted-quarter" },
+  { max: 47, variant: "half-triplet" },
+  { max: 55, variant: "quarter" },
+  { max: 63, variant: "dotted-eighth" },
+  { max: 71, variant: "quarter-triplet" },
+  { max: 79, variant: "eighth" },
+  { max: 87, variant: "dotted-sixteenth" },
+  { max: 95, variant: "eighth-triplet" },
+  { max: 103, variant: "sixteenth" },
+  { max: 111, variant: "sixteenth-triplet" },
   { max: 127, variant: "thirty-second" },
 ];
 
