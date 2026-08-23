@@ -222,9 +222,12 @@ response.
 
 **The rate limiter does not apply.** Sends from this page go out past it, the
 same as every other send here, so an interval below `MIN_CC_INTERVAL_MS`
-(5ms) is delivered as typed rather than coalesced. That is deliberate: the
-constant was chosen without hardware and is itself the open question in
-`protocol-quirks.md` #20, so a page meant to test it cannot be subject to it.
+(5ms) is delivered as typed rather than coalesced. That is deliberate: a page
+whose job is to question the constant cannot be subject to it. The question
+it was built for has since been answered — the device kept up with a
+sustained drag at every interval down to 1ms and landed on the right value
+each time, so 5 stays, and `protocol-quirks.md` #20 carries the measurement —
+but the bypass is what any later question about the rate would need too.
 Every report says so on its last line.
 
 **Stop** halts the sending; the answers already owed are still waited out, up

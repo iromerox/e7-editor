@@ -378,15 +378,66 @@ questions, not assumptions:
     answer behind it.
 
     Not measured over DIN MIDI — no interface was available (see #21).
-20. **The outbound CC rate limit was chosen without hardware and may be about
-    3x too permissive.** `MIN_CC_INTERVAL_MS` is 5 (200Hz per
-    channel/controller pair). The device's fastest observed answer cadence is
-    10.9ms per Read Memory under #19's sliding window, so a knob drag still
-    delivers roughly two updates per device cycle and the limiter throttles
-    far less than its name suggests. Whether the device drops the surplus,
-    lags behind a drag, or handles it fine is unknown — nothing has been sent
-    to the instrument at rate yet, and #19 measured what the device answers
-    rather than what it accepts.
+20. **The outbound CC rate limit stays at 5ms, and no rate was found that the
+    device cannot take** — this entry stays numbered here rather than moving
+    to the confirmed section below so the cross-reference to "#20" keeps
+    resolving.
+
+    **Hardware-confirmed 2026-08-22**, serial #361, over USB.
+    `MIN_CC_INTERVAL_MS` is unchanged at 5. A three-second drag of CC 74
+    (FILTER Cutoff) was sent at 32, 16, 8, 5, 2 and 1ms per message while
+    byte 70 of the volatile Current Preset (`0x030800`) was read back during
+    the drag and after it — three drags at each interval, the whole set run
+    twice: 36 drags and 34,542 control changes. The device kept up with every
+    one of them. Each sample taken mid-drag read the value most recently
+    sent, a lag of zero at all six rates, and the only non-zero reading
+    anywhere was the ramp's own advance during the read that measured it —
+    one value, occasionally two, which is what a 16ms round trip is worth on
+    a ramp moving a value every ~27ms.
+
+    That is not a small margin. Had the device consumed control changes at
+    the ~16ms cadence #19 measured, the 5ms drag's 600 messages would have
+    arrived three times faster than it could take them: it would have been
+    about two thirds of the ramp behind by the last send and needed a further
+    ~6.6 seconds to catch up. The settle read taken 17ms later already held
+    the landing.
+
+    **The landing is the half that matters**, per the premise this entry was
+    raised with — a limiter that is too fast only costs something if the
+    value the user lets go on can be lost. Each drag is built so a hit cannot
+    be faked: a monotone ramp whose last 16 sends carry one value each, so
+    the landing is on the wire exactly once and a dropped final message reads
+    as a miss instead of being covered by a repeat of itself. The drags
+    landed on 127, 96 and 63 in turn, so a device that merely pinned at the
+    top would have failed two in three. 36 of 36 landed exactly. In each,
+    byte 70 already held the landing at the first read that could be taken
+    after the last send, ~17ms later — that is one read round trip (#19), so
+    it is an upper bound on how long the device took, not a measurement of
+    it.
+
+    Pushed past the limiter altogether — 3000 control changes handed to the
+    port back to back with no pacing, which the host buffers and the wire
+    then delivers at its own speed — the landing was still exact, in six
+    drags across two runs. What broke there was the **read** path rather than
+    the CC path: a Read Memory issued behind that many queued sends drew no
+    answer at all, so those runs have no settle time while their final values
+    are as good as the rest.
+
+    So the "3x too permissive" reading is withdrawn and 5 stays — not because
+    the device needs the throttle, but because nothing found a rate that
+    wants a different number. 200Hz per channel/controller pair is already
+    past what a pointer drag across a 128-step range can use, so loosening it
+    would buy resolution that does not exist; tightening it would throttle a
+    device demonstrably able to take five times more. What the limiter earns
+    its place doing is host-side coalescing, not protecting the instrument.
+
+    **Two bounds on this.** It measures the parameter byte the device holds,
+    not the sound it makes: if the audio path smooths or trails its own
+    parameter state, nothing here would see it, and since the display answers
+    no incoming CC (confirmed entry 20 below) there is no readout to check
+    against either. And it moves one controller at a time — the limiter
+    budgets per channel/controller pair, so anything moving several controls
+    at once puts a multiple of these rates on the wire, which was not tested.
 21. **Every hardware finding here is USB-only.** The smoke test ran over the
     e7's USB port, and so did #19's throughput run. DIN MIDI is a different
     physical path at 31250 baud, where a 34-byte Read Memory response

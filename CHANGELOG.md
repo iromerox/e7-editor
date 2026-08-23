@@ -1002,3 +1002,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Recorded with what a bulk reader has to do to be safe at that depth, a
   response identifying nothing and a dropped answer silently re-pairing every
   answer behind it.
+- Settled the outbound CC rate limit against the instrument and left the
+  constant where it was. A three-second drag of Filter Cutoff went out at 32,
+  16, 8, 5, 2 and 1ms per message while the edit buffer's cutoff byte was
+  read back during the drag and after it — 36 drags, 34,542 control changes —
+  and the device kept up with all of them: every mid-drag reading held the
+  value most recently sent, and every drag ended on exactly the value its
+  last message carried, including the two that stopped short of the top so a
+  device pinning at maximum could not pass. Unpaced, thousands of messages
+  handed to the port back to back, the landing was still exact.
+  `MIN_CC_INTERVAL_MS` therefore stays at 5ms — now because a measurement
+  found nothing that wants a different number, rather than because nothing
+  had been tried. Recorded with the two things the run does not cover: it
+  reads the parameter byte the device holds rather than the sound it makes,
+  and it moves one controller where the limiter's budget is per channel and
+  controller.
