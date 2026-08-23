@@ -1040,3 +1040,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   state from `lfo2.mode`. And `lfo1.eg1Mod` (byte 55) turns out to be
   reachable by nothing at all — no CC, no knob, no menu — which puts it in
   `docs/off-panel-parameters.md` with its effect still unverified.
+- Settled what the Chorus and Delay enable LEDs indicate, which confirms the
+  indicator the editor already drew rather than replacing it. On serial #361
+  each section's lamp is lit at every non-zero Mix and dark at zero — a mix
+  of 1 is enough to light it — measured on both effects driven from MIDI,
+  with every send read back from the edit buffer so a lamp that did not move
+  stayed separable from a send that never arrived. There is no enable
+  gesture and no state without a parameter, so the indicator binds to the
+  Mix knob's own value and nothing else, and persistence comes with it: the
+  lamp renders a preset byte, so it is saved, loaded and copied exactly as
+  Mix is. Its tooltip now says the hardware lights it this way rather than
+  that the editor chose to. Recorded with one thing the run did not need:
+  these lamps do answer an incoming CC, where the display answers only the
+  panel, so a readout following physical controls only is not a general rule
+  of this instrument.

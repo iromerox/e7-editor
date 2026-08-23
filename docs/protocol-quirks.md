@@ -468,16 +468,46 @@ questions, not assumptions:
     reached at a different sending speed. Treat #12, #16, and #19 as settled
     for USB and open for DIN until someone runs the same page through a DIN
     interface.
-22. **Nothing accounts for the Chorus and Delay enable LEDs.** Both effect
-    sections carry an LED beside their title on the front panel, and there is
-    no on/off parameter behind either one: `Chorus` and `Delay` have no such
-    field, the CC table lists no enable, and neither `ChorusType`
-    (basic/ensemble) nor `DelayType` (four delay flavours) has an `off`
-    variant. Either the effect is switched by a panel gesture that isn't a
-    parameter, or the LED just tracks a non-zero `mix`. HW-09 owns this.
-    Until it answers, the effect sections have no toggle to bind — don't
-    invent an `enabled` field to back the indicator, because there is no byte
-    to persist it in. See `panel-layout.md` Finding 6.
+22. **The Chorus and Delay enable LEDs are `mix > 0`, and they answer an
+    incoming CC** — this entry stays numbered here rather than moving to the
+    confirmed section below so the cross-references to "#22" keep resolving.
+
+    **Hardware-confirmed 2026-08-23**, serial #361, over USB. There is no
+    enable gesture to find. Driving `Chorus Mix` (CC 13) and `Delay Mix`
+    (CC 12) from MIDI over 0, 1, 64, 127 and back to 0 lit each section's
+    lamp at every non-zero value and darkened it at zero, on both effects,
+    and the threshold sits exactly where it has to for `mix > 0` to be the
+    whole rule: **1 lights it and 0 does not**. There is no band of low
+    values that reads as off, and so nothing left for a separate state to
+    account for.
+
+    Every step read the mix byte of the volatile Current Preset
+    (`0x030800`) back beside the answer — byte 122 for Chorus, byte 118 for
+    Delay — and all ten landed on the value sent, so "the lamp did not move"
+    was separable from "the send never arrived" at each one. CC 74 (Cutoff)
+    was the positive control, and the run reported nothing inbound while it
+    measured, so no panel touch can be mistaken for the instrument
+    answering.
+
+    So of the two readings this entry was raised with, the second is right
+    and the first is withdrawn: no panel gesture, no state without a
+    parameter, and nothing for a sweep of the undocumented controllers to
+    look for. Two consequences for the editor. The indicator has a real
+    binding — `mix > 0`, on a field that already exists — and the warning
+    against inventing an `enabled` field stands for a better reason than
+    before: not that there is no byte to persist it in, but that the byte it
+    would duplicate is `mix`. And **persistence needs no separate
+    measurement**: the lamp renders a preset byte, so it is saved, loaded,
+    copied and restored exactly as `mix` is, and an editor drawing it from
+    `mix` cannot come to disagree with the panel about it.
+
+    **These lamps answer an incoming CC where the display does not**
+    (confirmed entry 20). Worth keeping apart from the finding itself,
+    because the display invites the generalisation that the panel's readouts
+    follow physical controls only — and these do not. A run driving a
+    parameter from MIDI can watch them and trust what it sees, which is a
+    cheaper observable than the display for anything they cover. See
+    `panel-layout.md` Finding 6.
 23. **Nothing says what value byte 48 holds when portamento is on.** The CC
     table lists CC 65 as `Portamento Switch` with no zone table — the only
     switch-like entry in it that has none — and the byte map names byte 48

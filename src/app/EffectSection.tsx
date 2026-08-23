@@ -16,7 +16,7 @@ export interface EffectSectionProps {
 const KNOB_COLUMNS = 3;
 
 export function enableIndicatorTitle(effect: string): string {
-  return `The instrument has no ${effect.toLowerCase()} on/off parameter and reports no state for one, so the editor lights this whenever Mix is above zero.`;
+  return `The instrument has no ${effect.toLowerCase()} on/off parameter — its own panel lamp is lit whenever Mix is above zero, and this one follows it.`;
 }
 
 export function partNotice(effect: string): string {

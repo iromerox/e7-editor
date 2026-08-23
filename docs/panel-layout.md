@@ -711,7 +711,7 @@ The section header carries an enable LED to the right of the `CHORUS` title.
 
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
-| (enable indicator) | — | LED (1) | **Nothing.** No field, no CC | There is no chorus on/off parameter anywhere — not in `Chorus`, not in the CC table, and `ChorusType` has only `basic` and `ensemble`, no `off`. See [Finding 6](#finding-6-the-chorus-and-delay-enable-leds-have-no-parameter-behind-them). |
+| (enable indicator) | — | LED (1) | `part1Only.chorus.mix > 0` — read-only | Hardware-confirmed: the lamp is lit at every non-zero mix and dark at zero, 1 being enough to light it. There is still no chorus on/off parameter — the indicator renders the Mix knob's own value rather than a field of its own. See [Finding 6](#finding-6-the-chorus-and-delay-enable-leds-follow-a-non-zero-mix). |
 | `Rate` | `Type` | Knob | `part1Only.chorus.rate` / CC 114; shift: `part1Only.chorus.type` / CC 113 | `ChorusType`: 0-63 Basic, 64-127 Ensemble — the two halves of one pot's travel. The editor keeps it on the knob's shift layer rather than substituting a toggle, and names the algorithm in the readout as the travel passes into it. |
 | `Depth` | — | Knob | `part1Only.chorus.depth` / CC 115 | |
 | `Mix` | — | Knob | `part1Only.chorus.mix` / CC 13 | Dry/wet. |
@@ -726,7 +726,7 @@ carrying the type on its shift layer.
 
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
-| (enable indicator) | — | LED (1) | **Nothing.** No field, no CC | Same as Chorus. See [Finding 6](#finding-6-the-chorus-and-delay-enable-leds-have-no-parameter-behind-them). |
+| (enable indicator) | — | LED (1) | `part1Only.delay.mix > 0` — read-only | Same as Chorus, and measured in the same run. See [Finding 6](#finding-6-the-chorus-and-delay-enable-leds-follow-a-non-zero-mix). |
 | `Delay Time` | `Type` | Knob | `part1Only.delay.time` / CC 111; shift: `part1Only.delay.type` / CC 110 | `DelayType`: stereo, ping-pong, stereo-sync, ping-pong-sync — four even quarters of one pot's travel (0-31, 32-63, 64-95, 96-127). Same treatment as the chorus type: it stays on the knob's shift layer, with the type's name as the readout. In the two sync types the time value reads as a musical division (`DelayClockRate`), otherwise 50ms-1.35s. |
 | `Feedback` | — | Knob | `part1Only.delay.feedback` / CC 112 | |
 | `Mix` | — | Knob | `part1Only.delay.mix` / CC 12 | Dry/wet. |
@@ -1099,30 +1099,43 @@ Genuinely unreachable from the panel and from CC, for contrast:
 `part1Only.name`, `part1Only.lock`, the whole of `partSettings` (multi
 only), and global `transpose`. Those are SysEx or menu territory.
 
-### Finding 6: the Chorus and Delay enable LEDs have no parameter behind them
+### Finding 6: the Chorus and Delay enable LEDs follow a non-zero mix
 
 Both effect sections carry an LED in their header, and neither `Chorus` nor
-`Delay` has an on/off field. The CC table lists no chorus or delay enable.
-`ChorusType` is `basic`/`ensemble` and `DelayType` is four delay flavours —
-neither enum has an `off` variant.
+`Delay` has an on/off field — the CC table lists no enable, and neither
+`ChorusType` (`basic`/`ensemble`) nor `DelayType` (four delay flavours) has
+an `off` variant. The question was whether some panel gesture switched the
+effect, or whether the lamp simply indicated a non-zero `mix`.
 
-So either the effect is switched by some panel gesture that isn't a
-parameter, or the LED simply indicates a non-zero `mix`. Nothing in the
-manual or the MIDI document says which. **HW-09 owns this**, recorded as
-protocol-quirks open question #22.
+**It is the mix.** Serial #361 lights each lamp at every non-zero mix and
+darkens it at zero, on both effects, driven from MIDI — and the threshold is
+where it has to be for that to be the whole rule, since a mix of 1 is enough
+to light it. See `protocol-quirks.md` #22 for the measurement.
 
-For the editor this is a question about what to draw, not what to send: the
-effect sections have no toggle to bind. Either omit the indicator, or drive
-it from `mix > 0` and say so. Don't invent an `enabled` field to back it —
-there is no byte to persist it in.
+So the interim decision this sheet carried — draw the indicator, light it
+from `mix > 0`, and say so at the indicator itself — is confirmed rather than
+replaced, and it is no longer a lit LED that no byte backs: it renders
+`part1Only.chorus.mix > 0` and `part1Only.delay.mix > 0`, which is a claim
+the editor can support. Both sections draw it, and neither gains a control —
+there is nothing to press on the hardware and nothing to send here, because
+the only thing that changes it is the Mix knob already in the table. The
+tooltip stays, saying what the lamp reads rather than warning that nothing
+backs it.
 
-**Resolved for now: both sections draw the indicator, lit from `mix > 0`,
-and say so at the indicator itself.** It is an indicator on the hardware and
-it stays one here — nothing to press, no field behind it. Keeping it costs
-nothing and preserves the section's shape; the tooltip is what stops it
-reading as a parameter, since a lit LED that no byte backs is otherwise a
-claim the editor cannot support. If HW-09 turns up a real enable gesture,
-the indicator is already in place to bind to it.
+**Don't add an `enabled` field for it.** The reason has changed and is now
+the stronger one: not that there is no byte to persist such a field in, but
+that the byte it would duplicate is `mix`, and a second copy of a value can
+only ever drift from it.
+
+Two things came with the measurement that the finding itself does not need.
+The lamp is **saved with the preset**, because it is a rendering of a preset
+byte — nothing about it is runtime-only, and it survives a save, a load and
+a preset copy exactly as `mix` does. And **these lamps answer an incoming
+CC**, where the display answers only the panel — it never names a clock
+division for a rate arriving over MIDI (`protocol-quirks.md` confirmed entry
+20). A panel readout following physical controls only is therefore not a
+general rule of this instrument, which matters to anyone designing a
+hardware run around what the panel shows.
 
 ---
 
