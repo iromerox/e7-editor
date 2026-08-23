@@ -1,4 +1,4 @@
-// MIDI CC number constants, a shared zoned CC decode helper, and the control change wire form.
+// MIDI CC number constants, shared zoned CC decode and zone-building helpers, and the control change wire form.
 import type { ControlChangeField } from "./errors";
 import { ControlChangeRangeError, ReservedValue } from "./errors";
 
@@ -33,6 +33,26 @@ export const CONTROL_CHANGE_STATUS = 0xb0;
 export const MIN_CHANNEL = 1;
 export const MAX_CHANNEL = 16;
 export const MAX_DATA_BYTE = 0x7f;
+
+export function bandedZones<Variant>(
+  variants: readonly Variant[],
+  width: number,
+): readonly Zone<Variant>[] {
+  return variants.map((variant, index) => ({
+    max: index === variants.length - 1 ? MAX_DATA_BYTE : width * (index + 1) - 1,
+    variant,
+  }));
+}
+
+export function mirrorZones<Variant>(zones: readonly Zone<Variant>[]): readonly Zone<Variant>[] {
+  const mirrored: Zone<Variant>[] = [];
+  let min = 0;
+  for (const zone of zones) {
+    mirrored.unshift({ max: MAX_DATA_BYTE - min, variant: zone.variant });
+    min = zone.max + 1;
+  }
+  return mirrored;
+}
 
 function assertControlChange(
   field: ControlChangeField,

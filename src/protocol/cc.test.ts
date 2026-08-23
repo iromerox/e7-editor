@@ -1,6 +1,14 @@
 import type { Zone } from "./cc";
 import { describe, expect, it } from "vitest";
-import { FILTER_RESONANCE, LFO1_RATE, ccDirection, decodeZoned, encodeControlChange } from "./cc";
+import {
+  FILTER_RESONANCE,
+  LFO1_RATE,
+  bandedZones,
+  ccDirection,
+  decodeZoned,
+  encodeControlChange,
+  mirrorZones,
+} from "./cc";
 import { ControlChangeRangeError, ReservedValue } from "./errors";
 
 const evenZones: Zone<string>[] = [
@@ -60,6 +68,44 @@ describe("decodeZoned", () => {
       expect(error).toBeInstanceOf(ReservedValue);
       expect((error as ReservedValue).value).toBe(100);
       expect((error as ReservedValue).lastMax).toBe(71);
+    }
+  });
+});
+
+describe("bandedZones", () => {
+  it("bands the range in fixed widths", () => {
+    expect(bandedZones(["a", "b", "c", "d"], 32)).toEqual([
+      { max: 31, variant: "a" },
+      { max: 63, variant: "b" },
+      { max: 95, variant: "c" },
+      { max: 127, variant: "d" },
+    ]);
+  });
+
+  it("gives the last variant whatever the bands leave over", () => {
+    const zones = bandedZones(["a", "b", "c"], 16);
+    expect(zones).toEqual([
+      { max: 15, variant: "a" },
+      { max: 31, variant: "b" },
+      { max: 127, variant: "c" },
+    ]);
+  });
+});
+
+describe("mirrorZones", () => {
+  it("reflects each zone across the controller range", () => {
+    expect(mirrorZones(bandedZones(["a", "b", "c"], 16))).toEqual([
+      { max: 95, variant: "c" },
+      { max: 111, variant: "b" },
+      { max: 127, variant: "a" },
+    ]);
+  });
+
+  it("decodes as the source table read backwards", () => {
+    const zones = bandedZones(["a", "b", "c", "d", "e"], 16);
+    const mirrored = mirrorZones(zones);
+    for (let cc = 0; cc <= 127; cc++) {
+      expect(decodeZoned(cc, mirrored)).toBe(decodeZoned(127 - cc, zones));
     }
   });
 });

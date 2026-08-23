@@ -526,11 +526,13 @@ were learned by running the instrument rather than by reading.
 
     So `delayClockRateFromCc(cc)` equals `lfoClockRateFromCc(127 - cc)` at
     every one of the 128 values, and `delay-clock-rate.test.ts` asserts
-    exactly that. The two are a mirrored axis rather than two unrelated
-    orderings — which is visible at the panel, where `Delay Time` sweeps from
-    the shortest division to the longest and `LFO 1 Rate` sweeps the other
-    way. A control built to sweep both the same direction is wrong on one of
-    them.
+    exactly that. Both tables are built from that shape rather than listed
+    out: the LFO's from `bandedZones`, the delay's by running the LFO's
+    through `mirrorZones`. The two are a mirrored axis rather than two
+    unrelated orderings — which is visible at the panel, where `Delay Time`
+    sweeps from the shortest division to the longest and `LFO 1 Rate` sweeps
+    the other way. A control built to sweep both the same direction is wrong
+    on one of them.
 
     Neither table's previously shipped boundaries were right; they came from
     an earlier reverse-engineering pass and drifted by up to eight values.

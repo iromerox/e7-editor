@@ -361,7 +361,7 @@ Top half of the `LFO` box, far left of the panel.
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
 | `Wave shape` | `Mode` | Button + LED column (5) | `lfo1.shape` / CC 53; shift: `lfo1.mode` / CC 60 | Shape via `LfoShape`, mode via `LfoMode` (6 variants: mono, poly, KB tracking, KB sync, clock sync, KB+clock sync). |
-| `Rate` | — | Knob | `lfo1.rate` / CC 76 | In the clock-sync modes the value reads as a musical division — see `LfoClockRate`, whose zone boundaries are themselves unverified (protocol-quirks open question). |
+| `Rate` | — | Knob | `lfo1.rate` / CC 76 | In the clock-sync modes the value reads as a musical division — see `LfoClockRate`: 15 divisions in regular 8-wide bands ascending from `Whole Note` at 0, `1/32 Note` taking the 112-127 remainder. |
 
 The LFO 1 block has **no EG1 Mod control** on the panel. `lfo1.eg1Mod`
 (byte 55) exists in the preset layout and has no knob here — see
