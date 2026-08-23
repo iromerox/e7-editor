@@ -363,9 +363,10 @@ Top half of the `LFO` box, far left of the panel.
 | `Wave shape` | `Mode` | Button + LED column (5) | `lfo1.shape` / CC 53; shift: `lfo1.mode` / CC 60 | Shape via `LfoShape`, mode via `LfoMode` (6 variants: mono, poly, KB tracking, KB sync, clock sync, KB+clock sync). |
 | `Rate` | — | Knob | `lfo1.rate` / CC 76 | In the clock-sync modes the value reads as a musical division — see `LfoClockRate`: 15 divisions in regular 8-wide bands ascending from `Whole Note` at 0, `1/32 Note` taking the 112-127 remainder. |
 
-The LFO 1 block has **no EG1 Mod control** on the panel. `lfo1.eg1Mod`
-(byte 55) exists in the preset layout and has no knob here — see
-[Finding 1](#finding-1-eg1-mod-is-silkscreened-on-lfo-2-but-the-byte-is-named-lfo-1).
+The LFO 1 block has **no EG1 Mod control** on the panel, and none over MIDI
+either. `lfo1.eg1Mod` (byte 55) is a real preset field with no knob here and
+no CC anywhere — see
+[Finding 1](#finding-1-eg1-mod-is-lfo-2s-at-cc-67-and-byte-61-and-lfo-1-has-its-own-at-byte-55).
 
 ## LFO 2
 
@@ -374,7 +375,7 @@ Bottom half of the `LFO` box.
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
 | `Wave shape` | `Mode` | Button + LED column (5) | `lfo2.shape` / CC 61; shift: `lfo2.mode` / CC 70 | Same five LEDs and same enums as LFO 1. |
-| `Rate` | `EG1 Mod` | Knob | `lfo2.rate` / CC 62; shift: **contested** — CC 67, and either `lfo1.eg1Mod` (byte 55) or nothing persisted | The shift layer is the panel's only EG1→LFO modulation control. Manual p.14 attributes it to LFO 2. See [Finding 1](#finding-1-eg1-mod-is-silkscreened-on-lfo-2-but-the-byte-is-named-lfo-1) before wiring this knob. |
+| `Rate` | `EG1 Mod` | Knob | `lfo2.rate` / CC 62; shift: `lfo2.eg1Mod` (byte 61) / CC 67 | The shift layer is the panel's only EG1→LFO modulation control, and it is LFO 2's. **The instrument disables it when this LFO's `Mode` is Clock Sync or Monophonic** — the display reads `EG1 Mod N/A`. See [Finding 1](#finding-1-eg1-mod-is-lfo-2s-at-cc-67-and-byte-61-and-lfo-1-has-its-own-at-byte-55). |
 
 ### How the box was built, and where it departs from the panel
 
@@ -934,46 +935,53 @@ one shared readout.
 ## Findings
 
 Six places where a control and a name disagree, or a control resolves to
-nothing. Each is recorded rather than reconciled.
+nothing. Each is recorded rather than reconciled — and where the instrument
+has since settled one, the answer is recorded in its place rather than the
+finding being deleted, because the disagreement is why the code reads the way
+it does.
 
-### Finding 1: `EG1 Mod` is silkscreened on LFO 2, but the byte is named LFO 1
+### Finding 1: `EG1 Mod` is LFO 2's, at CC 67 and byte 61, and LFO 1 has its own at byte 55
 
-**Raise before building the LFO section.** Four sources, and they don't
-agree on which LFO this parameter modulates:
+**Answered against the instrument** (serial #361, 2026-08-23). The four
+sources were never in as much disagreement as they looked, and the reading
+this sheet reached from the photographs — one knob, one CC, one byte, so all
+three must be the same parameter — was wrong.
 
-| Source | Says |
-|---|---|
-| Front panel | `EG1 Mod` is the shift layer of the **LFO 2** `Rate` knob. The LFO 1 block has no such control. |
-| User manual p.14 | "EG1 MOD **(2)** — Sets how much the EG1 modifies the frequency of the **LFO2**." |
-| MIDI implementation, CC table p.5 | LFO2 EG1 Mod = CC 67. No LFO1 EG1 Mod CC exists. |
-| MIDI implementation, byte map p.25 | Byte 55 = "**LFO1** EG1 Mod". No LFO2 EG1 Mod byte exists. |
+| Source | Says | Verdict |
+|---|---|---|
+| Front panel | `EG1 Mod` is the shift layer of the **LFO 2** `Rate` knob. The LFO 1 block has no such control. | Right |
+| User manual p.14 | "EG1 MOD **(2)** — Sets how much the EG1 modifies the frequency of the **LFO2**." | Right |
+| MIDI implementation, CC table p.5 | LFO2 EG1 Mod = CC 67. No LFO1 EG1 Mod CC exists. | Right |
+| MIDI implementation, byte map p.25 | Byte 55 = "**LFO1** EG1 Mod". No LFO2 EG1 Mod byte exists. | Half right — byte 55 *is* LFO 1's; the map just leaves LFO 2's, byte 61, printed as reserved |
 
-The byte map is self-consistent for LFO 1 — byte 55 sits inside the LFO 1
-run (53 shape, 54 rate, 55 this, 58 mode), and bytes 61-63 in the LFO 2 run
-are reserved. Everything else is self-consistent for LFO 2.
+**There are two EG1 Mod bytes, one per LFO**, and the runs are parallel:
 
-`src/protocol/preset.ts` follows the byte map: `lfo1.eg1Mod` at byte 55.
-`src/protocol/cc.ts` defines `LFO2_EG1_MOD = 67` but `cc-map.ts` does not
-wire it to any field, on the reading recorded as protocol-quirks #5 — that
-CC 67 is a runtime-only parameter with no byte behind it.
+| | Shape | Rate | EG1 Mod | Mode |
+|---|---|---|---|---|
+| LFO 1 | 53 | 54 | **55** | 58 |
+| LFO 2 | 59 | 60 | **61** | 64 |
 
-The panel is new evidence that reading didn't have. There is exactly **one**
-EG1→LFO knob on the hardware, **one** CC, and **one** byte. The simplest
-explanation is now that all three are the same parameter — EG1 modulating
-LFO 2's rate, persisted at byte 55 — and that the byte map's "LFO1" prefix
-is the error, not the CC table's "LFO2".
+CC 67 drives byte 61 and never byte 55. The knob transmits CC 67 and writes
+byte 61, so the knob, the controller and the byte are one parameter — LFO 2's.
+The instrument settles ownership itself: it refuses the knob with `EG1 Mod
+N/A` / `Not available in Clk Sync LFO Mode` when **LFO 2's** mode is Clock
+Sync or Monophonic, and never when LFO 1's is. `protocol-quirks.md` #5 carries
+the measurement.
 
-What this blocks: the knob goes in the LFO 2 section either way (the panel
-decides that). But if quirk #5 stands, a live edit to it writes an unmapped
-CC and reaches the device through nothing, while `lfo1.eg1Mod` stays a
-preset byte no control can touch. **HW-08 owns this** — send CC 67, then
-read the preset back and watch byte 55. Until it is answered, don't rename
-`lfo1.eg1Mod` and don't wire the knob to CC 67. Recorded as
-protocol-quirks #5, whose runtime-only reading this pass contests.
+**Two things follow for the UI.** The knob's shift layer binds to
+`lfo2.eg1Mod` / CC 67, in the LFO 2 section where the panel puts it. And it is
+**not always available**: the instrument greys it out in two of LFO 2's six
+modes, so the layer has a disabled state driven by `lfo2.mode` rather than
+being a plain knob. The CC is accepted in those modes regardless — the gate is
+the panel's, not the byte's — so a control that just sends the value would
+write something the instrument is not acting on, and show a live number for a
+parameter the hardware calls N/A.
 
-The LFO section built to that instruction leaves the shift layer off the
-knob entirely and puts the disagreement in a sentence under it, rather than
-drawing a layer that writes nowhere.
+**LFO 1's `eg1Mod` is real and unreachable.** Byte 55 is a genuine preset
+field with no panel control and no CC in the table, which puts it in
+`off-panel-parameters.md` alongside `transpose`. Whether it does anything is
+untested: nothing in this pass could set it, so it is not yet known whether
+EG1 modulates LFO 1's rate at all.
 
 ### Finding 2: Master Volume is a control with no preset field
 
@@ -1129,7 +1137,7 @@ Every field in `SinglePreset`, and where it appears on this sheet:
 | `mixer` | 5 knobs | — |
 | `portamento` | `Portamento Time` | `on` |
 | `pitchBendRange` | `Portamento Time`, shift | — |
-| `lfo1` | button + `Rate` | `eg1Mod` — contested, see Finding 1 |
+| `lfo1` | button + `Rate` | `eg1Mod` — byte 55, no control and no CC, see Finding 1 |
 | `lfo2` | button + `Rate` (+ shift) | — |
 | `lfo3` | button + 2 knobs | — |
 | `filter` | 7 knobs | — |

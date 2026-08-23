@@ -58,6 +58,7 @@ import {
   LFO1_MODE,
   LFO1_RATE,
   LFO1_SHAPE,
+  LFO2_EG1_MOD,
   LFO2_MODE,
   LFO2_RATE,
   LFO2_SHAPE,
@@ -279,6 +280,7 @@ export type CcField =
   | "lfo1Mode"
   | "lfo2Shape"
   | "lfo2Rate"
+  | "lfo2Eg1Mod"
   | "lfo2Mode"
   | "lfo3Shape"
   | "lfo3Rate"
@@ -370,6 +372,7 @@ const ENTRIES: Readonly<Record<CcField, CcFieldEntry>> = {
   lfo1Mode: { cc: LFO1_MODE, ...lfo1("mode") },
   lfo2Shape: { cc: LFO2_SHAPE, ...lfo2("shape") },
   lfo2Rate: { cc: LFO2_RATE, ...lfo2("rate") },
+  lfo2Eg1Mod: { cc: LFO2_EG1_MOD, ...lfo2("eg1Mod") },
   lfo2Mode: { cc: LFO2_MODE, ...lfo2("mode") },
   lfo3Shape: { cc: LFO3_SHAPE, ...lfo3("shape") },
   lfo3Rate: { cc: LFO3_RATE, ...lfo3("rate") },

@@ -48,7 +48,7 @@ touches.
 | `partSettings.velocityZoneUpper` | 112 | — | " | Menu-only |
 | `partSettings.midiChannel` | 113 | — | " | Menu-only |
 | `partSettings.midiFilter` | 114 | — | " | Menu-only |
-| `lfo1.eg1Mod` | 55 | 67 | The `EG1 Mod` shift layer of LFO 2's `Rate` knob — if that knob and this byte are the same parameter | Contested |
+| `lfo1.eg1Mod` | 55 | — | Nothing — the `EG1 Mod` knob is LFO 2's and writes byte 61 | Real, and **unreachable** — see below |
 | `osc1.lfo2Pwm` | 31 | 27 | Nothing | **Not a parameter** |
 | `osc1.lfo3Pwm` | 32 | 28 | Nothing | **Not a parameter** |
 | `osc2.lfo2Pwm` | 45 | 44 | Nothing | **Not a parameter** |
@@ -98,9 +98,24 @@ an observation here rather than an argument from the table's silence.
 
 ### `lfo1.eg1Mod`
 
-The byte map calls byte 55 `LFO1 EG1 Mod`; the CC table, the manual and the
-panel all attribute the one EG1→LFO control to LFO 2. Owned by HW-08 —
-`protocol-quirks.md` #5. Don't wire a control to CC 67 until it is answered.
+The byte map calls byte 55 `LFO1 EG1 Mod`, and it was right: the instrument
+has **two** EG1 Mod bytes, one per LFO. LFO 2's is byte 61, which the map
+prints as reserved, and CC 67 and the panel's `EG1 Mod` knob both drive that
+one. Byte 55 is LFO 1's own, and nothing reaches it — no controller in the CC
+table, no knob on the panel, no menu. Measured against serial #361; see
+`protocol-quirks.md` #5.
+
+That makes it the second row on this page reachable by nothing at all, after
+`transpose`, and the two are unreachable for different reasons. `transpose`
+has a menu; this has no route in of any kind short of writing a preset to
+flash and loading it.
+
+It is also the only row here whose **effect** is unverified. Every other entry
+is a parameter the instrument demonstrably has and merely hides from the
+panel. Nothing in the HW-08 pass could set byte 55, so whether EG1 modulates
+LFO 1's rate at all — or whether the byte is named for a modulation the
+hardware never wired — is still open. Don't build a control for it on the
+strength of the name.
 
 ---
 

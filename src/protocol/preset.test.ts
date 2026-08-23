@@ -41,12 +41,15 @@ describe("SinglePreset", () => {
     expect(encodeSinglePreset(preset)).toEqual(bytes);
   });
 
-  it("decodes byte 67 as LFO3 aftertouch mod, and gives LFO2 no EG1 mod field", () => {
+  it("decodes byte 67 as LFO3 aftertouch mod and byte 61 as LFO2's EG1 mod", () => {
     const bytes = new Uint8Array(SINGLE_PRESET_BYTES);
+    bytes[61] = 100;
     bytes[67] = 42;
     const preset = decodeSinglePreset(bytes);
     expect(preset.lfo3.aftertouchMod).toBe(42);
-    expect(Object.keys(preset.lfo2)).toEqual(["shape", "rate", "mode"]);
+    expect(preset.lfo2.eg1Mod).toBe(100);
+    expect(preset.lfo1.eg1Mod).toBe(0);
+    expect(Object.keys(preset.lfo2)).toEqual(["shape", "rate", "eg1Mod", "mode"]);
   });
 
   it("reads the name from bytes 0-19 and the lock flag from byte 127", () => {

@@ -214,11 +214,11 @@ describe("LfoSection", () => {
     expect(nextMode("keyboard-clock-sync")).toBe("monophonic");
   });
 
-  it("leaves LFO 2's EG1 Mod shift layer unwired, and says at the knob why", () => {
+  it("leaves LFO 2's EG1 Mod shift layer unbuilt, and says at the knob why", () => {
     const scope = lfo("LFO 2");
 
     expect(within(scope).queryByRole("button", { name: "EG1 Mod" })).toBeNull();
-    expect(ccToField(LFO2_EG1_MOD)).toBeUndefined();
+    expect(ccToField(LFO2_EG1_MOD)).toBe("lfo2Eg1Mod");
     expect(scope.textContent).toContain(EG1_MOD_NOTE);
     expect(within(scope).getByRole("slider", { name: "Rate" }).getAttribute("title")).toContain(
       EG1_MOD_DETAIL,
@@ -231,7 +231,7 @@ describe("LfoSection", () => {
     ).not.toContain(EG1_MOD_DETAIL);
   });
 
-  it("gives LFO 1 no note of its own, the contested knob being LFO 2's", () => {
+  it("gives LFO 1 no note of its own, the unbuilt knob being LFO 2's", () => {
     expect(lfo("LFO 1").textContent).not.toContain(EG1_MOD_NOTE);
   });
 

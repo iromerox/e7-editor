@@ -93,10 +93,10 @@ export const RATE_DESCRIPTION =
   "Sets the frequency of the LFO. In the two clock-sync modes the instrument divides the MIDI clock instead, and this reads as the raw value rather than the musical division it lands on.";
 
 export const EG1_MOD_NOTE =
-  "EG1 Mod, the shift layer the panel prints on this knob, is left unwired: the manual and the preset byte map name different LFOs for it.";
+  "EG1 Mod, the shift layer the panel prints on this knob, is not built yet: it is this LFO's own parameter, and the instrument makes it unavailable in the clock-sync and monophonic modes.";
 
 export const EG1_MOD_DETAIL =
-  "The panel prints EG1 Mod on this knob's shift layer, and it is left unwired: the user manual gives that parameter to LFO 2, the preset byte map gives it to LFO 1, and a control here would write to whichever of the two is the mistake. It waits on a check against the instrument.";
+  "The panel prints EG1 Mod on this knob's shift layer. It sets how much EG1 modifies this LFO's frequency, and it is not built yet: the instrument reports it as unavailable whenever this LFO's mode is clock sync or monophonic, while still accepting the control change in those modes, so a plain knob here would show a live value for a parameter the hardware is ignoring.";
 
 const COLUMNS = "9rem";
 

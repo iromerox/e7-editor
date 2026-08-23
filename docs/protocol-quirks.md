@@ -48,39 +48,60 @@ The address-range table on p.24 lists Multi 2.8.8 at `0x01FD00–0x01FFFF`
 exactly filling the last 512 bytes of preset memory. The table is a typo;
 the formula is authoritative.
 
-## 5. EG1 Mod: CC 67 and byte 55 disagree about which LFO — **open**
+## 5. EG1 Mod: CC 67 is LFO 2's, and lives at byte 61 — which the map reserves
 
-**This entry's reading is contested and is now owned by HW-08.** It stays
-numbered here rather than moving to the open-questions section below so the
-cross-references to "#5" keep resolving.
+**Hardware-confirmed 2026-08-23**, serial #361, over USB, both directions.
+The entry stays numbered here rather than moving to the confirmed section
+below so the cross-references to "#5" keep resolving.
 
-The CC table (p.5) lists "LFO2 EG1 Mod" at CC 67, and the preset byte map
-(p.25) has no LFO2 EG1 Mod byte — byte 67 is LFO3 Aftertouch Mod, and the
-LFO 2 run's spare bytes (61-63) are reserved. The original reading was that
-LFO2 EG1 modulation depth is runtime-only: settable via CC, not persisted to
-flash. `src/protocol/cc-map.ts` leaves CC 67 unmapped on that basis.
+Nobody's candidate was right. **CC 67 drives byte 61**, which the byte map
+(p.25) prints as reserved, and **byte 55 never moves**. Sending CC 67 on the
+receive channel put 40, 100 and 127 into byte 61 of the edit buffer —
+volatile `0x030800`, the Current Preset — each landing on the value sent with
+no scaling. CC 76 and CC 62 were the positive controls and moved bytes 54 and
+60 the same way; CC 102, which the CC table does not assign, moved nothing.
 
-The panel photography contradicts it. The instrument has **exactly one**
-EG1-to-LFO control — `EG1 Mod`, the shift layer of the **LFO 2** `Rate` knob
-— and the LFO 1 block has none. The user manual (p.14) attributes it to
-LFO 2 too. Meanwhile the byte map names byte 55 "LFO1 EG1 Mod", and that
-byte is what `preset.ts` decodes as `lfo1.eg1Mod`.
+The run diffed the **whole 128-byte image** around every send rather than the
+two named candidates, which is the only reason byte 61 was found: watching
+bytes 55 and 60 alone would have returned a null and been read as confirming
+the runtime-only theory. Ask "which byte does this drive" of the whole image
+whenever "none of them" is one of the answers on offer.
 
-So there is one knob, one CC, and one byte, and the two documents disagree
-only about the LFO number. The simplest explanation is that all three are
-the same parameter — EG1 modulating LFO 2's rate, persisted at byte 55 — and
-that the byte map's "LFO1" prefix is the typo. Against that: byte 55 sits
-inside the LFO 1 run (53 shape, 54 rate, 55 this, 58 mode), which is
-self-consistent for LFO 1.
+What that exposes is a byte map that is self-consistent after all — the two
+LFO runs are parallel, and its only error is leaving byte 61 unnamed:
 
-Consequences either way. If the original reading holds, `lfo1.eg1Mod` is a
-preset byte no control can reach and the panel's knob writes a CC that maps
-to nothing. If the panel is right, a real persisted parameter is currently
-unreachable from the editor and the field is misnamed.
+| | Shape | Rate | EG1 Mod | Mode |
+|---|---|---|---|---|
+| LFO 1 | 53 | 54 | **55** (named) | 58 |
+| LFO 2 | 59 | 60 | **61** (printed `-`) | 64 |
 
-Until HW-08 answers it: don't rename `lfo1.eg1Mod`, don't wire CC 67 into
-the CC↔field map, and don't remove either framing. See `panel-layout.md`
-Finding 1 for the four sources side by side.
+So there are **two** EG1 Mod bytes, one per LFO, and the disagreement was
+never about which LFO — the CC table describes LFO 2's, the byte map named
+LFO 1's, and each is right about its own. Both earlier readings are
+withdrawn: the parameter is not runtime-only, and the one-knob-one-CC-one-byte
+reading from the panel photography was wrong to collapse the three.
+
+**The parameter is LFO 2's**, confirmed twice over. The instrument refuses it
+from the panel with `EG1 Mod N/A` / `Not available in Clk Sync LFO Mode` when
+**LFO 2** is in Clock Sync or Monophonic, and never when LFO 1 is in either —
+so the instrument itself ties the knob to LFO 2's mode. Independently, with
+every other LFO 1 and LFO 2 destination silenced (both oscillators' pitch and
+PWM, the filter, the amplifier) and EG1 Mod at maximum, the vibrato speed
+moves across a held note only when LFO 2 is the one reaching the pitch. The
+manual (p.14) is right, the CC table (p.5) is right, and the panel silkscreen
+is right.
+
+**The mode gate is the panel's, not the byte's.** CC 67 was accepted in every
+mode tested, including the two the panel refuses — all five writes landed. So
+byte 61 can hold a non-zero value the instrument is not acting on, and an
+editor control has to mirror the panel's disabled state from LFO 2's mode
+rather than treat a stored value as live.
+
+`lfo1.eg1Mod` at byte 55 keeps its name, because it was never the wrong one.
+It is a real persisted parameter with **no CC and no panel control** — the
+same shape as byte 105 in #14 — and whether it does anything at all is
+untested, since nothing measured here can set it. See `panel-layout.md`
+Finding 1 and `off-panel-parameters.md`.
 
 ## 6. Multitimbral preset structure typo on page 26
 

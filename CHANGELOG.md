@@ -660,6 +660,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   rest and is wrong everywhere else. Covered by a fixture test built from the
   readings the instrument gave.
 
+- `lfo2.eg1Mod` (byte 61), and CC 67 wired to it in the CC↔field map. The
+  byte map prints byte 61 as reserved, but the instrument stores LFO 2's EG1
+  modulation depth there — so the panel's `EG1 Mod` knob, which had no field
+  behind it, now has one. `lfo1.eg1Mod` at byte 55 is unchanged and keeps its
+  name: there are two such bytes, one per LFO, and the map named only the
+  first.
+
 ### Changed
 
 - Consolidated every protocol error class into `src/protocol/errors.ts` as a
@@ -729,6 +736,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   is no longer a `CcField` at all, having no controller to be reached by, and
   the wire monitor names the single field a controller drives rather than a
   list of candidates.
+
+- Byte 61 is no longer a reserved byte. It was round-tripped as an
+  undocumented value and is now decoded as `lfo2.eg1Mod`, which is what the
+  instrument keeps there.
 
 ### Fixed
 
@@ -1017,3 +1028,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   reads the parameter byte the device holds rather than the sound it makes,
   and it moves one controller where the limiter's budget is per channel and
   controller.
+
+- Resolved `docs/protocol-quirks.md` #5 and `docs/panel-layout.md` Finding 1
+  against the instrument: `EG1 Mod` is LFO 2's, at CC 67 and byte 61, and the
+  reading that it was runtime-only is withdrawn along with the reading that
+  the one knob, one CC and one byte were necessarily the same parameter. Two
+  cautions came out of it. The instrument disables the parameter when LFO 2's
+  mode is Clock Sync or Monophonic — the display reads `EG1 Mod N/A` — while
+  accepting CC 67 in those modes regardless, so the byte can hold a value the
+  hardware is not acting on and a control has to mirror the panel's disabled
+  state from `lfo2.mode`. And `lfo1.eg1Mod` (byte 55) turns out to be
+  reachable by nothing at all — no CC, no knob, no menu — which puts it in
+  `docs/off-panel-parameters.md` with its effect still unverified.

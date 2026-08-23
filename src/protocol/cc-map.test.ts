@@ -125,8 +125,15 @@ describe("cc-map", () => {
     ]);
   });
 
-  it("leaves LFO2 EG1 Mod unmapped because it has no preset byte", () => {
-    expect(ccToField(LFO2_EG1_MOD)).toBeUndefined();
+  it("resolves LFO2 EG1 Mod to byte 61, which the byte map prints as reserved", () => {
+    expect(ccToField(LFO2_EG1_MOD)).toBe("lfo2Eg1Mod");
+    const applied = applyCc(blankPreset(), LFO2_EG1_MOD, 100);
+    expect(applied).toMatchObject({ kind: "applied", field: "lfo2Eg1Mod" });
+    if (applied.kind !== "applied") {
+      return;
+    }
+    expect(applied.preset.lfo2.eg1Mod).toBe(100);
+    expect(applied.preset.lfo1.eg1Mod).toBe(0);
   });
 
   it("unpacks Voices into the Poly Voice and Mono Voice bytes", () => {

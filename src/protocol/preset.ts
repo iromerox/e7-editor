@@ -10,7 +10,7 @@ export const NAME_BYTES = 20;
 export const LOCK_BYTE_INDEX = 127;
 
 export const RESERVED_BYTE_INDICES: readonly number[] = [
-  56, 57, 61, 62, 63, 69, 100, 101, 102, 103, 104, 125, 126,
+  56, 57, 62, 63, 69, 100, 101, 102, 103, 104, 125, 126,
 ];
 
 export interface Oscillator {
@@ -51,6 +51,7 @@ export interface Lfo1 {
 export interface Lfo2 {
   readonly shape: number;
   readonly rate: number;
+  readonly eg1Mod: number;
   readonly mode: number;
 }
 
@@ -230,6 +231,7 @@ const LFO1_OFFSETS: OffsetsFor<Lfo1> = {
 const LFO2_OFFSETS: OffsetsFor<Lfo2> = {
   shape: 59,
   rate: 60,
+  eg1Mod: 61,
   mode: 64,
 };
 
