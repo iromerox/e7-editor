@@ -99,14 +99,17 @@ The latency is a fixed per-command cost, the same for a 2-byte serial
 response as for a 34-byte memory response, and `requestResponse` pays it
 serially. Every Read Memory call moves 16 bytes, so:
 
-| Operation | Read Memory calls | Floor |
-|---|---:|---:|
-| One single preset (128 bytes) | 8 | ~0.13s |
-| One group, 8 slots | 64 | ~1s |
-| One bank, 64 slots | 512 | ~8.2s |
-| All preset memory, `0x000000-0x01FFFF` | 8,192 | **~2min 11s** |
+| Operation | Read Memory calls | Sequential | Four in flight |
+|---|---:|---:|---:|
+| One single preset (128 bytes) | 8 | ~0.13s | ~0.09s |
+| One group, 8 slots | 64 | ~1s | ~0.7s |
+| One bank, 64 slots | 512 | ~8.2s | ~5.6s |
+| All preset memory, `0x000000-0x01FFFF` | 8,192 | **~2min 11s** | **~1min 29s** |
 
-Those are floors, not estimates — they assume the device answers instantly
-after its 16ms and the app adds nothing. Whether pipelining can beat them is
-open question #19, and it wants answering before the bulk read operations are
-designed against these numbers.
+The sequential column is a floor, not an estimate — it assumes the device
+answers instantly after its 16ms and the app adds nothing. The right-hand
+column is measured rather than derived: the device does accept a new command
+while preparing a response, up to five outstanding, and a window of four
+sustains 10.9ms per read over a run the length of a full backup. That is
+`protocol-quirks.md` #19, which carries the numbers and what a bulk reader
+has to do to be safe at that depth.

@@ -991,3 +991,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with them that `Delay Time` sweeps from the shortest division to the
   longest while `LFO 1 Rate` sweeps the other way, so a control that sweeps
   both the same direction is wrong on one of them.
+- Measured what the device's ~16ms round trip is a limit on, which turns out
+  not to be how often it can answer. It takes a new Read Memory while it is
+  preparing a response, up to five outstanding: a burst of five comes back
+  complete and in order, a sixth arrives as a truncated prefix of its own
+  answer, and every request behind it is dropped. Held to four in flight, a
+  read sustains 10.9ms per 16-byte block over a run the length of a full
+  backup — all of preset memory in ~1min 29s against the 2min 11s a
+  sequential read floors at — with nothing missing and nothing out of order.
+  Recorded with what a bulk reader has to do to be safe at that depth, a
+  response identifying nothing and a dropped answer silently re-pairing every
+  answer behind it.

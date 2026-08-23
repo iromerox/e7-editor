@@ -312,36 +312,90 @@ questions, not assumptions:
     a client talking to CoreMIDI directly sees the pieces of a frame, and a
     browser does not. The open question above is specifically about *browsers*
     and stays open; nothing here says a browser will ever fragment.
-19. **Whether the device accepts a pipelined request is untested, and a full
-    backup takes over two minutes if it doesn't.** Every command in the smoke
-    test answered in 15.7-16.0ms — a fixed cost, identical for a 2-byte
-    serial response and a 34-byte memory response. It is device-side, not
-    transport-side: across those nine samples the spread was 0.3ms, whereas
-    delivery batched on a browser task queue would scatter latencies across a
-    full tick, and the ~63Hz floor doesn't match a 60Hz refresh either.
+19. **The device pipelines, the 16ms is a latency rather than a rate, and a
+    bulk read should keep four requests in flight** — this entry stays
+    numbered here rather than moving to the confirmed section below so the
+    cross-references to "#19" keep resolving.
 
-    `requestResponse` sends one command and waits, so that cost is paid
-    serially. Reading all of preset memory is 8192 Read Memory calls
-    (`0x000000-0x01FFFF`, 16 bytes each) — about 2min 11s, and no amount of
-    client-side work reduces it while requests stay sequential. Whether the
-    device will accept a new command while preparing a response, and how deep
-    that queue goes, has never been tried. Settle it before designing BULK's
-    bulk reads and progress UI, because the answer decides whether a full
-    backup is a progress bar or an operation the user walks away from.
+    **Hardware-confirmed 2026-08-22**, serial #361, over USB, driven from
+    Node over CoreMIDI. Read-only throughout: Read Memory and Read Serial
+    Number, nothing written to the instrument.
+
+    The serial figure holds over a long run. 150 Read Memory calls sent one
+    at a time, each after the previous answer arrived, round-tripped in
+    **15.4ms min / 15.6ms median / 16.7ms max**, 16.6ms per read counting the
+    host's own turnaround, with every answer carrying the block its own
+    request asked for. So the smoke test's 15.7-16.0ms was not a nine-sample
+    artifact.
+
+    **But it is the cost of waiting, not the cost of answering.** Read Serial
+    Number sent 64 deep with no waiting drew all 64 answers, one every
+    2.6ms — 6x the sequential rate, on the same path, in the same session.
+    Whatever the ~16ms is, it is not a floor on how often the device can
+    answer.
+
+    **Read Memory pipelines to a ceiling of five outstanding requests.**
+    Bursts of 1 through 5 were answered in full and in order, the first
+    answer at ~16ms and each next one ~10.9ms behind it. At six the device
+    answers the first five correctly, delivers the sixth as a **truncated
+    prefix of its own answer** — correct bytes, cut off mid-frame, terminated
+    with `F7` like any complete frame — and drops every request after it. A
+    64-deep burst behaves exactly like a 6-deep one: five answers, one
+    fragment, 58 requests unanswered. The fragment's length varies with how
+    fast the burst was sent (13, 14, 28 and 29 bytes observed), and its bytes
+    always decode as a prefix of the block that request asked for, so the
+    request arrived intact and the response was cut on the way out.
+
+    That ceiling belongs to Read Memory rather than to the transport, since
+    64 serial reads queued on the same path in the same session lost nothing.
+
+    **A sliding window sustains it indefinitely.** Holding 2, 3 or 4 requests
+    in flight and sending the next as each answer lands ran **8192 reads —
+    the size of a full preset-memory backup — in 89.1s, none missing, none
+    out of order**, a steady 10.9ms per read with no drift over the run. A
+    window of 2 already reaches that rate, so depth beyond it buys nothing; a
+    window of 5 sits on the ceiling and fails within the first few answers.
+
+    **Nothing was ever seen out of order, at any depth.** That is a stronger
+    statement than the harness alone can make: per #3 a response names
+    nothing, so every answer here was checked by its bytes against the same
+    blocks read one at a time first, and a swap between two blocks holding
+    identical bytes is the only reordering this could not have seen.
+
+    So, for BULK's bulk reads: **keep four Read Memory requests in flight**.
+    Four rather than two for slack against host jitter, and never five. At
+    10.9ms per 16-byte read that puts a group at ~0.7s, a bank at ~5.6s, and
+    all of preset memory at **~1min 29s** against a sequential read's 2min
+    11s floor — 2min 16s at the rate the 150-call run actually held. Still a
+    progress bar and still an operation the user walks away from, but a third
+    off it. Three things the window has to do, all
+    from the failure above: fill in order and credit each answer to the
+    oldest outstanding request, since correlation is positional and nothing
+    else identifies an answer; treat any frame that is not exactly 34 bytes
+    as a lost answer rather than a decode error, because that is what
+    over-filling looks like; and fail the whole window on a missing answer
+    rather than shifting the pairing, since a drop silently re-pairs every
+    answer behind it.
+
+    Not measured over DIN MIDI — no interface was available (see #21).
 20. **The outbound CC rate limit was chosen without hardware and may be about
     3x too permissive.** `MIN_CC_INTERVAL_MS` is 5 (200Hz per
-    channel/controller pair). If the device really works on the ~16ms cycle
-    #19 measured, a knob drag still delivers roughly three updates per device
-    cycle, so the limiter throttles far less than its name suggests. Whether
-    the device drops the surplus, lags behind a drag, or handles it fine is
-    unknown — nothing has been sent to the instrument at rate yet.
+    channel/controller pair). The device's fastest observed answer cadence is
+    10.9ms per Read Memory under #19's sliding window, so a knob drag still
+    delivers roughly two updates per device cycle and the limiter throttles
+    far less than its name suggests. Whether the device drops the surplus,
+    lags behind a drag, or handles it fine is unknown — nothing has been sent
+    to the instrument at rate yet, and #19 measured what the device answers
+    rather than what it accepts.
 21. **Every hardware finding here is USB-only.** The smoke test ran over the
-    e7's USB port. DIN MIDI is a different physical path at 31250 baud, where
-    a 34-byte Read Memory response occupies ~9ms of wire time rather than
-    being effectively instant, so both the framing questions (#12, #16) and
-    the latency in #19 could behave differently. Treat #12, #16, and #19 as
-    settled for USB and open for DIN until someone runs the same page through
-    a DIN interface.
+    e7's USB port, and so did #19's throughput run. DIN MIDI is a different
+    physical path at 31250 baud, where a 34-byte Read Memory response
+    occupies ~9ms of wire time rather than being effectively instant — which
+    is most of #19's 10.9ms pipelined cadence, so a DIN run could find the
+    wire rather than the device setting the rate, and the five-deep ceiling
+    reached at a different sending speed. Treat #12, #16, and #19 as settled
+    for USB and open for DIN until someone runs the same page through a DIN
+    interface.
 22. **Nothing accounts for the Chorus and Delay enable LEDs.** Both effect
     sections carry an LED beside their title on the front panel, and there is
     no on/off parameter behind either one: `Chorus` and `Delay` have no such
