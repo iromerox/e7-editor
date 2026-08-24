@@ -764,23 +764,28 @@ portamento on/off button — see
 switch beside `Portamento Time` was built first and taken out again: it
 invents a second control where the instrument has one, and the two can only
 ever disagree in ways the user has to reason about (a glide time set with the
-switch off does nothing). Instead the knob writes both bytes — crossing off
-zero switches portamento on, returning to zero switches it off — so the
-control the panel has always means what it says. The switch is only written
-when the state actually changes, not on every step of a drag, and the knob's
-description says at the control that it does this.
+switch off does nothing). Instead the knob writes the switch on as the time
+crosses off zero, so the control the panel has always means what it says. It
+is written only when the byte is not already on, not on every step of a drag.
 
-**What "on" is worth in that byte is an assumption, not a spec.** The MIDI
-implementation gives CC 65 no zone table and the byte map only names the byte
-`Portamento On`, so the editor writes 127 for on and 0 for off on the general
-MIDI switch convention. Open question #23 in `protocol-quirks.md` and the HW
-task behind it; a hardware session settles it by switching portamento from a
-MIDI controller and reading byte 48 back.
+**The knob does not switch it off again, and that is the important half.**
+The instrument never stores 0 in byte 48: all 64 slots of bank 1 hold 127,
+the 47 with no glide time included, so `time == 0` is what means "no glide"
+and the switch simply stays on. Writing 0 there produces a preset the panel
+cannot rescue — the physical Time knob transmits CC 5 and never touches byte
+48, so nothing on the instrument can turn portamento back on, and turning
+the knob up on such a preset is silent. The editor therefore writes 127 and
+never 0, and writes it whenever the byte is below 64 with a time set, which
+repairs a preset that arrives that way.
 
-Nothing reads byte 48 back into the UI, which is the deliberate half of this:
-a preset arriving with the byte and the time disagreeing is left alone until
-the user moves the knob, rather than the editor quietly rewriting a byte it
-cannot yet interpret.
+**`>= 64` is on, measured rather than assumed.** The MIDI implementation
+gives CC 65 no zone table, but the engine glides at byte 48 = 64 and 127 and
+not at 63, 1 or 0 — the same split the CC table prints for OSC2 Sync on CC
+51. Confirmed entry #23 in `protocol-quirks.md` has the run.
+
+Nothing reads byte 48 back into the UI, which stays deliberate: the editor
+repairs the byte on the next knob move rather than rewriting a preset the
+moment it arrives.
 
 **The Mode button never writes the reserved range, and survives reading
 one.** `OtherMode` reserves CC 80-127 and `mode` is a plain byte, so a device
@@ -1085,11 +1090,17 @@ prose describing it. A byte and a CC are not evidence that a parameter
 exists.
 
 **`portamento.on` is written, without a control of its own.** The Portamento
-Time knob carries it: the byte goes on as the time leaves zero and off as it
-returns. It is the only row here the editor writes at all, and the only one
-the manual describes as a parameter. The value written rests on the general
-MIDI switch convention rather than on anything the e7's documents say — see
-the Portamento / Polyphony section and open question #23.
+Time knob carries it: the byte goes on as the time leaves zero, and stays on
+as it returns, because the instrument never stores 0 there either. It is the
+only row here the editor writes at all, and the only one the manual describes
+as a parameter. `>= 64` is on, measured against the instrument rather than
+taken from the general MIDI switch convention — see the Portamento /
+Polyphony section and confirmed entry #23.
+
+**This row is the reason the panel-first rule has an edge case.** A parameter
+the panel cannot reach is a parameter the panel cannot *repair*, so a byte the
+editor writes badly here cannot be fixed at the instrument the way any panel
+control can. Weigh that before writing any other row of this table.
 
 `off-panel-parameters.md` is the full inventory of what the panel gives no
 control for — this table, the menu-only parameters, the global configuration,

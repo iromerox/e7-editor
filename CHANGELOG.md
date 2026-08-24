@@ -761,6 +761,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   regular 8-wide bands over the manual's division order rather than the
   irregular layouts they were carried as, and the delay's is the LFO's with
   the controller axis reversed.
+- The `Portamento Time` knob no longer switches the instrument's portamento
+  parameter off as the time returns to zero. Writing 0 there produced a
+  preset that could not glide and could not be repaired at the instrument:
+  no panel control reaches that byte, so turning the physical knob up on
+  such a preset stayed silent. The hardware never stores 0 — every factory
+  preset holds the switch on and lets a time of zero mean "no glide" — so
+  the knob now switches it on and leaves it on, and also switches it on when
+  a preset arrives with a time set and the switch off, which repairs one
+  saved by the previous behaviour.
 
 ### Documentation
 
@@ -1054,3 +1063,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   these lamps do answer an incoming CC, where the display answers only the
   panel, so a readout following physical controls only is not a general rule
   of this instrument.
+- Resolved `docs/protocol-quirks.md` #23 against the instrument: byte 48
+  stores CC 65 verbatim, the engine reads it as `>= 64` — glide at 64 and
+  127, none at 63, 1 or 0, the same split the CC table prints for OSC2 Sync
+  and never for CC 65 — and the physical `Portamento Time` knob transmits CC
+  5 alone, so nothing on the panel reaches the switch. Recorded with the
+  measurement that changed the editor's behaviour: every one of bank 1's 64
+  slots holds the byte at 127, including the 47 with no glide time, so the
+  instrument leaves portamento switched on permanently and never writes the
+  off value the editor had been writing.

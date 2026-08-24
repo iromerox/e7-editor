@@ -37,7 +37,7 @@ touches.
 
 | Field | Byte | CC | Reached from | Status |
 |---|---|---|---|---|
-| `portamento.on` | 48 | 65 | Nothing — the panel has `Portamento Time` and no on/off | Real — **written by the `Portamento Time` knob**, on above zero |
+| `portamento.on` | 48 | 65 | Nothing — the panel has `Portamento Time` and no on/off | Real — **written by the `Portamento Time` knob**, on above zero and never written off; see below |
 | `transpose` | 105 | — | Preset Menu (Shift + button 5); a multi part's `CH/TRANSP` | Menu-only, and **unreachable live** — ±48 semitones as `64 + n`, see below |
 | `monoVoice` / `polyVoice` | 106 / 107 | 97, packed as `16*V1 + V2` | Preset Menu; the `VOICES` LED row is an indicator, not a control | Menu-only — **built**, as the two selectors in `VOICES` |
 | `part1Only.name` | 0-19 | — | The save flow: `Bank`+`Shift`, then character entry on buttons 1-5 | Menu-only |
@@ -56,6 +56,27 @@ touches.
 
 `partSettings` is only used when the preset is part of a multi, so a single
 preset carries six bytes that do nothing until it becomes a multi part.
+
+### `portamento.on` is written on, and never written off
+
+`>= 64` is on: the engine glides at byte 48 = 64 and 127 and not at 63, 1 or
+0, which is the split the CC table prints for OSC2 Sync and not for CC 65.
+The byte itself stores whatever CC 65 sends, verbatim.
+
+The editor writes 127 as the time leaves zero and leaves the byte alone as
+the time returns, because **0 is a value the instrument never stores**: all
+64 slots of bank 1 hold 127, the 47 with no glide time included. A preset
+saved with 0 there cannot glide and cannot be repaired at the instrument —
+the physical `Portamento Time` knob transmits CC 5 only, so nothing on the
+panel reaches byte 48 and turning the knob up is simply silent. The editor
+also writes 127 whenever it finds the byte below 64 with a time already set,
+which repairs such a preset on the next knob move.
+
+This is the row that shows why the status column is worth keeping honest: a
+parameter the panel cannot reach is one the panel cannot rescue, so the cost
+of writing the wrong value here is not a byte that gets overwritten but a
+preset that no longer works. `protocol-quirks.md` confirmed entry #23 has the
+measurements.
 
 ### The four PWM addresses
 

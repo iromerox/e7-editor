@@ -508,25 +508,51 @@ questions, not assumptions:
     parameter from MIDI can watch them and trust what it sees, which is a
     cheaper observable than the display for anything they cover. See
     `panel-layout.md` Finding 6.
-23. **Nothing says what value byte 48 holds when portamento is on.** The CC
-    table lists CC 65 as `Portamento Switch` with no zone table — the only
-    switch-like entry in it that has none — and the byte map names byte 48
-    `Portamento On` without giving it values. The editor makes the
-    Portamento Time knob write it — on as the time leaves zero, off as it
-    returns — so it has to write *something*: 127 and 0, on the general MIDI
-    convention for switch controllers 64-69. That convention is the reason to
-    prefer those values and the only evidence for them. Nothing reads the
-    byte back into the UI, so a wrong guess costs a byte the editor
-    overwrites rather than a control that lies.
+23. **Byte 48 stores CC 65 verbatim and the engine reads it as `>= 64`, and
+    the instrument never writes 0 there** — this entry stays numbered here
+    rather than moving to the confirmed section below so the
+    cross-references to "#23" keep resolving.
 
-    Settle it in a hardware session: switch portamento on from a MIDI
-    controller, read byte 48 of the edit buffer back, and record the value.
-    A second pass in the other direction — send CC 65 with 127, 64, 1 and 0
-    and listen for whether the glide engages — says whether the instrument
-    applies the same convention on input. The same session should answer
-    whether the panel's Time knob glides at all while byte 48 is 0, which is
-    what decides whether coupling the two was necessary or merely tidy.
-    HW-10 owns this.
+    **Hardware-confirmed 2026-08-23**, serial #361, over USB. Three findings,
+    and the third is the one that matters.
+
+    **The byte is a raw store, not a flag.** CC 65 sent at 127, 64, 63, 1 and
+    0 put exactly those values in byte 48 of the volatile Current Preset
+    (`0x030800`) — it tracks the controller with no normalisation, so there
+    is no canonical "on" value to read off it. CC 5 was the positive control
+    and moved byte 49; CC 102 moved nothing; nothing arrived inbound while
+    the run measured.
+
+    **The engine reads it as a zone, and the zone is the one the spec prints
+    for the instrument's other boolean.** With a time of 100 and the
+    instrument monophonic, a two-octave legato pair glided at byte 48 =
+    127 and 64 and did not at 63, 1 or 0 — the boundary sits between 63 and
+    64, which is what the CC table gives OSC2 Sync on CC 51 (`0-63: OFF,
+    64-127: ON`, p.4) and never gives CC 65. A round with the time at zero
+    was the ear's control and did not glide. **So CC 65's missing zone table
+    is an omission, not a different convention**, and the general MIDI
+    reading the editor was built on lands in the right half by luck rather
+    than by rule.
+
+    **The byte is load-bearing, and only MIDI can clear it.** With byte 48
+    forced to 0 and the physical `PORTAMENTO TIME` knob turned to 127, the
+    same pair did not glide. The knob transmits CC 5 alone and left byte 48
+    at 0, so the panel writes the time and never the switch — meaning an
+    instrument holding 0 there has no control that can turn portamento back
+    on. The way it stays usable is that **it never holds 0**: all 64 preset
+    slots of bank 1 read byte 48 = 127, including the 47 whose time is 0 and
+    the 17 that set a real glide time. The instrument leaves the switch on
+    permanently and lets `time == 0` mean "no glide".
+
+    That last point inverts what this entry was raised to check. The value
+    the editor wrote for **on** was right; the value it wrote for **off**
+    was the defect, and not because the device rejects it — because a preset
+    saved with byte 48 = 0 cannot be rescued from the panel. The editor now
+    writes 127 as the time leaves zero and leaves the byte alone as it
+    returns, which is what every factory preset does, and it writes 127
+    whenever the byte is below 64 with a time set, which repairs a preset
+    that arrives unable to glide. See `panel-layout.md` Finding 5 and
+    `off-panel-parameters.md`.
 
 ---
 

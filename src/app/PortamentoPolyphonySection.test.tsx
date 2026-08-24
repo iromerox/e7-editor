@@ -12,7 +12,12 @@ import {
 } from "../protocol";
 import { createAppState } from "./app-state";
 import { createLiveEdit } from "./live-edit";
-import { PortamentoPolyphonySection, nextMode } from "./PortamentoPolyphonySection";
+import {
+  PORTAMENTO_ON_THRESHOLD,
+  PORTAMENTO_ON_VALUE,
+  PortamentoPolyphonySection,
+  nextMode,
+} from "./PortamentoPolyphonySection";
 
 interface SentCc {
   readonly controller: number;
@@ -38,10 +43,12 @@ const connection: Connection = {
   close: () => Promise.resolve(),
 };
 
-function renderSection(): void {
+function renderSection(prime?: (state: AppStateControls) => void): void {
   sent.length = 0;
   controls = createAppState();
   controls.setReceiveChannel({ kind: "channel", channel: 1 });
+  prime?.(controls);
+  sent.length = 0;
   render(() => <PortamentoPolyphonySection live={createLiveEdit(controls, () => connection)} />);
 }
 
@@ -129,11 +136,11 @@ describe("PortamentoPolyphonySection", () => {
 
     await fireEvent.keyDown(time, { key: "ArrowUp" });
 
-    expect(readField(controls.state.editor.preset, "portamentoSwitch")).toBe(127);
-    expect(sent).toContainEqual({ controller: PORTAMENTO_SWITCH, value: 127 });
+    expect(readField(controls.state.editor.preset, "portamentoSwitch")).toBe(PORTAMENTO_ON_VALUE);
+    expect(sent).toContainEqual({ controller: PORTAMENTO_SWITCH, value: PORTAMENTO_ON_VALUE });
   });
 
-  it("switches it off again only when the time comes back to zero", async () => {
+  it("leaves the switch on when the time comes back to zero", async () => {
     renderSection();
     const time = screen.getByRole("slider", { name: "Portamento Time" });
 
@@ -141,15 +148,42 @@ describe("PortamentoPolyphonySection", () => {
     await fireEvent.keyDown(time, { key: "PageUp" });
 
     expect(sent.filter((cc) => cc.controller === PORTAMENTO_SWITCH)).toEqual([
-      { controller: PORTAMENTO_SWITCH, value: 127 },
+      { controller: PORTAMENTO_SWITCH, value: PORTAMENTO_ON_VALUE },
     ]);
 
     await fireEvent.keyDown(time, { key: "Home" });
 
-    expect(readField(controls.state.editor.preset, "portamentoSwitch")).toBe(0);
+    expect(readField(controls.state.editor.preset, "portamentoTime")).toBe(0);
+    expect(readField(controls.state.editor.preset, "portamentoSwitch")).toBe(PORTAMENTO_ON_VALUE);
     expect(sent.filter((cc) => cc.controller === PORTAMENTO_SWITCH)).toEqual([
-      { controller: PORTAMENTO_SWITCH, value: 127 },
-      { controller: PORTAMENTO_SWITCH, value: 0 },
+      { controller: PORTAMENTO_SWITCH, value: PORTAMENTO_ON_VALUE },
     ]);
+  });
+
+  it("switches on a preset that arrives with a time set and the switch below the threshold", async () => {
+    renderSection((state) => {
+      state.editField("portamentoTime", 40);
+      state.editField("portamentoSwitch", 0);
+    });
+    const time = screen.getByRole("slider", { name: "Portamento Time" });
+
+    await fireEvent.keyDown(time, { key: "ArrowUp" });
+
+    expect(readField(controls.state.editor.preset, "portamentoSwitch")).toBe(PORTAMENTO_ON_VALUE);
+    expect(sent).toContainEqual({ controller: PORTAMENTO_SWITCH, value: PORTAMENTO_ON_VALUE });
+  });
+
+  it("leaves a switch already above the threshold alone rather than raising it to full", async () => {
+    renderSection((state) => {
+      state.editField("portamentoSwitch", PORTAMENTO_ON_THRESHOLD);
+    });
+    const time = screen.getByRole("slider", { name: "Portamento Time" });
+
+    await fireEvent.keyDown(time, { key: "ArrowUp" });
+
+    expect(readField(controls.state.editor.preset, "portamentoSwitch")).toBe(
+      PORTAMENTO_ON_THRESHOLD,
+    );
+    expect(sent.filter((cc) => cc.controller === PORTAMENTO_SWITCH)).toEqual([]);
   });
 });

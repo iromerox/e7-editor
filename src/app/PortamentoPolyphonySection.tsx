@@ -30,8 +30,10 @@ export const RESERVED_MODE = "Reserved";
 
 export const PORTAMENTO_ON_VALUE = 127;
 
+export const PORTAMENTO_ON_THRESHOLD = 64;
+
 export const PORTAMENTO_TIME_DESCRIPTION =
-  "Time the pitch takes to travel between notes played and triggered by the same voice. The instrument has a separate portamento on/off parameter that no panel control reaches; the knob carries it, switching portamento on as the time leaves zero and off as it returns.";
+  "Time the pitch takes to travel between notes played and triggered by the same voice. The instrument has a separate portamento on/off parameter that no panel control reaches; the knob switches it on as the time leaves zero and leaves it on, which is how every preset the instrument ships stores it.";
 
 const MODE_ORDER: readonly OtherMode[] = [
   "polyphonic",
@@ -78,10 +80,10 @@ export function PortamentoPolyphonySection(props: PortamentoPolyphonySectionProp
     unlessReserved(() => otherModeFromCc(ccValue(props.live.value("mode"))));
 
   const writeTime = (next: number): void => {
-    const gliding = props.live.value("portamentoTime") > 0;
+    const on = props.live.value("portamentoSwitch") >= PORTAMENTO_ON_THRESHOLD;
     props.live.write("portamentoTime", next);
-    if (next > 0 !== gliding) {
-      props.live.write("portamentoSwitch", next > 0 ? PORTAMENTO_ON_VALUE : 0);
+    if (next > 0 && !on) {
+      props.live.write("portamentoSwitch", PORTAMENTO_ON_VALUE);
     }
   };
 
