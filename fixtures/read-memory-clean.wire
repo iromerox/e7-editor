@@ -10,11 +10,13 @@ session  Reading preset 1.1.1 a block at a time, one send per block, watching fo
 # short. This is the normal case, and the reason protocol-quirks.md #12 no longer
 # claims the device sends a prelude.
 #
-# Answers lag their command by one on this path (HW-11), so a frame sits under the
-# command after the one it answers, and the frame at +0.0ms answers a warm-up read
-# taken before the log was cleared. The first two frames both carry "Pumpin Pad",
-# which is block 0 read twice. The lag belongs to this transport rather than to the
-# instrument; nothing here pairs a frame with the line above it.
+# Answers lag their command by one, so a frame sits under the command after the one
+# it answers, and the frame at +0.0ms answers a warm-up read taken before the log was
+# cleared. The first two frames both carry "Pumpin Pad", which is block 0 read twice.
+# The lag is the instrument's rather than this transport's — it withholds the last ten
+# bytes of every answer until the next one pushes them out, protocol-quirks.md #24, and
+# a browser is one behind in the same way. Nothing here pairs a frame with the line
+# above it.
     +0.0ms  -->  F0 00 21 62 01 10 0E 00 00 00 F7
     +8.1ms  <--  F0 00 05 05 07 0D 06 00 07 09 06 0E 06 00 02 00 05 01 06 04 06 00 02 00 02 00 02 00 02 00 02 00 02 F7
   +400.9ms  -->  F0 00 21 62 01 10 0E 10 00 00 F7

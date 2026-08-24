@@ -143,7 +143,7 @@ memory. The documented layout (p.27) covers only the first 5 bytes. The
 remaining 1019 bytes are untyped, reachable only via generic Read/Write
 Memory.
 
-## 12. The "preview frame" is a host artifact, not a device behavior
+## 12. The "preview frame" is a stale tail, not a prelude
 
 This entry used to say the device sends an undocumented short frame before
 each Read Memory response. **It does not.** Nothing the instrument transmits
@@ -153,7 +153,9 @@ paragraphs below as the correction, not as a caveat on a standing claim.
 What was originally observed against serial #361 was a single Read Memory
 command producing **two** SysEx frames ~16ms apart — a short frame no decoder
 accepts, then the real spec-shaped response. The shape is real. What produces
-it is the host's MIDI client, not the synthesizer.
+it is the tail of an *earlier* answer, ten bytes the instrument had withheld
+and shipped only when the next command gave it something to push them out
+with (#24) — not a prelude to the response behind it.
 
 **Two independent transports, same instrument and same cable, see no such
 frame.** The in-browser smoke test (Brave/Chromium, Web MIDI, USB) read the
@@ -181,18 +183,22 @@ this entry used to list:
    output. The rig of the original sighting cannot be reconstructed, but
    configuration memory is persistent and nothing in this project has ever
    written it, so 1 is most likely what it read then too.
-3. **A native-MIDI-client artifact — this is what it was.** Not a bug in
-   `midir` specifically: it is how a SysEx frame reaches any client that talks
-   to CoreMIDI directly, in pieces rather than whole. Web MIDI is specified to
-   deliver one complete `F0...F7` frame per event and does; a native client
-   sees the fragments.
+3. **A stale tail, arriving as a frame of its own — this is what it was.**
+   Originally read as a native-MIDI-client artifact, on the grounds that a
+   client talking to CoreMIDI directly receives a frame in pieces where Web
+   MIDI delivers it whole. The pieces are real and that half stands, but the
+   cause is the instrument's, not the client's: it withholds the last ten
+   bytes of everything it transmits until ten more are queued behind them
+   (#24). Those ten bytes are the stale frame. A browser is subject to the
+   same withholding — it is one answer behind on the same sequence — and
+   differs only in reassembling the pieces before handing them over.
 
-**The mechanism reproduces on demand.** On the Node path every answer trails
-its command by one (HW-11), so a session that sends a command and exits leaves
-an answer undelivered — and no amount of *waiting* drains it, because the
-device only ships a pending answer when something is next sent to it. The next
-session to open the port receives the tail of that answer as a frame of its
-own, and its first real response behind it. That is one short undecodable
+**The mechanism reproduces on demand.** Every answer trails its command by
+one — on every transport, browsers included (#24) — so a session that sends a
+command and exits leaves ten bytes undelivered, and no amount of *waiting*
+drains them, because only further output from the device pushes them out. The
+next session to open the port receives that tail as a frame of its own, and
+its first real response behind it. That is one short undecodable
 frame followed by one spec-shaped response: #12's description exactly, with
 the instrument sending no prelude at any point. The capture is
 `fixtures/stale-frame-tail.wire`.
@@ -299,9 +305,9 @@ questions, not assumptions:
     at the point of use. See `panel-layout.md` Finding 3.
 15. Whether other Read commands (Autotuning, Lock echo, Write Memory echo)
     exhibit the same prelude as Read Memory (#12) is **mostly moot now that
-    #12 is a host artifact**: there is no device prelude for any command to
-    exhibit, and what a given command shows depends on the transport rather
-    than on the command. Read Serial Number and Read Configuration are both
+    #12 is a stale tail**: there is no device prelude for any command to
+    exhibit, and what precedes a given answer is whatever the command before
+    it left withheld. Read Serial Number and Read Configuration are both
     confirmed clean — the smoke test recorded a single response frame for the
     first, and HW-02's Node session recorded a single 6-byte frame
     (`F0 00 00 07 01 F7`) for the second. The three untried commands are worth
@@ -620,3 +626,40 @@ were learned by running the instrument rather than by reading.
     76 and byte 116 tracks CC 111 exactly, so nothing readable over MIDI names
     the division. See `fixtures/lfo-clock-rate-zones.wire` and
     `fixtures/delay-clock-rate-zones.wire`.
+
+24. **The instrument withholds the last ten bytes of everything it transmits,
+    until ten more bytes are queued behind them.** Its MIDI output retains a
+    ten-byte residue and ships only the excess. A Read Memory answer is 34
+    bytes: twenty-four arrive 5-10ms after the command, paced at MIDI's own
+    31250 baud, and the remaining ten — the `F7` among them — are not sent.
+    Waiting does not release them; five seconds of silence changes nothing,
+    and neither system realtime nor a control change is enough on its own.
+    What releases them is ten further bytes of the device's own output, which
+    in practice is the next answer, arriving ahead of itself.
+
+    **A client that reassembles `F0...F7` therefore reads the previous
+    command's answer.** The answer is never late and never wrong — only its
+    terminator is missing — but a frame cannot complete until the send after
+    the one it answers, so a run of `requestResponse` calls returns every
+    answer shifted by one, with correct-looking bytes and a normal-looking
+    round trip. Nothing at the framing layer can see it: a response names
+    nothing it answers (#3), so the shift is invisible unless the caller
+    already knows the block it asked for.
+
+    Measured on serial #361 over three transports on one machine and cable.
+    A raw CoreMIDI client with no reassembly sees the stall directly, in the
+    driver's own packets — that capture is
+    `fixtures/withheld-frame-tail.wire`. RtMidi over Node and **Chrome over
+    Web MIDI** are each one behind on the same sequence, six sends out of six,
+    which is what rules out the transport. Another USB-MIDI device on the same
+    CoreMIDI driver withholds nothing, which rules out the driver.
+
+    Two consequences worth carrying. **The length of an answer decides whether
+    a doubled send beats it**: sending a command twice queues a second copy of
+    the answer behind the first, which clears ten bytes only when the answer
+    is itself at least ten bytes long. Read Memory's 34 qualify; Read Serial
+    Number's 4 and Read Configuration's 6 do not, and take four copies before
+    the first surfaces. **And continuous traffic hides it entirely**, because
+    something is always queued behind every answer — which is why the
+    pipelining and CC-rate measurements in #19 and #20 saw no such shift and
+    stand as taken.

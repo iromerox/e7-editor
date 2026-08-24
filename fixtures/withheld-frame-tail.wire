@@ -1,0 +1,60 @@
+e7 wire log v1
+device   GS Music e7, serial 361, USB, driven from Node over raw CoreMIDI
+input    GS-e7 Analog Synthesizer
+output   GS-e7 Analog Synthesizer
+date     2026-08-24
+session  One Read Memory answer at a time, logged per driver packet, showing the ten bytes the instrument withholds
+
+# Every line here is one driver packet, not one frame: this was taken over raw CoreMIDI
+# with no SysEx reassembly, which is the only way the thing below is visible at all.
+# 
+# A Read Memory answer is 34 bytes. Twenty-four of them arrive 5-10ms after the command,
+# paced at MIDI's own 31250 baud. The last ten, the F7 among them, are not sent: the
+# instrument's MIDI output retains a ten-byte residue and ships only what is queued
+# behind it. Waiting never releases it — five seconds changes nothing — and the next
+# command's answer is what pushes it out, ahead of itself.
+# 
+# So a client that reassembles F0..F7 cannot complete a frame until the send after the
+# one it answers, which is why every answer on this path appears to trail its command by
+# one. It is the instrument's, not the transport's: Web MIDI in Chrome shows it on the
+# same machine and the same cable, and another USB-MIDI device on the same driver does
+# not.
+    +0.0ms  -->  F0 00 21 62 01 10 0E 00 00 00 F7
+    +5.4ms  <--  02 00 02
+    +6.4ms  <--  00 02 00
+    +7.3ms  <--  02 00 02
+    +7.6ms  <--  F7
+    +8.6ms  <--  F0 00 05
+    +9.6ms  <--  05 07 0D
+   +10.5ms  <--  06 00 07
+   +11.5ms  <--  09 06 0E
+   +12.4ms  <--  06 00 02
+   +13.4ms  <--  00 05 01
+   +14.3ms  <--  06 04 06
+   +15.3ms  <--  00 02 00
+  +705.1ms  -->  F0 00 21 62 01 10 0E 10 00 00 F7
+  +711.0ms  <--  02 00 02
+  +711.9ms  <--  00 02 00
+  +712.9ms  <--  02 00 02
+  +713.2ms  <--  F7
+  +714.1ms  <--  F0 00 02
+  +715.1ms  <--  00 02 00
+  +716.1ms  <--  02 00 02
+  +717.0ms  <--  00 04 0F
+  +718.0ms  <--  03 00 00
+  +718.9ms  <--  0F 07 04
+  +719.9ms  <--  06 00 00
+  +720.8ms  <--  00 00 00
+ +1410.4ms  -->  F0 00 21 62 01 10 0E 00 00 00 F7
+ +1416.1ms  <--  00 0F 07
+ +1417.0ms  <--  00 00 00
+ +1418.0ms  <--  00 00 00
+ +1418.3ms  <--  F7
+ +1419.3ms  <--  F0 00 05
+ +1420.2ms  <--  05 07 0D
+ +1421.2ms  <--  06 00 07
+ +1422.2ms  <--  09 06 0E
+ +1423.1ms  <--  06 00 02
+ +1424.1ms  <--  00 05 01
+ +1425.0ms  <--  06 04 06
+ +1426.0ms  <--  00 02 00

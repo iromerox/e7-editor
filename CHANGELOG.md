@@ -1072,3 +1072,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   slots holds the byte at 127, including the 47 with no glide time, so the
   instrument leaves portamento switched on permanently and never writes the
   off value the editor had been writing.
+- Settled what makes every SysEx answer arrive one command late, as new
+  `docs/protocol-quirks.md` #24: the instrument withholds the last ten bytes
+  of everything it transmits until ten more are queued behind them, so an
+  answer's `F7` only arrives once the next command has drawn one. Measured
+  over three transports on one machine and cable — raw CoreMIDI sees the
+  stall in the driver's own packets, Node and Chrome are each one behind on
+  the same sequence, and another device on the same driver withholds nothing
+  — which makes it the instrument's rather than the host's. #12 loses its
+  "host artifact" reading with it: the "preview frame" is the withheld tail
+  of the *previous* answer, not a prelude to the one behind it. Captured as
+  `fixtures/withheld-frame-tail.wire`, logged per driver packet, since a
+  client that reassembles `F0...F7` cannot see any of it.
