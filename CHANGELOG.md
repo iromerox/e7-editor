@@ -1095,3 +1095,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   of the *previous* answer, not a prelude to the one behind it. Captured as
   `fixtures/withheld-frame-tail.wire`, logged per driver packet, since a
   client that reassembles `F0...F7` cannot see any of it.
+
+- `docs/protocol-quirks.md` no longer opens by calling itself unverified. The
+  disclaimer predated any hardware and outlived it: the document now rests on
+  a real instrument across most of its entries, each carrying its own date and
+  measurement. The header says to trust an entry as far as its own text claims
+  hardware, names the three that deliberately claim none (#9, #10, #11), and
+  keeps #21's bound that all of it is USB-only.

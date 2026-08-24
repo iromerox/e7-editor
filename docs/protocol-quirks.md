@@ -4,9 +4,16 @@ Discrepancies between the printed GS Music *e7 MIDI Implementation* document
 (dated 2022-09-22) and either real hardware behavior or an implementation
 decision worth flagging. Each entry is a decision the implementation should
 make that a careful reader of the spec should know about. Page numbers refer
-to the printed page numbers of the PDF, not the PDF page indices. These are
-unverified against real hardware in this repo yet — re-check against a real
-device before relying on them.
+to the printed page numbers of the PDF, not the PDF page indices.
+
+Much of this has since been checked against a real instrument — serial #361,
+over USB, between 2026-08-19 and 08-23 — and the *Confirmed against hardware*
+section below holds observations the printed document never states at all.
+Each entry says for itself whether hardware backs it, with the date and what
+was measured; trust it exactly that far. Several deliberately do not: #10 is
+explicitly untested, #9 is an implementation policy, #11 is a reading of the
+memory map. One bound covers all of it — #21 holds every hardware finding
+here to USB, DIN being a different physical path nobody has run.
 
 ## 1. Lock / Unlock command labels are inverted on pp. 16-17
 
