@@ -3,7 +3,7 @@ import type { CcEvent, Connection } from "../midi";
 import type { CcField, ReceiveChannel } from "../protocol";
 import type { AppStateControls } from "./app-state";
 import type { ControlValue } from "./control-value";
-import { ccDirection, ccToField, fieldToCc, isPart1OnlyField, readField } from "../protocol";
+import { ccToField, fieldToCc, isPart1OnlyField, readField } from "../protocol";
 import { unlessReserved } from "./reserved-values";
 
 export const OMNI_TARGET_CHANNEL = 1;
@@ -58,11 +58,10 @@ export function createLiveEdit(
   const send = (field: CcField, next: number): void => {
     const active = connection();
     const channel = targetChannel(controls.state.connection.receiveChannel);
-    const cc = fieldToCc(field);
-    if (active === undefined || channel === undefined || ccDirection(cc) === "inbound-only") {
+    if (active === undefined || channel === undefined) {
       return;
     }
-    active.sendControlChange(channel, cc, next);
+    active.sendControlChange(channel, fieldToCc(field), next);
   };
 
   const restore = (field: CcField, next: number): void => {
@@ -128,7 +127,7 @@ export function createLiveEdit(
       return {
         ...(editable ? readout : noted(readout)),
         value: value(field),
-        readOnly: !editable || ccDirection(fieldToCc(field)) === "inbound-only",
+        readOnly: !editable,
         onInput: (next: number) => write(field, next),
       };
     },

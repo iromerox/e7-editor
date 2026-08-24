@@ -6,7 +6,6 @@ import { EMPTY } from "rxjs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   FILTER_CUTOFF,
-  FILTER_RESONANCE,
   MIXER_OSC1_LEVEL,
   MOD_WHEEL,
   MULTI_PRESET_BYTES,
@@ -117,22 +116,6 @@ describe("createLiveEdit", () => {
 
     expect(readField(controls.state.editor.preset, "mixerOsc1Level")).toBe(7);
     expect(sent).toEqual([]);
-  });
-
-  it("sends Filter Resonance, which the device turned out to accept", () => {
-    const { controls, live, sent } = setUp({ kind: "channel", channel: 1 });
-
-    live.write("filterResonance", 64);
-
-    expect(readField(controls.state.editor.preset, "filterResonance")).toBe(64);
-    expect(sent).toEqual([{ channel: 1, controller: FILTER_RESONANCE, value: 64 }]);
-  });
-
-  it("hands the UI a turnable control for every filter field", () => {
-    const { live } = setUp({ kind: "channel", channel: 1 });
-
-    expect(live.control("filterResonance", { label: "Resonance" }).readOnly).toBe(false);
-    expect(live.control("filterCutoff", { label: "Cutoff" }).readOnly).toBe(false);
   });
 
   it("applies an inbound control change to the field behind it", () => {

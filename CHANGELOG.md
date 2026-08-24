@@ -771,6 +771,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   a preset arrives with a time set and the switch off, which repairs one
   saved by the previous behaviour.
 
+### Removed
+
+- The CC directionality model — `CcDirection`, `ccDirection` and the
+  inbound-only CC set in `src/protocol/cc.ts`. It was built for one
+  controller, CC 71, which the hardware then showed to be bidirectional, and
+  the whole hardware re-validation pass since found no controller that goes
+  one way. The editor's send path and its read-only controls no longer
+  consult a direction: a control is read-only when the loaded multi part
+  cannot reach the field, and for no other reason. `docs/protocol-quirks.md`
+  #13 keeps the record of why CC 71 was ever thought one-way.
+
 ### Documentation
 
 - Architecture and protocol-quirks docs, reference document download

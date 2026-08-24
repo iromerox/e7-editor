@@ -1,14 +1,6 @@
 import type { Zone } from "./cc";
 import { describe, expect, it } from "vitest";
-import {
-  FILTER_RESONANCE,
-  LFO1_RATE,
-  bandedZones,
-  ccDirection,
-  decodeZoned,
-  encodeControlChange,
-  mirrorZones,
-} from "./cc";
+import { LFO1_RATE, bandedZones, decodeZoned, encodeControlChange, mirrorZones } from "./cc";
 import { ControlChangeRangeError, ReservedValue } from "./errors";
 
 const evenZones: Zone<string>[] = [
@@ -116,10 +108,6 @@ describe("encodeControlChange", () => {
     expect(encodeControlChange(16, LFO1_RATE, 0)).toEqual(Uint8Array.of(0xbf, 76, 0));
   });
 
-  it("encodes a controller the CC map calls inbound-only just as any other", () => {
-    expect(encodeControlChange(1, FILTER_RESONANCE, 127)).toEqual(Uint8Array.of(0xb0, 71, 127));
-  });
-
   it("refuses a channel outside 1-16", () => {
     expect(() => encodeControlChange(0, LFO1_RATE, 0)).toThrow(ControlChangeRangeError);
     expect(() => encodeControlChange(17, LFO1_RATE, 0)).toThrow(ControlChangeRangeError);
@@ -141,12 +129,5 @@ describe("encodeControlChange", () => {
       expect((error as ControlChangeRangeError).value).toBe(200);
       expect((error as ControlChangeRangeError).max).toBe(127);
     }
-  });
-});
-
-describe("ccDirection", () => {
-  it("treats every CC as bidirectional, Filter Resonance included", () => {
-    expect(ccDirection(FILTER_RESONANCE)).toBe("bidirectional");
-    expect(ccDirection(LFO1_RATE)).toBe("bidirectional");
   });
 });

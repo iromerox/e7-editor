@@ -182,11 +182,3 @@ export const DELAY_MIX = 12;
 
 export const OTHER_MODE = 116;
 export const OTHER_VOICES = 97;
-
-export type CcDirection = "bidirectional" | "inbound-only";
-
-const INBOUND_ONLY_CCS: ReadonlySet<number> = new Set();
-
-export function ccDirection(cc: number): CcDirection {
-  return INBOUND_ONLY_CCS.has(cc) ? "inbound-only" : "bidirectional";
-}

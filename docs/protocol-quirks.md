@@ -236,9 +236,11 @@ questions, not assumptions:
     because the panel writes the same byte the outbound test reads back.
 
     So the earlier reading — device reports panel changes, may not accept
-    outbound writes — was half right and is withdrawn. `ccDirection` no
-    longer flags CC 71, the editor sends it like any other controller, and
-    the `Resonance` knob turns.
+    outbound writes — was half right and is withdrawn. The editor sends CC 71
+    like any other controller and the `Resonance` knob turns. This was the
+    only controller ever modelled one-way; with it withdrawn and no later
+    hardware run turning up another, the direction model that carried it was
+    removed rather than kept empty.
 
     **CC 71 is not in the printed CC table.** The FILTER section on p.4 lists
     Cutoff, EG1 Mod, Velocity EG1 Mod, LFO1-3 Mod, Keyboard Tracking, Mod
