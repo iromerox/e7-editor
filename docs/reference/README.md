@@ -44,9 +44,9 @@ links are hard to find, contact GS Music at info@gsmusic.com.ar.
 ## Why these matter
 
 The MIDI implementation document is the authoritative source for all
-protocol behavior encoded in `src/protocol`. Each task's References section
-in the backlog and the fixture/round-trip tests tie an implementation back
-to the page it derives from — code itself carries no inline citations.
+protocol behavior encoded in `src/protocol`. The fixture and round-trip tests
+are what tie an implementation back to the page it derives from — code itself
+carries no inline citations.
 
 The photographs play the same role for the UI that the spec plays for the
 protocol: they are where the panel's own vocabulary and control layout come

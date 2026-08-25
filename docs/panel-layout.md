@@ -277,10 +277,10 @@ worth knowing before treating it as a sync bug. Second, don't draw the
 editor's knobs as endless encoders: the pointer and the tick arc are real,
 and matching them keeps the two instruments legible side by side.
 
-Deliberately not raised as a task. Nothing in the code assumes an answer,
-which is the vault's own bar for tracking an open question, and it costs
-about a minute to settle during any hardware session — load a preset, nudge
-a knob, watch whether the value jumps or picks up.
+Deliberately left untracked. Nothing in the code assumes an answer — which is
+the bar an open question has to clear — and it costs about a minute to settle
+during any hardware session: load a preset, nudge a knob, watch whether the
+value jumps or picks up.
 
 ---
 
