@@ -1102,3 +1102,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   measurement. The header says to trust an entry as far as its own text claims
   hardware, names the three that deliberately claim none (#9, #10, #11), and
   keeps #21's bound that all of it is USB-only.
+
+- Renamed `docs/protocol-quirks.md`'s "Open questions (needs hardware
+  re-validation)" section to "Questions the implementation raised". Six of its
+  nine entries are answered, and answered entries stay numbered in place so
+  their `#N` cross-references keep resolving — so the heading was describing
+  the section's origin as though it were its current state. The intro now says
+  the section is a deliberate mix and that each entry states where it stands.

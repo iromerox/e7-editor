@@ -221,10 +221,14 @@ something the device does.
 
 ---
 
-## Open questions (needs hardware re-validation)
+## Questions the implementation raised
 
-These have not been resolved against real hardware yet — track as open
-questions, not assumptions:
+Places where code shipped on an assumption nobody had verified. **Most are
+answered now.** An entry stays numbered here once hardware settles it rather
+than moving to another section, so that every `#N` reference to it keeps
+resolving — which makes this a mixed section by design rather than a list of
+things outstanding. Each entry states where it stands, and where hardware
+answered it, the date and what was measured:
 
 13. **Filter Resonance (CC 71) is resolved and bidirectional** — this entry
     stays numbered here rather than moving to the confirmed section below so
