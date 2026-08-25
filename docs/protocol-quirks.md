@@ -34,10 +34,20 @@ pp. 16-17 example labels are confirmed inverted.
 Read Configuration response: 4 bytes (RxCh, TxCh, Filter, SoftThru). Write
 Configuration request: 7 bytes (those 4 + ClockSource, MpeEnable, a
 mandatory `0x00` pad). The configuration EEPROM map (p.27) lists 5 documented
-bytes; Write also takes an MPE Enable byte not in that map — the sensible
-reading is that MPE Enable is a runtime flag accepted via Write but not
-persisted, and Read simply doesn't surface ClockSource. Model the asymmetry
-directly rather than trying to force a single shared shape.
+bytes; Write also takes an MPE Enable byte not in that map. Model the
+asymmetry directly rather than trying to force a single shared shape.
+
+**Read genuinely does not surface ClockSource — hardware-confirmed** on serial
+#361 over USB: Read Configuration comes back as exactly `00 00 07 01`, four
+bytes, with neither ClockSource nor MpeEnable among them. That is the same
+reading #12 took its Soft Thru byte from, so the asymmetry is the
+instrument's own rather than a gap in the document.
+
+**Whether MpeEnable is accepted by Write but not persisted is closed without
+an answer, deliberately.** Read never returns the byte, so it cannot be read
+back, and settling it would mean observing MPE behaviour with an MPE
+controller — which this project does not have. Treat MpeEnable as write-only
+and build nothing that depends on reading it back.
 
 ## 3. Response frames omit the manufacturer header
 
@@ -137,11 +147,14 @@ For every enum with a reserved/invalid range (`OtherMode` 80-127, `Voices`
 `ClockSource` >1, MCM channel count >15), fail loudly rather than coercing to
 a nearest valid variant. Callers that want to recover can do so explicitly.
 
-## 10. Write Configuration trailing pad byte must be zero
+## 10. Write Configuration trailing pad byte: zero by choice, not by measurement
 
 Page 20 shows a trailing `0x00` after the six configuration fields. Always
-emit 0; reject non-zero padding on decode. Unknown whether the device
-tolerates non-zero padding — untested.
+emit 0; reject non-zero padding on decode. **Both halves of that are an
+implementation decision rather than an observation** — whether the device
+tolerates non-zero padding is untested, so the decode-side rejection may be
+refusing a frame the instrument would have accepted. A single write with the
+pad set non-zero would settle it.
 
 ## 11. Configuration EEPROM is 1024 bytes; only 5 are documented
 

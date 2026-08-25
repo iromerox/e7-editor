@@ -1109,3 +1109,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   their `#N` cross-references keep resolving — so the heading was describing
   the section's origin as though it were its current state. The intro now says
   the section is a deliberate mix and that each entry states where it stands.
+
+- `docs/protocol-quirks.md` #2 now records that Read Configuration genuinely
+  does not surface Clock Source — hardware-confirmed on serial #361, four
+  bytes (`00 00 07 01`) with neither ClockSource nor MpeEnable among them. The
+  reading was taken during the preview-frame work and had been sitting in #12
+  unnoticed while #2 still presented it as an open question. Whether MpeEnable
+  is accepted-by-Write but not persisted is closed without an answer instead
+  of left open: it cannot be read back, and settling it needs an MPE
+  controller this project does not have. Treat the byte as write-only.
+- Reworded `docs/protocol-quirks.md` #10's heading, which asserted that the
+  Write Configuration pad byte "must be zero" as though the instrument
+  required it. Emitting zero and rejecting non-zero on decode are both
+  implementation decisions on an untested assumption, and the entry now says
+  so in its title rather than three lines down.
