@@ -985,8 +985,8 @@ write something the instrument is not acting on, and show a live number for a
 parameter the hardware calls N/A.
 
 **LFO 1's `eg1Mod` is real, live, and reachable — just not from the panel.**
-Byte 55 is a genuine preset field with no panel control and no CC in the
-table, which puts it in `off-panel-parameters.md`. Both of the things this
+Byte 55 is a genuine preset field with no panel control and no row in the
+printed CC table, which puts it in `off-panel-parameters.md`. Both of the things this
 paragraph used to leave open have since been answered against the instrument
 (2026-08-27): **CC 57 drives byte 55**, undocumented and found only by
 sweeping every controller, and **EG1 does modulate LFO 1's rate** — measured
@@ -1174,7 +1174,7 @@ Every field in `SinglePreset`, and where it appears on this sheet:
 | `mixer` | 5 knobs | — |
 | `portamento` | `Portamento Time` | `on` |
 | `pitchBendRange` | `Portamento Time`, shift | — |
-| `lfo1` | button + `Rate` | `eg1Mod` — byte 55, no control and no CC, see Finding 1 |
+| `lfo1` | button + `Rate` | `eg1Mod` — byte 55, no panel control; driven by CC 57, which no printed table lists, see Finding 1 |
 | `lfo2` | button + `Rate` (+ shift) | — |
 | `lfo3` | button + 2 knobs | — |
 | `filter` | 7 knobs | — |
