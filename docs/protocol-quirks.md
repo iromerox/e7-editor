@@ -119,10 +119,43 @@ editor control has to mirror the panel's disabled state from LFO 2's mode
 rather than treat a stored value as live.
 
 `lfo1.eg1Mod` at byte 55 keeps its name, because it was never the wrong one.
-It is a real persisted parameter with **no CC and no panel control** — the
-same shape as byte 105 in #14 — and whether it does anything at all is
-untested, since nothing measured here can set it. See `panel-layout.md`
-Finding 1 and `off-panel-parameters.md`.
+
+**It is live, and it does have a controller — both answered since.**
+Hardware-confirmed 2026-08-27, serial #361, over USB. The sweep in #14 found
+**CC 57 drives byte 55**, undocumented and storing the value verbatim (#27),
+which removed the reason this was untestable: the byte can be set in the
+volatile Current Preset over MIDI rather than only by writing a preset to
+flash and loading it. With that, **EG1 modulates LFO 1's rate.** A single
+oscillator, all eighteen LFO destinations silenced and exactly one opened per
+round, EG1 falling from maximum across a five-second note:
+
+| round | carries the pitch | EG1 Mod byte | vibrato speed |
+|---|---|---|---|
+| 1 | LFO 1 | 55 = 0 | steady |
+| 2 | LFO 1 | 55 = 127 | **moves** |
+| 3 | LFO 2 | 61 = 0 | steady |
+| 4 | LFO 2 | 61 = 127 | moves |
+
+Rounds 3 and 4 are the positive control, and they are what make round 2 worth
+reading: byte 61 was already known to modulate LFO 2's rate, so a pair that
+came back steady/steady would have meant the method could not hear the effect
+rather than that byte 55 does nothing. Each round set its byte and read the
+whole image back before the note, so no round was judged on a value the
+instrument had not stored.
+
+So the byte is a real parameter the engine acts on, not a name for a
+modulation the hardware never wired. It is **not** the same shape as byte 105
+in #14 any more: that one has no controller in either direction, while this
+one has an undocumented controller and a live path — what it still has is no
+panel control and no row in any printed table.
+
+**Whether LFO 1's mode gates it is not measured.** The panel refuses LFO 2's
+EG1 Mod in Clock Sync and Monophonic, and that gate was found by watching the
+panel refuse its own knob. LFO 1 has no knob to refuse, so the same question
+has no cheap form here; both LFOs were Polyphonic throughout. Don't assume the
+gate generalises, and don't assume it doesn't.
+
+See `panel-layout.md` Finding 1 and `off-panel-parameters.md`.
 
 ## 6. Multitimbral preset structure typo on page 26
 

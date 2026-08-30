@@ -982,11 +982,22 @@ the panel's, not the byte's — so a control that just sends the value would
 write something the instrument is not acting on, and show a live number for a
 parameter the hardware calls N/A.
 
-**LFO 1's `eg1Mod` is real and unreachable.** Byte 55 is a genuine preset
-field with no panel control and no CC in the table, which puts it in
-`off-panel-parameters.md` alongside `transpose`. Whether it does anything is
-untested: nothing in this pass could set it, so it is not yet known whether
-EG1 modulates LFO 1's rate at all.
+**LFO 1's `eg1Mod` is real, live, and reachable — just not from the panel.**
+Byte 55 is a genuine preset field with no panel control and no CC in the
+table, which puts it in `off-panel-parameters.md`. Both of the things this
+paragraph used to leave open have since been answered against the instrument
+(2026-08-27): **CC 57 drives byte 55**, undocumented and found only by
+sweeping every controller, and **EG1 does modulate LFO 1's rate** — measured
+by ear with a control round at 0 and byte 61's known-good pair as the positive
+control. `protocol-quirks.md` #5 carries both.
+
+So the LFO 1 box has a parameter the hardware acts on and the panel gives no
+control for. That is an `off-panel-parameters.md` shape rather than a missing
+knob on this sheet: the panel is not wrong, it simply does not expose it, and
+this sheet records the panel. What is not known is whether LFO 1's `Mode`
+gates it the way LFO 2's gates the knob above — there is no panel control here
+to watch the instrument refuse, so the cheap version of that test does not
+exist.
 
 ### Finding 2: Master Volume is a control with no preset field
 

@@ -1143,3 +1143,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Mode's Control Change bit is bit 2**, not the low bit its menu page name
   suggests — at Filter Mode 0 the instrument answers no controller at all, a
   failure that reads as a clean null for every controller swept.
+- `docs/protocol-quirks.md` #5, `docs/off-panel-parameters.md` and
+  `docs/panel-layout.md` Finding 1 now record that **EG1 does modulate LFO 1's
+  rate**, and that byte 55 is reachable after all. The byte had been named,
+  believed real, and untestable — nothing could set it, so whether the hardware
+  wired the modulation at all was open and the docs warned against building a
+  control on the strength of a name. CC 57 drives it, which no printed table
+  assigns, and with the byte settable from the volatile buffer the question
+  became an ordinary ear test: the vibrato speed moves across a held note with
+  byte 55 at maximum and is steady at 0, against byte 61's known-good pair as
+  the positive control in the same session. So it is a real parameter with a
+  live path and no panel control — no longer the same shape as `transpose`,
+  which has no controller in either direction. Whether LFO 1's mode gates it is
+  called out as unmeasured rather than assumed either way.
