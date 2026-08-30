@@ -67,6 +67,10 @@ the formula is authoritative.
 
 ## 5. EG1 Mod: CC 67 is LFO 2's, and lives at byte 61 — which the map reserves
 
+**CC 67 turned out to be one of seven, not a lone exception — see #27.** The
+sweep that settled #14 found the same shape at six more controllers, LFO 1's
+own EG1 Mod among them.
+
 **Hardware-confirmed 2026-08-23**, serial #361, over USB, both directions.
 The entry stays numbered here rather than moving to the confirmed section
 below so the cross-references to "#5" keep resolving.
@@ -135,6 +139,11 @@ values 63 and 64 both map to 0 millisemitones (the spec's only duplicate) —
 pick a canonical direction (63) so all other values round-trip.
 
 ## 8. Voices CC encoding caps at 71 (V1 ≤ 4, V2 ≤ 7)
+
+**The controller number this is built on is wrong — see #28.** Hardware drives
+the voice bytes from CC 47, and ignores CC 97 entirely. The cap below is about
+the encoding rather than the controller, but nothing in the pair reaches the
+instrument as shipped.
 
 CC 97 packs `V1*16 + V2`. V1 above 4 and V2 above 7 are reserved, capping
 the maximum legal CC value at 71. Values 72-127, and low values whose V2
@@ -303,13 +312,38 @@ answered it, the date and what was measured:
     running instrument at all — only by writing a preset to flash and loading
     it, or from the Preset Menu on the panel.
 
-    Whether an *undocumented* CC drives byte 105, the way CC 71 turned out to
-    drive resonance (#13), is not settled, but the evidence runs against it:
-    sweeping the byte across its whole range from the Preset Menu transmitted
-    **nothing at all**, where a comparable sweep of the `Tune` knob transmits
-    a continuous run of CC 3. That says the instrument associates no
-    controller with this parameter on the way out; only a sweep of all 128
-    controllers against the byte would settle the way in.
+    **No undocumented CC drives it either — all 128 were tried.**
+    Hardware-confirmed 2026-08-27, serial #361, over USB. The way *out* was
+    already evidence: sweeping the byte across its whole range from the Preset
+    Menu transmitted nothing at all, where a comparable sweep of the `Tune`
+    knob transmits a continuous run of CC 3. The way *in* is now measured
+    rather than inferred. Every controller 0-127 was sent on the receive
+    channel and the whole 128-byte image of the volatile Current Preset was
+    diffed against a fixed baseline around each one — not byte 105 alone,
+    since #5 established that watching named candidates returns nulls that
+    look like answers. **Byte 105 never moved.**
+
+    Three things make that null worth the word. Every controller was sent
+    twice where once was not enough — 100 first, then 40 to the 28 that stayed
+    silent, because a byte already holding the value sent moves nothing and
+    reads as inert, and no byte can hold both. Each controller's byte was put
+    back to baseline before the next was tried, so no reading was taken
+    through the accumulated state of the controllers before it — a mode byte
+    left somewhere else gates later parameters and would have turned real
+    findings into nulls. And CC 97 was re-asked with values its own encoding
+    accepts (#8 caps it at 71, so both sweep values had been *refused* rather
+    than ignored); it stayed silent on those too.
+
+    The controls behaved: CC 74 moved byte 70, CC 102 moved nothing, and
+    nothing arrived inbound that the run had not itself sent. The channel mode
+    messages, 120-127, were sent last as their own pass so that nothing
+    measured could be spoiled by them, with Read Configuration taken before
+    and after: none moved a preset byte and the configuration was unchanged.
+    Bank Select was swept like any other controller because it is latched and
+    inert until a Program Change acts on it, and none was ever sent.
+
+    So byte 105 has no controller in either direction, and the constraint
+    below is not provisional.
 
     **Byte 105 encodes semitones as `64 + n`, over -48..+48.** Confirmed
     2026-08-20 against serial #361: nine readings of the byte taken while the
@@ -689,3 +723,75 @@ were learned by running the instrument rather than by reading.
     something is always queued behind every answer — which is why the
     pipelining and CC-rate measurements in #19 and #20 saw no such shift and
     stand as taken.
+
+27. **Seven controllers drive the LFO blocks' unnamed bytes, and the printed
+    CC table assigns none of them.** Hardware-confirmed 2026-08-27, serial
+    #361, over USB, found by the whole-image sweep that settled #14. Each
+    landed on the value sent, with no scaling, from a baseline of `0`:
+
+    | CC | byte | what the byte map (p.25) calls it |
+    |---|---|---|
+    | 57 | 55 | `LFO1 EG1 Mod` |
+    | 58 | 56 | reserved |
+    | 59 | 57 | reserved |
+    | 67 | 61 | reserved — this is #5's finding, listed for the shape |
+    | 68 | 62 | reserved |
+    | 69 | 63 | reserved |
+    | 84 | 69 | reserved |
+
+    **The shape is per-LFO and regular.** LFO 1's block is bytes 53-58 and
+    LFO 2's is 59-64, the same five slots each; the consecutive controllers
+    57/58/59 drive LFO 1's last three bytes and 67/68/69 drive LFO 2's, ten
+    apart, slot for slot. Byte 69 is the last slot of LFO 3's block (65-69)
+    and CC 84 drives it. So #5 was not an isolated exception — CC 67 is one
+    member of a block the document omits entirely.
+
+    **CC 57 is LFO 1's EG1 Mod**, which is the one of the seven whose byte the
+    document already names. That closes the asymmetry #5 opened from the other
+    side: the CC table lists an EG1 Mod for LFO 2 and none for LFO 1, the byte
+    map names byte 55 for LFO 1 and reserves LFO 2's, and the instrument has
+    both, each with its own controller. It also means `lfo1.eg1Mod` is
+    reachable over MIDI, which is what the question of whether it does
+    anything at all needs in order to be asked.
+
+    **What the other five bytes are is not measured here.** All that was
+    established is that each accepts a controller and stores it verbatim in
+    the edit buffer; none of them is a byte the document names, and no ear
+    test or panel gesture was involved. Nothing in the repo maps them.
+
+28. **Voices is CC 47, not CC 97, and the shipped map cannot reach it.**
+    Hardware-confirmed 2026-08-27, serial #361, over USB. Sending CC 47 moved
+    **bytes 106 and 107** — `Mono Voice` and `Poly Voice` (p.25) — together,
+    and sending CC 47 a value of `0` put them back. **CC 97 moved nothing at
+    all**, at 100, 40, 71 or 0; the last two are values the packed encoding
+    accepts, so this is not #8's cap refusing the write.
+
+    The printed CC table's OTHER section (p.4) says `Voices 97`, and `cc.ts`
+    and `cc-map.ts` both encode that. The table's other OTHER row is right —
+    CC 116 moved byte 99 (`Mode`) in the same sweep — so this is one wrong
+    row rather than a wrong section. As shipped, the editor's Voices control
+    sends a controller the instrument ignores.
+
+    **The value mapping is not characterised and must not be guessed.** CC 47
+    at 100 put `4` into *both* bytes, which is not `16*V1 + V2` — that would
+    be `V1 6, V2 4`, and 6 is outside the range #8 documents. Whether CC 47 is
+    zoned, clamped, or sets the two counts from one axis needs its own run.
+    Until then the pair `Voices`/`VOICES` describes an encoding whose
+    controller was never verified against the instrument.
+
+29. **Filter Mode's Control Change bit is bit 2, and at 0 the instrument
+    answers no controller at all.** Measured 2026-08-27 on serial #361 by
+    reading the configuration byte while the panel displayed its own state:
+    with the Global Configuration menu's PB/PC/CC page (manual p.17) reading
+    `PB: OFF, PC: OFF, CC: On`, byte `0x020002` reads **4**. So Control
+    Change reception is the high bit of the three, not the low one the page's
+    name order suggests, and the p.27 table's three columns are not in
+    PB/PC/CC order.
+
+    Worth knowing before any CC-driven measurement, because the failure is
+    silent and looks like data: at Filter Mode `0` the instrument accepts no
+    control change, so a sweep of every controller returns a clean null for
+    every one of them — which for a question of the form "does any controller
+    do X" is indistinguishable from the answer. Read the configuration and
+    check the bit before sending, and keep a positive control in the run.
+    `7` accepts all three (p.19).

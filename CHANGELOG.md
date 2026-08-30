@@ -1123,3 +1123,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   required it. Emitting zero and rejecting non-zero on decode are both
   implementation decisions on an untested assumption, and the entry now says
   so in its title rather than three lines down.
+- `docs/protocol-quirks.md` #14 now settles the preset's own Transpose in both
+  directions. All 128 controllers were sent to serial #361 with the whole
+  128-byte edit-buffer image diffed around each, and **byte 105 never moved**:
+  it has no controller either way, so the constraint that its value reaches
+  the instrument only through a preset write is measured rather than assumed.
+  Recorded with what makes the null trustworthy — two probe values per
+  controller, each controller's byte restored to baseline before the next, and
+  the channel mode messages sent last with the configuration read back.
+- Three findings the same sweep turned up, as `docs/protocol-quirks.md` #27,
+  #28 and #29. **Seven undocumented controllers drive the LFO blocks' unnamed
+  bytes** — CC 57/58/59 into bytes 55/56/57 and CC 67/68/69 into 61/62/63, ten
+  apart and slot for slot, plus CC 84 into byte 69 — which makes #5's CC 67 one
+  member of a block the printed table omits rather than a lone exception, and
+  gives `lfo1.eg1Mod` a controller. **Voices is CC 47, not the CC 97 the table
+  and the shipped map both name**: CC 47 moves bytes 106 and 107 together while
+  CC 97 moves nothing at any value the encoding accepts, so the editor's Voices
+  control as shipped sends a controller the instrument ignores. And **Filter
+  Mode's Control Change bit is bit 2**, not the low bit its menu page name
+  suggests — at Filter Mode 0 the instrument answers no controller at all, a
+  failure that reads as a clean null for every controller swept.
