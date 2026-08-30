@@ -363,10 +363,12 @@ Top half of the `LFO` box, far left of the panel.
 | `Wave shape` | `Mode` | Button + LED column (5) | `lfo1.shape` / CC 53; shift: `lfo1.mode` / CC 60 | Shape via `LfoShape`, mode via `LfoMode` (6 variants: mono, poly, KB tracking, KB sync, clock sync, KB+clock sync). |
 | `Rate` | — | Knob | `lfo1.rate` / CC 76 | In the clock-sync modes the value reads as a musical division — see `LfoClockRate`: 15 divisions in regular 8-wide bands ascending from `Whole Note` at 0, `1/32 Note` taking the 112-127 remainder. |
 
-The LFO 1 block has **no EG1 Mod control** on the panel, and none over MIDI
-either. `lfo1.eg1Mod` (byte 55) is a real preset field with no knob here and
-no CC anywhere — see
-[Finding 1](#finding-1-eg1-mod-is-lfo-2s-at-cc-67-and-byte-61-and-lfo-1-has-its-own-at-byte-55).
+The LFO 1 block has **no EG1 Mod control on the panel**, which is what this
+sheet records — but it does have one over MIDI. `lfo1.eg1Mod` (byte 55) is a
+real preset field, driven by CC 57 and confirmed live, with no knob here and
+no row in any printed table — see
+[Finding 1](#finding-1-eg1-mod-is-lfo-2s-at-cc-67-and-byte-61-and-lfo-1-has-its-own-at-byte-55)
+and `off-panel-parameters.md`.
 
 ## LFO 2
 
