@@ -154,7 +154,7 @@ were transcribed from is the honest form; nothing else marks a file as
 synthetic, and a hand-written capture that claims a serial number is
 indistinguishable from a measurement.
 
-Six are committed today. Two are hand-written:
+Eight are committed today. Two are hand-written:
 
 - `fixtures/fragmented-frame.wire` — one frame delivered in three pieces, the
   bytes `src/midi/reassembly.test.ts` used to build inline.
@@ -164,7 +164,7 @@ Six are committed today. Two are hand-written:
   written from, not as evidence for it; the two captures below are what the
   instrument actually did.
 
-Four came off serial 361:
+Six came off serial 361:
 
 - `fixtures/read-memory-clean.wire` — preset 1.1.1 read a block at a time, one
   frame per command and every frame a documented response. The normal case, and
@@ -181,6 +181,14 @@ Four came off serial 361:
   carry the readings and the frames only carry where the knob was. A capture
   whose meaning lives in its comments is unusual enough to say out loud —
   nothing loads those notes, and no test can check them.
+- `fixtures/withheld-frame-tail.wire` — one Read Memory answer stalling
+  twenty-four bytes into its thirty-four, packet by packet as a raw CoreMIDI
+  client sees it. `protocol-quirks.md` #24 rests on it.
+- `fixtures/untried-read-commands.wire` — Read Autotuning Status, a Write
+  Memory echo and a Lock/Unlock echo, each sent alone and repeated: the three
+  commands `protocol-quirks.md` #15 had never seen a frame from. It is also
+  where #24 stopped reproducing, since every command in it answered its own
+  send with nothing held back.
 
 All were taken from Node over CoreMIDI rather than through the console, which
 their `device` line says, because a browser that will not grant SysEx has no way

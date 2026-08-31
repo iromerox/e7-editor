@@ -1,0 +1,48 @@
+e7 wire log v1
+device   GS Music e7, serial 361, USB, driven from Node over CoreMIDI
+input    GS-e7 Analog Synthesizer
+output   GS-e7 Analog Synthesizer
+date     2026-08-30
+session  Read Autotuning Status, a Write Memory echo and a Lock/Unlock echo, each sent alone and repeated, to see what the device returns for the three commands no capture held
+
+# Read Autotuning Status: 4 sends drew 4 frames of 8 bytes, where the documentation gives 10 — one to one holds, withheld tail fails (it predicts [the backup read's last answer, autotuning-status, autotuning-status, autotuning-status])
+# Write Memory echo: 3 sends drew 3 frames of 34 bytes, the documented 34 — one to one holds, withheld tail fails (it predicts [autotuning-status, memory-data / write echo, memory-data / write echo])
+# Lock/Unlock echo: 3 sends drew 3 frames of 4 bytes, the documented 4 — one to one holds, withheld tail fails (it predicts [memory-data / write echo])
+# Read Serial Number: 3 sends drew 3 frames of 4 bytes, the documented 4 — both readings fit this phase, which therefore separates nothing (the withheld tail predicts [lock echo, lock echo, lock echo], the same lengths)
+# 
+# Every command answered its own send, in one frame, with nothing held back. The withheld tail of protocol-quirks.md #24 is not present in this session.
+# 
+# Read Autotuning Status: 8B  f0 00 04 fc 00 00 7b f7
+# Write Memory echo: 34B  f0 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 f7
+# Lock/Unlock echo: 4B  f0 00 00 f7
+# Read Serial Number: 4B  f0 69 02 f7
+    +0.0ms  -->  F0 00 21 62 01 10 0A F7
+    +6.3ms  <--  F0 00 04 FC 00 00 7B F7
+    +6.9ms  <--  F7
+  +401.4ms  -->  F0 00 21 62 01 10 0A F7
+  +407.7ms  <--  F0 00 04 FC 00 00 7B F7
+  +408.3ms  <--  F7
+  +802.7ms  -->  F0 00 21 62 01 10 0A F7
+  +809.0ms  <--  F0 00 04 FC 00 00 7B F7
+  +809.6ms  <--  F7
+ +1204.4ms  -->  F0 00 21 62 01 10 0A F7
+ +1210.6ms  <--  F0 00 04 FC 00 00 7B F7
+ +1211.2ms  <--  F7
+ +1606.6ms  -->  F0 00 21 62 01 10 0F 00 7F 03 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 F7
+ +1632.7ms  <--  F0 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 F7
+ +2008.1ms  -->  F0 00 21 62 01 10 0F 00 7F 03 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 F7
+ +2034.3ms  <--  F0 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 F7
+ +2409.7ms  -->  F0 00 21 62 01 10 0F 00 7F 03 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 F7
+ +2435.9ms  <--  F0 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 00 02 F7
+ +2812.1ms  -->  F0 00 21 62 01 10 0F 7F 7F 03 00 00 F7
+ +2819.0ms  <--  F0 00 00 F7
+ +3213.7ms  -->  F0 00 21 62 01 10 0F 7F 7F 03 00 00 F7
+ +3220.3ms  <--  F0 00 00 F7
+ +3615.1ms  -->  F0 00 21 62 01 10 0F 7F 7F 03 00 00 F7
+ +3621.9ms  <--  F0 00 00 F7
+ +4016.7ms  -->  F0 00 21 62 01 10 20 F7
+ +4021.6ms  <--  F0 69 02 F7
+ +4417.6ms  -->  F0 00 21 62 01 10 20 F7
+ +4422.4ms  <--  F0 69 02 F7
+ +4818.8ms  -->  F0 00 21 62 01 10 20 F7
+ +4823.7ms  <--  F0 69 02 F7

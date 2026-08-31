@@ -432,16 +432,39 @@ answered it, the date and what was measured:
     `presetTransposeToByte` in `src/protocol/transpose.ts` are the right pair,
     deliberately sitting beside `transposeFromCc` so the difference is visible
     at the point of use. See `panel-layout.md` Finding 3.
-15. Whether other Read commands (Autotuning, Lock echo, Write Memory echo)
-    exhibit the same prelude as Read Memory (#12) is **mostly moot now that
-    #12 is a stale tail**: there is no device prelude for any command to
-    exhibit, and what precedes a given answer is whatever the command before
-    it left withheld. Read Serial Number and Read Configuration are both
-    confirmed clean — the smoke test recorded a single response frame for the
-    first, and HW-02's Node session recorded a single 6-byte frame
-    (`F0 00 00 07 01 F7`) for the second. The three untried commands are worth
-    a line in a capture when someone is next at the instrument, but nothing is
-    waiting on them.
+15. **The three untried commands are captured, and none of them sends a
+    prelude.** The question was whether Read Autotuning Status, the
+    Lock/Unlock echo and the Write Memory echo exhibit the prelude #12 used to
+    describe, which was already **mostly moot** once #12 became a stale tail:
+    there is no device prelude for any command to exhibit, and what precedes a
+    given answer is whatever the command before it left withheld. Read Serial
+    Number and Read Configuration were confirmed clean earlier — the smoke
+    test recorded a single response frame for the first, and HW-02's Node
+    session recorded a single 6-byte frame (`F0 00 00 07 01 F7`) for the
+    second.
+
+    **Hardware-captured 2026-08-30**, serial #361, over USB, in
+    `fixtures/untried-read-commands.wire`. Each command was sent alone and
+    repeated, with nothing awaited between sends, and each drew exactly one
+    frame per send:
+
+    | Command | Frame it drew | Documented |
+    |---|---|---|
+    | Read Autotuning Status | `F0 00 04 FC 00 00 7B F7`, then a lone `F7` | `F0` + on/off + 7 voice bytes + `F7`, 10 bytes |
+    | Write Memory echo | the 34-byte nibble payload sent back verbatim | as documented, p.15 |
+    | Lock/Unlock echo | `F0 00 00 F7` | as documented, pp.16-17 |
+
+    So two of the three are exactly what the document says, and the answer to
+    Read Autotuning Status is not — see #31, which owns that. Nothing in the
+    capture arrived ahead of the command it answered, and no answer arrived
+    split across two of them.
+
+    **The reading the capture was taken for did not apply.** The expected
+    shape was a tail belonging to the *previous* answer sitting under each
+    command, per #24. Nothing was withheld at all in this session: every
+    command answered its own send in one whole frame, ~6ms later, including
+    Read Memory, which is where #24 was measured. That is a contradiction of
+    #24 rather than a confirmation of it, and #24 carries where it stands.
 16. **No browser has been seen to split an inbound SysEx frame.** The Rust
     implementation needed real reassembly because of a `midir`-backend
     fragmentation quirk; Web MIDI is specified to deliver one complete
@@ -793,6 +816,32 @@ were learned by running the instrument rather than by reading.
     pipelining and CC-rate measurements in #19 and #20 saw no such shift and
     stand as taken.
 
+    **It did not reproduce on 2026-08-30**, on the same serial #361 over the
+    same USB cable, with the owner reporting the instrument neither
+    power-cycled nor reconfigured since the session above. Nothing was
+    withheld: single sends were answered whole, ~6ms later, one frame per
+    send. Three independent checks, two of them the ones that measured this
+    entry in the first place. `pipeline.ts serial 40` — the byte-checked run
+    that returned 40 answers one request back, 40 times out of 40 — returned
+    40 carrying the block just asked for and **0 one request back**, at a
+    15.6ms median round trip. `fixtures/untried-read-commands.wire` (#15) has
+    four commands of three different answer lengths, 4 bytes to 34, each
+    drawing its own answer on its own send. And the raw CoreMIDI probe counted
+    exactly 170 inbound bytes for five 34-byte Read Memory answers, with a
+    process that sent once and exited leaving nothing at all for the next one
+    to open the port — which is the residue itself, measured directly, at
+    zero.
+
+    So the retention is **a state rather than a standing property**, which is
+    what HW-06 originally reported and what the session above withdrew. That
+    withdrawal is now itself in doubt rather than restored: three sessions
+    have measured this path and two of them disagree with the third, and what
+    puts the instrument into one state or the other is not known. Nothing here
+    is retracted — the mechanism was measured on three transports and explains
+    what it explains — but a client may not assume either behaviour, which is
+    the same conclusion the entry already forces and the reason
+    `requestResponse` has to attribute an answer rather than count on one.
+
 27. **Seven controllers drive the LFO blocks' unnamed bytes, and the printed
     CC table assigns none of them.** Hardware-confirmed 2026-08-27, serial
     #361, over USB, found by the whole-image sweep that settled #14. Each
@@ -882,3 +931,33 @@ were learned by running the instrument rather than by reading.
     over MIDI, and a Write Configuration assembled from a read is genuinely
     blind in that field rather than merely inconvenient. The front panel's
     CLK/MPE page (manual p.17) is the only place to read it.
+
+31. **Read Autotuning Status does not answer in the documented shape, and the
+    shipped decoder rejects what it does answer.** Page 22 gives the response
+    as `F0` + an on/off byte + seven voice bytes + `F7`, ten bytes, with each
+    voice carrying a progress value from `0x00` to `0x0F`, and prints
+    `F0 00 0F 0F 0F 0F 0F 0F 0F F7` as the example. Measured 2026-08-30 on
+    serial #361 over USB, an idle instrument answers
+    **`F0 00 04 FC 00 00 7B F7`, followed by a lone `F7`** — byte-identical on
+    every send, across three processes and two MIDI backends. See
+    `fixtures/untried-read-commands.wire`.
+
+    Three things are wrong with it against the page. It is **eight bytes, not
+    ten**, so there are six data bytes where eight are documented. It carries
+    **`0xFC`**, which is not a legal SysEx data byte at all — CoreMIDI
+    delivers it in a packet of its own, being a System Real Time Stop status,
+    while RtMidi's reassembler leaves it inline; a client will see it in one
+    place or the other, and neither is a value in `0x00`-`0x0F`. And a
+    **second `F7`** arrives about half a millisecond after the terminator,
+    which reassembles as a frame with nothing in it or desynchronises whatever
+    reads next, depending on where a session starts.
+
+    `decodeAutotuningStatusResponse` throws `SysExPayloadLengthError` on it —
+    "payload of 6 bytes is invalid, expected 8" — so the editor cannot read
+    autotuning status from this instrument today. **Nothing yet says which
+    side is wrong.** The readings were all taken with autotuning idle, and
+    nobody has watched the frame while a run is in progress; a firmware whose
+    answer differs from its own documentation and a shape that only makes
+    sense mid-run are both open. Whether the response is meant to be nibble
+    packed like memory data (`00 04` would then be `0x40`) is likewise
+    unasked.

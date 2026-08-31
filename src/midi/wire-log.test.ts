@@ -236,6 +236,7 @@ describe("formatWireLog", () => {
       "preview-frame",
       "read-memory-clean",
       "stale-frame-tail",
+      "untried-read-commands",
     ]) {
       const fixture = wireLogFixture(name);
 

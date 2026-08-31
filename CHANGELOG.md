@@ -1181,3 +1181,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `intoConfiguration()`'s blind Clock Source argument a hard constraint rather
   than an awkwardness, and the panel's CLK/MPE page the only place to read the
   value.
+- `fixtures/untried-read-commands.wire` and `docs/protocol-quirks.md` #15: the
+  three commands no capture had ever held — **Read Autotuning Status, the
+  Lock/Unlock echo and the Write Memory echo** — sent alone and repeated
+  against serial #361. The Write Memory echo returns the payload verbatim and
+  the Lock/Unlock echo is `F0 00 00 F7`, both exactly as documented, and no
+  command sent a prelude, which is #12 confirmed from three more directions.
+- `docs/protocol-quirks.md` #31: **Read Autotuning Status does not answer in
+  the documented shape.** An idle instrument returns `F0 00 04 FC 00 00 7B F7`
+  and a second `F7` where p.22 gives ten bytes of on/off plus seven voice
+  values — eight bytes, an `0xFC` that is not a legal SysEx data byte, and a
+  terminator too many. `decodeAutotuningStatusResponse` throws on it, so the
+  editor cannot read autotuning status from this instrument; which side is
+  wrong is not yet established.
+- `docs/protocol-quirks.md` #24: the ten-byte withheld tail **did not
+  reproduce**, on the same instrument and cable, neither power-cycled nor
+  reconfigured since it was measured. The byte-checked run that once returned
+  40 answers one request back returned 40 carrying their own block, and a
+  process that sent once and exited left nothing behind for the next. The
+  retention is a state rather than a standing property, and nothing may assume
+  either behaviour.
