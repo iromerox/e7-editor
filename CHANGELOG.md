@@ -684,6 +684,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `Whole Note` and the LFO rates sweep the other way — so each reads through
   its own mapping rather than a shared one.
 
+- `EG1 Mod` shift layer on the `LFO 2 Rate` knob, the modulation depth from
+  EG1 to that LFO's frequency. The instrument makes the parameter
+  unavailable while `LFO 2`'s mode is Monophonic or Clock Sync, and accepts
+  the control change in those modes anyway, so the layer reads `N/A` and
+  sends nothing there rather than showing a live value for something the
+  instrument is ignoring. `LFO 1`, which the panel gives no such control,
+  keeps its `Rate` knob alone.
+
 ### Changed
 
 - Consolidated every protocol error class into `src/protocol/errors.ts` as a

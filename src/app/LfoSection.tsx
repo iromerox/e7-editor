@@ -2,27 +2,21 @@
 import type { JSX } from "solid-js";
 import type { CcField, LfoMode, LfoShape } from "../protocol";
 import type { ButtonLayer } from "./ButtonLed";
+import type { KnobLayer } from "./Knob";
 import type { LiveEdit } from "./live-edit";
-import { Show } from "solid-js";
 import { lfoModeFromCc, lfoModeToCc, lfoShapeFromCc, lfoShapeToCc } from "../protocol";
 import { DualButton } from "./ButtonLed";
 import { isClockSyncedLfoMode, lfoRateReadout } from "./clock-rate";
 import { ccValue } from "./control-value";
 import { Knob } from "./Knob";
 import { PanelSection } from "./PanelSection";
-import {
-  DIVIDER_ROW,
-  LEGEND_ROW,
-  NOTED_GRID_ROWS,
-  NOTE_ROW,
-  OSCILLATOR_GRID_ROW,
-  OSCILLATOR_GRID_ROWS,
-} from "./panel-rows";
+import { DIVIDER_ROW, LEGEND_ROW, OSCILLATOR_GRID_ROW, OSCILLATOR_GRID_ROWS } from "./panel-rows";
 
 export interface LfoFields {
   readonly shape: CcField;
   readonly rate: CcField;
   readonly mode: CcField;
+  readonly eg1Mod?: CcField | undefined;
 }
 
 export interface LfoSectionProps {
@@ -33,8 +27,6 @@ interface LfoProps {
   readonly live: LiveEdit;
   readonly name: string;
   readonly fields: LfoFields;
-  readonly rateDescription: string;
-  readonly note?: string | undefined;
 }
 
 export const LFO1_FIELDS: LfoFields = {
@@ -47,6 +39,7 @@ export const LFO2_FIELDS: LfoFields = {
   shape: "lfo2Shape",
   rate: "lfo2Rate",
   mode: "lfo2Mode",
+  eg1Mod: "lfo2Eg1Mod",
 };
 
 export const SHAPE_LEDS: readonly LfoShape[] = [
@@ -93,11 +86,17 @@ export const MODE_DESCRIPTION =
 export const RATE_DESCRIPTION =
   "Sets the frequency of the LFO. In the two clock-sync modes the instrument divides the MIDI clock instead, and this reads as the musical division the value lands on rather than as the value itself.";
 
-export const EG1_MOD_NOTE =
-  "EG1 Mod, the shift layer the panel prints on this knob, is not built yet: it is this LFO's own parameter, and the instrument makes it unavailable in the clock-sync and monophonic modes.";
+export const EG1_MOD_LABEL = "EG1 Mod";
 
-export const EG1_MOD_DETAIL =
-  "The panel prints EG1 Mod on this knob's shift layer. It sets how much EG1 modifies this LFO's frequency, and it is not built yet: the instrument reports it as unavailable whenever this LFO's mode is clock sync or monophonic, while still accepting the control change in those modes, so a plain knob here would show a live value for a parameter the hardware is ignoring.";
+export const EG1_MOD_DESCRIPTION =
+  "Sets how much EG1 modifies the frequency of LFO 2. It works in every mode except Monophonic and Clock Sync, where the instrument shows EG1 Mod N/A in place of a value.";
+
+export const EG1_MOD_UNAVAILABLE_DETAIL =
+  "The mode is one of those two now, so this layer reads N/A and sends nothing. The instrument would accept the control change and store it, and act on none of it.";
+
+export const EG1_MOD_UNAVAILABLE_READOUT = "N/A";
+
+export const EG1_MOD_UNAVAILABLE_MODES: readonly LfoMode[] = ["monophonic", "clock-sync"];
 
 const COLUMNS = "9rem";
 
@@ -109,6 +108,10 @@ export function nextShape(shape: LfoShape): LfoShape {
 export function nextMode(mode: LfoMode): LfoMode {
   const step = MODE_ORDER.indexOf(mode) + 1;
   return MODE_ORDER[step % MODE_ORDER.length] ?? "monophonic";
+}
+
+export function isEg1ModAvailable(mode: LfoMode): boolean {
+  return !EG1_MOD_UNAVAILABLE_MODES.includes(mode);
 }
 
 function Lfo(props: LfoProps): JSX.Element {
@@ -130,6 +133,23 @@ function Lfo(props: LfoProps): JSX.Element {
     description: SHAPE_DESCRIPTION,
     onPress: () => props.live.write(props.fields.shape, lfoShapeToCc(nextShape(shape()))),
   });
+
+  const eg1ModLayer = (): KnobLayer | undefined => {
+    const field = props.fields.eg1Mod;
+    if (field === undefined) {
+      return undefined;
+    }
+    const available = isEg1ModAvailable(mode());
+    const layer = props.live.control(field, {
+      label: EG1_MOD_LABEL,
+      description: available
+        ? EG1_MOD_DESCRIPTION
+        : `${EG1_MOD_DESCRIPTION} ${EG1_MOD_UNAVAILABLE_DETAIL}`,
+    });
+    return available
+      ? layer
+      : { ...layer, readOnly: true, format: () => EG1_MOD_UNAVAILABLE_READOUT };
+  };
 
   const modeLayer = (): ButtonLayer => ({
     label: "Mode",
@@ -157,7 +177,7 @@ function Lfo(props: LfoProps): JSX.Element {
         style={{
           display: "grid",
           "grid-template-columns": COLUMNS,
-          "grid-template-rows": props.note === undefined ? OSCILLATOR_GRID_ROWS : NOTED_GRID_ROWS,
+          "grid-template-rows": OSCILLATOR_GRID_ROWS,
           "align-items": "start",
           "justify-items": "center",
           "row-gap": "0",
@@ -170,27 +190,12 @@ function Lfo(props: LfoProps): JSX.Element {
           <Knob
             primary={props.live.control(props.fields.rate, {
               label: "Rate",
-              description: props.rateDescription,
+              description: RATE_DESCRIPTION,
               ...(isClockSyncedLfoMode(mode()) ? { format: lfoRateReadout } : {}),
             })}
+            shift={eg1ModLayer()}
           />
         </div>
-        <Show when={props.note}>
-          {(note) => (
-            <p
-              style={{
-                "grid-row": String(NOTE_ROW),
-                "align-self": "start",
-                margin: "0",
-                "font-size": "0.7rem",
-                "line-height": "1.3",
-                color: "var(--e7-label-secondary)",
-              }}
-            >
-              {note()}
-            </p>
-          )}
-        </Show>
       </div>
     </fieldset>
   );
@@ -200,12 +205,7 @@ export function LfoSection(props: LfoSectionProps): JSX.Element {
   return (
     <PanelSection title="LFO">
       <div style={{ display: "flex", "flex-direction": "column" }}>
-        <Lfo
-          live={props.live}
-          name="LFO 1"
-          fields={LFO1_FIELDS}
-          rateDescription={RATE_DESCRIPTION}
-        />
+        <Lfo live={props.live} name="LFO 1" fields={LFO1_FIELDS} />
         <div
           style={{
             height: DIVIDER_ROW,
@@ -213,13 +213,7 @@ export function LfoSection(props: LfoSectionProps): JSX.Element {
             "box-sizing": "border-box",
           }}
         />
-        <Lfo
-          live={props.live}
-          name="LFO 2"
-          fields={LFO2_FIELDS}
-          rateDescription={`${RATE_DESCRIPTION} ${EG1_MOD_DETAIL}`}
-          note={EG1_MOD_NOTE}
-        />
+        <Lfo live={props.live} name="LFO 2" fields={LFO2_FIELDS} />
       </div>
     </PanelSection>
   );

@@ -22,7 +22,7 @@ export type KnobLayer = ControlValue;
 
 export interface KnobProps {
   readonly primary: KnobLayer;
-  readonly shift?: KnobLayer;
+  readonly shift?: KnobLayer | undefined;
   readonly size?: KnobSize;
 }
 

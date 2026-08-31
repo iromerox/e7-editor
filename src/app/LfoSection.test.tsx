@@ -8,16 +8,20 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { LFO1_SHAPE, LFO2_EG1_MOD, ccToField, fieldToCc, readField } from "../protocol";
 import { createAppState } from "./app-state";
 import {
-  EG1_MOD_DETAIL,
-  EG1_MOD_NOTE,
+  EG1_MOD_DESCRIPTION,
+  EG1_MOD_LABEL,
+  EG1_MOD_UNAVAILABLE_DETAIL,
+  EG1_MOD_UNAVAILABLE_READOUT,
   LFO1_FIELDS,
   LFO2_FIELDS,
   LfoSection,
+  MODE_ORDER,
+  isEg1ModAvailable,
   nextMode,
   nextShape,
 } from "./LfoSection";
 import { createLiveEdit } from "./live-edit";
-import { LEGEND_ROW, NOTED_GRID_ROWS, OSCILLATOR_GRID_ROWS } from "./panel-rows";
+import { LEGEND_ROW, OSCILLATOR_GRID_ROWS } from "./panel-rows";
 
 interface SentCc {
   readonly controller: number;
@@ -55,6 +59,16 @@ const MODE_STEPS: readonly number[] = [16, 32, 48, 64, 80, 0];
 const CLOCK_SYNC_MODES: readonly number[] = [64, 80];
 
 const FREE_MODES: readonly number[] = [0, 16, 32, 48];
+
+const POLYPHONIC = 16;
+
+const EG1_MOD_GATE: readonly (readonly [mode: number, available: boolean])[] = [
+  [POLYPHONIC, true],
+  [64, false],
+  [32, true],
+  [0, false],
+  [80, true],
+];
 
 const RATE_DIVISIONS: readonly (readonly [value: number, name: string])[] = [
   [0, "Whole Note"],
@@ -121,15 +135,14 @@ describe("LfoSection", () => {
     }
   });
 
-  it("puts Mode on each Wave shape button's shift layer, as the panel silkscreens it", () => {
-    for (const [name] of LFOS) {
-      const scope = lfo(name);
-      expect(
-        [...scope.querySelectorAll("button:not([aria-label])")].map(
-          (element) => element.textContent,
-        ),
-      ).toEqual(["Wave shape", "Mode"]);
-    }
+  it("puts each shift layer where the panel silkscreens it, and nowhere else", () => {
+    const layers = (name: string): readonly (string | null)[] =>
+      [...lfo(name).querySelectorAll("button:not([aria-label])")].map(
+        (element) => element.textContent,
+      );
+
+    expect(layers("LFO 1")).toEqual(["Wave shape", "Mode"]);
+    expect(layers("LFO 2")).toEqual(["Wave shape", "Mode", "Rate", EG1_MOD_LABEL]);
   });
 
   it("drives every LFO field, sending the control change the spec gives it", async () => {
@@ -252,28 +265,66 @@ describe("LfoSection", () => {
     expect(nextMode("keyboard-clock-sync")).toBe("monophonic");
   });
 
-  it("leaves LFO 2's EG1 Mod shift layer unbuilt, and says at the knob why", () => {
+  it("carries EG1 Mod on LFO 2's Rate knob, the layer the panel silkscreens there", async () => {
     const scope = lfo("LFO 2");
+    controls.editField(LFO2_FIELDS.mode, POLYPHONIC);
+    await fireEvent.click(within(scope).getByRole("button", { name: EG1_MOD_LABEL }));
+    const knob = within(scope).getByRole("slider", { name: EG1_MOD_LABEL });
 
-    expect(within(scope).queryByRole("button", { name: "EG1 Mod" })).toBeNull();
+    await fireEvent.keyDown(knob, { key: "ArrowUp" });
+
     expect(ccToField(LFO2_EG1_MOD)).toBe("lfo2Eg1Mod");
-    expect(scope.textContent).toContain(EG1_MOD_NOTE);
-    expect(within(scope).getByRole("slider", { name: "Rate" }).getAttribute("title")).toContain(
-      EG1_MOD_DETAIL,
-    );
+    expect(fieldValue("lfo2Eg1Mod")).toBe(1);
+    expect(sent).toContainEqual({ controller: LFO2_EG1_MOD, value: 1 });
+    expect(knob.getAttribute("title")).toContain(EG1_MOD_DESCRIPTION);
   });
 
-  it("keeps the reason off LFO 1's Rate knob, which the panel gives no such layer", () => {
-    expect(
-      within(lfo("LFO 1")).getByRole("slider", { name: "Rate" }).getAttribute("title"),
-    ).not.toContain(EG1_MOD_DETAIL);
+  it("opens and shuts the layer as the mode crosses the two the instrument refuses it in", async () => {
+    const scope = lfo("LFO 2");
+    await fireEvent.click(within(scope).getByRole("button", { name: EG1_MOD_LABEL }));
+    const knob = within(scope).getByRole("slider", { name: EG1_MOD_LABEL });
+
+    for (const [mode, available] of EG1_MOD_GATE) {
+      controls.editField(LFO2_FIELDS.mode, mode);
+      const held = fieldValue("lfo2Eg1Mod");
+      const sends = sent.length;
+      await fireEvent.keyDown(knob, { key: "ArrowUp" });
+
+      expect(knob).toHaveAttribute("aria-readonly", String(!available));
+      expect(fieldValue("lfo2Eg1Mod")).toBe(available ? held + 1 : held);
+      expect(sent).toHaveLength(available ? sends + 1 : sends);
+      expect(knob).toHaveAttribute(
+        "aria-valuetext",
+        available ? String(held + 1) : EG1_MOD_UNAVAILABLE_READOUT,
+      );
+    }
   });
 
-  it("gives LFO 1 no note of its own, the unbuilt knob being LFO 2's", () => {
-    expect(lfo("LFO 1").textContent).not.toContain(EG1_MOD_NOTE);
+  it("says at the knob why the layer is shut, in the terms the instrument uses", async () => {
+    const scope = lfo("LFO 2");
+    controls.editField(LFO2_FIELDS.mode, 64);
+    await fireEvent.click(within(scope).getByRole("button", { name: EG1_MOD_LABEL }));
+    const knob = within(scope).getByRole("slider", { name: EG1_MOD_LABEL });
+
+    expect(knob.getAttribute("title")).toContain(EG1_MOD_UNAVAILABLE_DETAIL);
+    expect(scope.textContent).toContain(EG1_MOD_UNAVAILABLE_READOUT);
   });
 
-  it("keeps LFO 1 on the fixed guides and gives only the noted half a row for prose", () => {
+  it("refuses the layer in the two modes the manual names and no others", () => {
+    expect(MODE_ORDER.filter((mode) => !isEg1ModAvailable(mode))).toEqual([
+      "monophonic",
+      "clock-sync",
+    ]);
+  });
+
+  it("gives LFO 1's Rate knob no shift layer, the panel printing none there", () => {
+    const scope = lfo("LFO 1");
+
+    expect(within(scope).queryByRole("button", { name: EG1_MOD_LABEL })).toBeNull();
+    expect(scope.textContent).not.toContain(EG1_MOD_LABEL);
+  });
+
+  it("keeps both halves on the same fixed guides, neither needing a row for prose", () => {
     const gridOf = (name: string): CSSStyleDeclaration => {
       const grid = lfo(name).querySelector<HTMLElement>("div[style*='grid']");
       if (grid === null) {
@@ -282,9 +333,8 @@ describe("LfoSection", () => {
       return grid.style;
     };
 
-    expect(gridOf("LFO 1").gridTemplateRows).toBe(OSCILLATOR_GRID_ROWS);
-    expect(gridOf("LFO 2").gridTemplateRows).toBe(NOTED_GRID_ROWS);
     for (const name of ["LFO 1", "LFO 2"]) {
+      expect(gridOf(name).gridTemplateRows).toBe(OSCILLATOR_GRID_ROWS);
       expect(gridOf(name).justifyItems).toBe("center");
       expect(gridOf(name).gridTemplateColumns).not.toContain(" ");
     }

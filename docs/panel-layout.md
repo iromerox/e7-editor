@@ -381,11 +381,23 @@ Bottom half of the `LFO` box.
 
 ### How the box was built, and where it departs from the panel
 
-The `EG1 Mod` shift layer is **not built**. The knob carries `Rate` alone,
-and a line beside it says the user manual and the byte map name different
-LFOs, with the whole disagreement in the knob's own description. A knob that
-moves nothing teaches the user nothing; a sentence where the knob would be
-tells them what the instrument's own documents disagree about.
+**The `EG1 Mod` shift layer reads `N/A` in the two modes the instrument
+refuses it in.** It is the editor's first control whose *availability*
+depends on a sibling field rather than its own value: `lfo2.mode` at
+Monophonic or Clock Sync makes the layer read-only, puts `N/A` where the
+value would be — the display's own `EG1 Mod N/A`, the layer's label supplying
+the first half — and stops it sending. The device would take the control
+change in those modes and store it in byte 61, so a plain knob here would
+show a live number for a parameter the instrument is not acting on. The gate
+is the panel's, not the byte's, which is why the editor has to derive it and
+cannot wait to be refused. The knob's description carries the rule, and a
+second sentence appears while the layer is shut saying that the mode is one
+of those two now. The other four modes leave it an ordinary knob.
+
+`EG1 Mod` is LFO 2's alone. LFO 1's `Rate` knob has no shift layer, because
+the panel prints none on it — `lfo1.eg1Mod` is a real parameter, but it is
+off-panel and belongs to `off-panel-parameters.md` rather than to a knob
+here.
 
 `Mode` lights no LEDs of its own. The five lenses on this button belong to
 `Wave shape`, and the mode is on the instrument's display, so the shift
@@ -427,10 +439,10 @@ of its own and lined up with nothing.
 
 Stacked, each half is a **single centred column** and the box is the
 narrowest in the top band, which is the proportion the panel has. Prose does
-not fit a column that narrow beside a control, so the `EG1 Mod` line sits in
-a row of its own below the knob, and the box runs taller than the
-Oscillators by roughly the height of those few lines. The line is kept short
-for that reason; the knob's own description carries the full disagreement.
+not fit a column that narrow beside a control, and neither half carries any:
+both run on the Oscillators' three row guides, and what the `EG1 Mod` layer
+has to say about its mode gate is said at the knob, in its description and
+in the `N/A` it reads, rather than in a row of prose under the box.
 
 Each half is named at the left, in the same legend row as `OSC 1` and
 `OSC 2` beside it. The five-lens column overhangs into that row, and clears
