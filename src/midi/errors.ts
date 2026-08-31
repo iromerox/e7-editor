@@ -8,7 +8,10 @@ export type MidiErrorCode =
   | "connection-closed"
   | "stream-busy"
   | "response-timeout"
-  | "no-response-expected";
+  | "no-response-expected"
+  | "bulk-read-unanswered"
+  | "bulk-read-short-frame"
+  | "bulk-read-cancelled";
 
 export abstract class MidiError extends Error {
   abstract readonly code: MidiErrorCode;
@@ -86,5 +89,57 @@ export class NoResponseExpectedError extends MidiError {
   constructor(readonly command: SysExCommandKind) {
     super(`${command} has no documented response, send it without waiting for one`);
     this.name = "NoResponseExpectedError";
+  }
+}
+
+function bulkAddress(address: number): string {
+  return `0x${address.toString(16).toUpperCase().padStart(6, "0")}`;
+}
+
+function readSoFar(read: number, total: number): string {
+  return `${read} of ${total} blocks were read and are intact`;
+}
+
+export class BulkReadUnansweredError extends MidiError {
+  readonly code = "bulk-read-unanswered" as const;
+
+  constructor(
+    readonly address: number,
+    readonly read: number,
+    readonly total: number,
+    readonly timeoutMs: number,
+  ) {
+    super(
+      `no answer for ${bulkAddress(address)} within ${timeoutMs}ms, so the run stopped rather than credit later answers to it; ${readSoFar(read, total)}`,
+    );
+    this.name = "BulkReadUnansweredError";
+  }
+}
+
+export class BulkReadShortFrameError extends MidiError {
+  readonly code = "bulk-read-short-frame" as const;
+
+  constructor(
+    readonly address: number,
+    readonly frameBytes: number,
+    readonly read: number,
+    readonly total: number,
+  ) {
+    super(
+      `the answer for ${bulkAddress(address)} arrived as ${frameBytes} bytes rather than a whole response, which is a lost answer rather than a decodable one; ${readSoFar(read, total)}`,
+    );
+    this.name = "BulkReadShortFrameError";
+  }
+}
+
+export class BulkReadCancelledError extends MidiError {
+  readonly code = "bulk-read-cancelled" as const;
+
+  constructor(
+    readonly read: number,
+    readonly total: number,
+  ) {
+    super(`the read was cancelled; ${readSoFar(read, total)}`);
+    this.name = "BulkReadCancelledError";
   }
 }

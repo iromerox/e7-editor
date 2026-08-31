@@ -692,6 +692,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   instrument is ignoring. `LFO 1`, which the panel gives no such control,
   keeps its `Rate` knob alone.
 
+- Bulk reads of a group (8 slots), a bank (64) or every slot on the
+  instrument, landing one classified library entry per slot and reporting
+  progress as each slot lands rather than only when the run ends. Requests
+  are pipelined four deep, which is what the instrument sustains: it takes a
+  new read while preparing an answer, and a window of four holds ~10.9ms per
+  block over a run the length of a full backup, putting a group at ~0.7s, a
+  bank at ~5.6s and all of preset memory at ~1min 29s instead of 2min 11s.
+  An answer identifies nothing it answers, so the window fills in order and
+  credits each answer to the oldest request outstanding; a frame that is not
+  a whole 34-byte response is read as a lost answer rather than decoded, and
+  a missing answer stops the run instead of shifting the pairing, since
+  either would otherwise store plausible, wrong preset data. A run that goes
+  quiet at its tail is nudged once with a repeat read, for the instrument
+  state that withholds the last bytes of what it transmits until further
+  output pushes them out. A read that fails or is cancelled part-way keeps
+  every slot already stored.
+
 ### Changed
 
 - Consolidated every protocol error class into `src/protocol/errors.ts` as a
