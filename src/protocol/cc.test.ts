@@ -66,7 +66,7 @@ describe("decodeZoned", () => {
 
 describe("bandedZones", () => {
   it("bands the range in fixed widths", () => {
-    expect(bandedZones(["a", "b", "c", "d"], 32)).toEqual([
+    expect(bandedZones(["a", "b", "c", "d"], 32, "absorb")).toEqual([
       { max: 31, variant: "a" },
       { max: 63, variant: "b" },
       { max: 95, variant: "c" },
@@ -74,19 +74,39 @@ describe("bandedZones", () => {
     ]);
   });
 
-  it("gives the last variant whatever the bands leave over", () => {
-    const zones = bandedZones(["a", "b", "c"], 16);
-    expect(zones).toEqual([
+  it("gives the last variant whatever the bands leave over when told to absorb", () => {
+    expect(bandedZones(["a", "b", "c"], 16, "absorb")).toEqual([
       { max: 15, variant: "a" },
       { max: 31, variant: "b" },
       { max: 127, variant: "c" },
     ]);
   });
+
+  it("stops the last band at its own width when told to reserve", () => {
+    expect(bandedZones(["a", "b", "c"], 16, "reserve")).toEqual([
+      { max: 15, variant: "a" },
+      { max: 31, variant: "b" },
+      { max: 47, variant: "c" },
+    ]);
+  });
+
+  it("leaves a reserving table's remainder to decode as a ReservedValue", () => {
+    const zones = bandedZones(["a", "b", "c", "d", "e"], 16, "reserve");
+    expect(decodeZoned(79, zones)).toBe("e");
+    expect(() => decodeZoned(80, zones)).toThrow(ReservedValue);
+    expect(() => decodeZoned(127, zones)).toThrow(ReservedValue);
+  });
+
+  it("decodes the same either way when the bands tile the range exactly", () => {
+    const absorbing = bandedZones(["a", "b", "c", "d"], 32, "absorb");
+    const reserving = bandedZones(["a", "b", "c", "d"], 32, "reserve");
+    expect(reserving).toEqual(absorbing);
+  });
 });
 
 describe("mirrorZones", () => {
   it("reflects each zone across the controller range", () => {
-    expect(mirrorZones(bandedZones(["a", "b", "c"], 16))).toEqual([
+    expect(mirrorZones(bandedZones(["a", "b", "c"], 16, "absorb"))).toEqual([
       { max: 95, variant: "c" },
       { max: 111, variant: "b" },
       { max: 127, variant: "a" },
@@ -94,11 +114,16 @@ describe("mirrorZones", () => {
   });
 
   it("decodes as the source table read backwards", () => {
-    const zones = bandedZones(["a", "b", "c", "d", "e"], 16);
+    const zones = bandedZones(["a", "b", "c", "d", "e"], 16, "absorb");
     const mirrored = mirrorZones(zones);
     for (let cc = 0; cc <= 127; cc++) {
       expect(decodeZoned(cc, mirrored)).toBe(decodeZoned(127 - cc, zones));
     }
+  });
+
+  it("refuses a source table that reserves its remainder instead of absorbing it", () => {
+    expect(() => mirrorZones(bandedZones(["a", "b", "c"], 16, "reserve"))).toThrow();
+    expect(() => mirrorZones([])).toThrow();
   });
 });
 

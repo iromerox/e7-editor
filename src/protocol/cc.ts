@@ -34,17 +34,29 @@ export const MIN_CHANNEL = 1;
 export const MAX_CHANNEL = 16;
 export const MAX_DATA_BYTE = 0x7f;
 
+export type BandRemainder = "absorb" | "reserve";
+
 export function bandedZones<Variant>(
   variants: readonly Variant[],
   width: number,
+  remainder: BandRemainder,
 ): readonly Zone<Variant>[] {
   return variants.map((variant, index) => ({
-    max: index === variants.length - 1 ? MAX_DATA_BYTE : width * (index + 1) - 1,
+    max:
+      remainder === "absorb" && index === variants.length - 1
+        ? MAX_DATA_BYTE
+        : width * (index + 1) - 1,
     variant,
   }));
 }
 
 export function mirrorZones<Variant>(zones: readonly Zone<Variant>[]): readonly Zone<Variant>[] {
+  const last = zones[zones.length - 1];
+  if (last === undefined || last.max !== MAX_DATA_BYTE) {
+    throw new Error(
+      `cannot mirror zones that stop at ${last?.max ?? "no zone"} instead of ${MAX_DATA_BYTE}`,
+    );
+  }
   const mirrored: Zone<Variant>[] = [];
   let min = 0;
   for (const zone of zones) {

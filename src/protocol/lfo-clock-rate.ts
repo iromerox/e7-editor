@@ -27,6 +27,7 @@ const CLOCK_RATE_BAND_WIDTH = 8;
 export const LFO_CLOCK_RATE_ZONES: readonly Zone<LfoClockRate>[] = bandedZones(
   LFO_CLOCK_RATE_ORDER,
   CLOCK_RATE_BAND_WIDTH,
+  "absorb",
 );
 
 export function lfoClockRateFromCc(value: number): LfoClockRate {
