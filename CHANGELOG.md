@@ -1156,3 +1156,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   live path and no panel control — no longer the same shape as `transpose`,
   which has no controller in either direction. Whether LFO 1's mode gates it is
   called out as unmeasured rather than assumed either way.
+- `docs/protocol-quirks.md` #10 now records a measurement in place of an
+  untested assumption, and it is not the measurement the entry was waiting
+  for: **Write Configuration has no effect on the instrument at all.** The
+  command was sent with the pad byte at `0x00`, `0x01`, `0x40` and `0x7F`,
+  each carrying the fields just read back with the Transmit Channel
+  deliberately changed, and the printed p.20 example frame was sent verbatim
+  as well. Read Configuration, the front panel and a power cycle all reported
+  the configuration unchanged after every one of them, while a flash write in
+  the same session took and restored — so the instrument was accepting system
+  exclusive writes and refusing these. The pad question is therefore
+  unanswerable by writing: a non-zero pad cannot be distinguished from a zero
+  one when neither does anything. `src/protocol`'s rejection of non-zero
+  padding on decode stays, with its reason replaced — nothing this command
+  sends is known to be accepted, so the strictest reading of the document
+  costs nothing.
+- `docs/protocol-quirks.md` #30, and the correction it forces on #11:
+  **configuration memory does not answer Read Memory.** Three addresses across
+  `0x020000–0x0203FF` each came back as sixteen `0xFF` bytes while Read
+  Configuration returned real values for the same region in the same session.
+  So the 1019 undocumented bytes there cannot be inspected, and Clock Source
+  — which Read Configuration does not return — cannot be recovered from its
+  documented address either. It is unreadable over MIDI, which makes
+  `intoConfiguration()`'s blind Clock Source argument a hard constraint rather
+  than an awkwardness, and the panel's CLK/MPE page the only place to read the
+  value.

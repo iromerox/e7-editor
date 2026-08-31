@@ -10,10 +10,11 @@ Much of this has since been checked against a real instrument — serial #361,
 over USB, between 2026-08-19 and 08-23 — and the *Confirmed against hardware*
 section below holds observations the printed document never states at all.
 Each entry says for itself whether hardware backs it, with the date and what
-was measured; trust it exactly that far. Several deliberately do not: #10 is
-explicitly untested, #9 is an implementation policy, #11 is a reading of the
-memory map. One bound covers all of it — #21 holds every hardware finding
-here to USB, DIN being a different physical path nobody has run.
+was measured; trust it exactly that far. Several deliberately do not: #9 is an
+implementation policy, and #11 is a reading of the memory map that #30
+contradicts on the one part of it anybody has tried. One bound covers all of
+it — #21 holds every hardware finding here to USB, DIN being a different
+physical path nobody has run.
 
 ## 1. Lock / Unlock command labels are inverted on pp. 16-17
 
@@ -48,6 +49,12 @@ an answer, deliberately.** Read never returns the byte, so it cannot be read
 back, and settling it would mean observing MPE behaviour with an MPE
 controller — which this project does not have. Treat MpeEnable as write-only
 and build nothing that depends on reading it back.
+
+**And nothing has ever been seen to come of the write half — see #10.** The
+asymmetry above is still the shape to model, because it is the shape the
+document describes and the shape a frame has to have. But on the one
+instrument this has been run against, Write Configuration changes nothing,
+which puts a question over any editor control built on it.
 
 ## 3. Response frames omit the manufacturer header
 
@@ -189,21 +196,50 @@ For every enum with a reserved/invalid range (`OtherMode` 80-127, `Voices`
 `ClockSource` >1, MCM channel count >15), fail loudly rather than coercing to
 a nearest valid variant. Callers that want to recover can do so explicitly.
 
-## 10. Write Configuration trailing pad byte: zero by choice, not by measurement
+## 10. Write Configuration does nothing, which leaves its pad byte unsettled
 
 Page 20 shows a trailing `0x00` after the six configuration fields. Always
-emit 0; reject non-zero padding on decode. **Both halves of that are an
-implementation decision rather than an observation** — whether the device
-tolerates non-zero padding is untested, so the decode-side rejection may be
-refusing a frame the instrument would have accepted. A single write with the
-pad set non-zero would settle it.
+emit 0; reject non-zero padding on decode. Both halves of that are still an
+implementation decision rather than an observation — but not for the reason
+this entry used to give. The write that was supposed to settle them found
+something else: **the command has no effect on the instrument at all.**
+
+**Hardware-measured 2026-08-30**, serial #361, over USB. Write Configuration
+(`0x0D`) was sent with the pad at `0x00`, `0x01`, `0x40` and `0x7F`, each
+carrying the four fields Read Configuration had just returned with the
+Transmit Channel deliberately changed so that "the write took" and "nothing
+happened" could not read alike. The p.20 example frame
+`F0 00 21 62 01 10 0D 00 00 07 00 00 00 00 F7` was sent verbatim as well.
+Nothing moved for any of them: Read Configuration answered `00 00 04 0f`
+before and after every write, the panel's own Tx. Ch. page still read Ch. 1,
+and a power cycle brought the instrument up on Ch. 1 — so the write is not
+quietly reaching the EEPROM that p.24 says the startup values are loaded from,
+either.
+
+**The run was controlled, which is what makes the null worth anything.** A
+flash write to a preset slot's name byte took and restored all 128 bytes in
+the same session, and reads answered throughout, so the instrument was
+accepting system exclusive writes while refusing these. The MIDI Filter is not
+the cause: its three switches are PB/PC/CC (#29), and both the reads and the
+flash write went through with it at 4. No panel control was touched during the
+run.
+
+**So the pad question cannot be answered by writing.** A non-zero pad is
+indistinguishable from a zero one when neither does anything. The decode-side
+rejection therefore stays exactly as it is, with its reason replaced rather
+than confirmed: not that the instrument is known to refuse non-zero padding,
+but that nothing sent by this command is known to be accepted, so the
+strictest reading of the document costs nothing. Re-ask it the moment a Write
+Configuration is seen to land — over DIN, which #21 excludes from every
+hardware finding here, or on firmware other than serial #361's.
 
 ## 11. Configuration EEPROM is 1024 bytes; only 5 are documented
 
 Memory map (p.24): `0x020000–0x0203FF` is 1024 bytes of configuration
 memory. The documented layout (p.27) covers only the first 5 bytes. The
-remaining 1019 bytes are untyped, reachable only via generic Read/Write
-Memory.
+remaining 1019 bytes are untyped, and the obvious way to them would be generic
+Read/Write Memory — **which does not reach this region at all, see #30.** So
+they are untyped and, from here, unreadable.
 
 ## 12. The "preview frame" is a stale tail, not a prelude
 
@@ -828,3 +864,21 @@ were learned by running the instrument rather than by reading.
     do X" is indistinguishable from the answer. Read the configuration and
     check the bit before sending, and keep a positive control in the run.
     `7` accepts all three (p.19).
+
+30. **Configuration memory does not answer Read Memory.** Page 24 lists
+    `0x020000–0x0203FF` as configuration memory, and #11 read the 1019
+    undocumented bytes in it as reachable through generic Read/Write Memory.
+    They are not. Measured 2026-08-30 on serial #361 over USB: Read Memory at
+    `0x020000`, `0x020010` and `0x0203F0` each answered with sixteen `0xFF`
+    bytes, while Read Configuration in the same session returned
+    `00 00 04 0f` — so those four bytes exist and hold values, and the generic
+    read simply does not surface them. The read path was working: a Read
+    Memory at `0x030800` in the same run came back with real preset data.
+
+    Two consequences, and the second is the one that bites. The undocumented
+    1019 bytes cannot be inspected from here at all. And Clock Source, which
+    Read Configuration does not return (#2), cannot be recovered by reading
+    its documented address `0x020004` either — so it is genuinely unreadable
+    over MIDI, and a Write Configuration assembled from a read is genuinely
+    blind in that field rather than merely inconvenient. The front panel's
+    CLK/MPE page (manual p.17) is the only place to read it.
