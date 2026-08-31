@@ -785,9 +785,28 @@ gives CC 65 no zone table, but the engine glides at byte 48 = 64 and 127 and
 not at 63, 1 or 0 — the same split the CC table prints for OSC2 Sync on CC
 51. Confirmed entry #23 in `protocol-quirks.md` has the run.
 
-Nothing reads byte 48 back into the UI, which stays deliberate: the editor
-repairs the byte on the next knob move rather than rewriting a preset the
-moment it arrives.
+**A lamp under the knob reads the byte out, and only reads it.** It sits
+beneath `Portamento Time` rather than in the section header, because the
+header covers the Mode button too and a lamp up there would not say which
+control it belongs to; it carries the visible label `Portamento` beside it
+for the same reason. It is lit at `>= 64` — the switch byte alone, not the
+byte together with a non-zero time — so it reports the parameter the panel
+has no control for, and it says so in its tooltip rather than borrowing the
+effect sections' wording about a lamp that follows Mix. Reporting the
+gliding state instead would leave it dark on the 47 factory presets that
+store the switch on with no glide time, which is the one thing the byte is
+never trying to say.
+
+Because the instrument never stores the byte below 64, a dark lamp always
+means a preset the editor's own earlier behaviour wrote. With a glide time
+set that is the unplayable case, and the lamp adds a line naming it: the
+preset does not glide, no control on the instrument can undo it, and moving
+`Portamento Time` will. Moving the knob then lights the lamp and clears the
+line, which is the existing repair becoming visible.
+
+The lamp changes no write path. The editor still repairs the byte on the
+next knob move rather than rewriting a preset the moment it arrives, and
+still gives the parameter no control of its own.
 
 **The Mode button never writes the reserved range, and survives reading
 one.** `OtherMode` reserves CC 80-127 and `mode` is a plain byte, so a device
@@ -1108,7 +1127,9 @@ as it returns, because the instrument never stores 0 there either. It is the
 only row here the editor writes at all, and the only one the manual describes
 as a parameter. `>= 64` is on, measured against the instrument rather than
 taken from the general MIDI switch convention — see the Portamento /
-Polyphony section and confirmed entry #23.
+Polyphony section and confirmed entry #23. It is also the only row here the
+editor shows: a lamp under the Time knob reads the byte out, so the state
+the repair exists for is visible instead of silent.
 
 **This row is the reason the panel-first rule has an edge case.** A parameter
 the panel cannot reach is a parameter the panel cannot *repair*, so a byte the

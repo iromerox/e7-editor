@@ -667,6 +667,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   name: there are two such bytes, one per LFO, and the map named only the
   first.
 
+- Portamento indicator under the `Portamento Time` knob: a lamp reading out
+  the instrument's portamento on/off parameter, which no control on the
+  hardware reaches. It is a readout and never a control — the knob still
+  writes the switch on as the time leaves zero. A preset that arrives
+  switched off with a glide time set shows the lamp dark and a line saying
+  the preset cannot glide and that moving the knob repairs it, which is the
+  first time that state has been visible rather than silent.
+
 ### Changed
 
 - Consolidated every protocol error class into `src/protocol/errors.ts` as a

@@ -13,9 +13,12 @@ import {
 import { createAppState } from "./app-state";
 import { createLiveEdit } from "./live-edit";
 import {
+  PORTAMENTO_INDICATOR_TITLE,
   PORTAMENTO_ON_THRESHOLD,
   PORTAMENTO_ON_VALUE,
+  PORTAMENTO_SILENT_NOTE,
   PortamentoPolyphonySection,
+  isPortamentoOn,
   nextMode,
 } from "./PortamentoPolyphonySection";
 
@@ -54,6 +57,10 @@ function renderSection(prime?: (state: AppStateControls) => void): void {
 
 function modeButton(): HTMLElement {
   return screen.getByRole("button", { name: /^Mode:/ });
+}
+
+function portamentoLamp(): HTMLElement {
+  return screen.getByRole("img", { name: /^Portamento:/ });
 }
 
 describe("PortamentoPolyphonySection", () => {
@@ -185,5 +192,81 @@ describe("PortamentoPolyphonySection", () => {
       PORTAMENTO_ON_THRESHOLD,
     );
     expect(sent.filter((cc) => cc.controller === PORTAMENTO_SWITCH)).toEqual([]);
+  });
+
+  it("reads the switch out beside the knob, saying the parameter is the instrument's and out of the panel's reach", () => {
+    renderSection();
+
+    expect(portamentoLamp()).toHaveAttribute("aria-label", "Portamento: none");
+    expect(portamentoLamp().parentElement).toHaveAttribute("title", PORTAMENTO_INDICATOR_TITLE);
+    expect(PORTAMENTO_INDICATOR_TITLE).toContain("no control on it reaches");
+
+    controls.editField("portamentoSwitch", PORTAMENTO_ON_VALUE);
+
+    expect(portamentoLamp()).toHaveAttribute("aria-label", "Portamento: On");
+  });
+
+  it("lights at the threshold and goes dark below it again, crossing 63 and 64 both ways", () => {
+    renderSection();
+
+    for (const [value, label] of [
+      [PORTAMENTO_ON_THRESHOLD - 1, "none"],
+      [PORTAMENTO_ON_THRESHOLD, "On"],
+      [PORTAMENTO_ON_THRESHOLD - 1, "none"],
+    ] as const) {
+      controls.editField("portamentoSwitch", value);
+      expect(portamentoLamp()).toHaveAttribute("aria-label", `Portamento: ${label}`);
+    }
+
+    expect(isPortamentoOn(PORTAMENTO_ON_THRESHOLD - 1)).toBe(false);
+    expect(isPortamentoOn(PORTAMENTO_ON_THRESHOLD)).toBe(true);
+  });
+
+  it("is a readout and not a control: nothing about it is pressable, and touching it sends nothing", async () => {
+    renderSection();
+
+    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getAllByRole("button").map((element) => element.textContent)).not.toContain(
+      "Portamento",
+    );
+
+    await fireEvent.click(portamentoLamp());
+    await fireEvent.keyDown(portamentoLamp(), { key: "Enter" });
+    controls.editField("portamentoSwitch", PORTAMENTO_ON_VALUE);
+    await fireEvent.click(portamentoLamp());
+
+    expect(sent).toEqual([]);
+  });
+
+  it("tells a preset that cannot glide apart from one that can, and says why", () => {
+    renderSection((state) => {
+      state.editField("portamentoTime", 40);
+      state.editField("portamentoSwitch", 0);
+    });
+
+    expect(portamentoLamp()).toHaveAttribute("aria-label", "Portamento: none");
+    expect(screen.getByText(PORTAMENTO_SILENT_NOTE)).toBeInTheDocument();
+
+    controls.editField("portamentoSwitch", PORTAMENTO_ON_VALUE);
+
+    expect(portamentoLamp()).toHaveAttribute("aria-label", "Portamento: On");
+    expect(screen.queryByText(PORTAMENTO_SILENT_NOTE)).toBeNull();
+  });
+
+  it("lights as the knob repairs such a preset, which is the repair becoming visible", async () => {
+    renderSection((state) => {
+      state.editField("portamentoTime", 40);
+      state.editField("portamentoSwitch", 0);
+    });
+
+    expect(portamentoLamp()).toHaveAttribute("aria-label", "Portamento: none");
+
+    await fireEvent.keyDown(screen.getByRole("slider", { name: "Portamento Time" }), {
+      key: "ArrowUp",
+    });
+
+    expect(portamentoLamp()).toHaveAttribute("aria-label", "Portamento: On");
+    expect(screen.queryByText(PORTAMENTO_SILENT_NOTE)).toBeNull();
   });
 });

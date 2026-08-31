@@ -4,10 +4,12 @@ import type { OtherMode } from "../protocol";
 import type { ButtonLayer } from "./ButtonLed";
 import type { ControlValue } from "./control-value";
 import type { LiveEdit } from "./live-edit";
+import { Show } from "solid-js";
 import { otherModeFromCc, otherModeToCc } from "../protocol";
 import { DualButton } from "./ButtonLed";
 import { ccValue } from "./control-value";
 import { Knob } from "./Knob";
+import { LED_NAME_REM, LedRow } from "./Led";
 import { PanelSection } from "./PanelSection";
 import { unlessReserved } from "./reserved-values";
 
@@ -31,6 +33,20 @@ export const RESERVED_MODE = "Reserved";
 export const PORTAMENTO_ON_VALUE = 127;
 
 export const PORTAMENTO_ON_THRESHOLD = 64;
+
+export const PORTAMENTO_INDICATOR_LABEL = "Portamento";
+
+export const PORTAMENTO_INDICATOR_ON = "On";
+
+export const PORTAMENTO_INDICATOR_TITLE =
+  "Portamento on/off is a parameter of the instrument that no control on it reaches, so this lamp reads the parameter out rather than setting it. The Portamento Time knob is what switches it on, as the time leaves zero.";
+
+export const PORTAMENTO_SILENT_NOTE =
+  "Off with a glide time set: this preset does not glide, and nothing on the instrument can turn it back on. Moving Portamento Time does.";
+
+export function isPortamentoOn(value: number): boolean {
+  return value >= PORTAMENTO_ON_THRESHOLD;
+}
 
 export const PORTAMENTO_TIME_DESCRIPTION =
   "Time the pitch takes to travel between notes played and triggered by the same voice. The instrument has a separate portamento on/off parameter that no panel control reaches; the knob switches it on as the time leaves zero and leaves it on, which is how every preset the instrument ships stores it.";
@@ -79,10 +95,14 @@ export function PortamentoPolyphonySection(props: PortamentoPolyphonySectionProp
   const mode = (): OtherMode | undefined =>
     unlessReserved(() => otherModeFromCc(ccValue(props.live.value("mode"))));
 
+  const on = (): boolean => isPortamentoOn(props.live.value("portamentoSwitch"));
+
+  const silent = (): boolean => !on() && props.live.value("portamentoTime") > 0;
+
   const writeTime = (next: number): void => {
-    const on = props.live.value("portamentoSwitch") >= PORTAMENTO_ON_THRESHOLD;
+    const wasOn = on();
     props.live.write("portamentoTime", next);
-    if (next > 0 && !on) {
+    if (next > 0 && !wasOn) {
       props.live.write("portamentoSwitch", PORTAMENTO_ON_VALUE);
     }
   };
@@ -132,15 +152,58 @@ export function PortamentoPolyphonySection(props: PortamentoPolyphonySectionProp
             {modeName(mode())}
           </span>
         </div>
-        <Knob
-          primary={time()}
-          shift={props.live.control("pitchBendRange", {
-            label: "Bend range",
-            format: bendRangeReadout,
-            description:
-              "Range in semitones that a pitch bend wheel moves the pitch, either way from the note played.",
-          })}
-        />
+        <div
+          style={{
+            display: "flex",
+            "flex-direction": "column",
+            "align-items": "center",
+            gap: "0.4rem",
+          }}
+        >
+          <Knob
+            primary={time()}
+            shift={props.live.control("pitchBendRange", {
+              label: "Bend range",
+              format: bendRangeReadout,
+              description:
+                "Range in semitones that a pitch bend wheel moves the pitch, either way from the note played.",
+            })}
+          />
+          <span
+            title={PORTAMENTO_INDICATOR_TITLE}
+            style={{ display: "flex", "align-items": "center", gap: "0.3rem" }}
+          >
+            <LedRow
+              count={1}
+              lit={[on()]}
+              label={PORTAMENTO_INDICATOR_LABEL}
+              names={[PORTAMENTO_INDICATOR_ON]}
+            />
+            <span
+              style={{
+                "font-size": `${LED_NAME_REM}rem`,
+                "line-height": "1",
+                color: "var(--e7-silkscreen)",
+              }}
+            >
+              {PORTAMENTO_INDICATOR_LABEL}
+            </span>
+          </span>
+          <Show when={silent()}>
+            <p
+              style={{
+                margin: "0",
+                "max-width": "12rem",
+                "font-size": "0.7rem",
+                "line-height": "1.4",
+                "text-align": "center",
+                color: "var(--e7-label-secondary)",
+              }}
+            >
+              {PORTAMENTO_SILENT_NOTE}
+            </p>
+          </Show>
+        </div>
       </div>
     </PanelSection>
   );
