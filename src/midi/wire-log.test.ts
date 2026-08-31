@@ -1,6 +1,6 @@
 import type { WireLogCapture } from "./wire-log";
 import { describe, expect, it } from "vitest";
-import { wireLogFixture } from "../test-wire-log";
+import { wireLogFixture, wireLogFixtureNames } from "../test-wire-log";
 import { WireLogFormatError, formatWireLog, parseWireLog, wireLogTime } from "./wire-log";
 
 const HEADER = [
@@ -231,13 +231,10 @@ describe("formatWireLog", () => {
   });
 
   it("writes a committed fixture back out as the same capture", () => {
-    for (const name of [
-      "fragmented-frame",
-      "preview-frame",
-      "read-memory-clean",
-      "stale-frame-tail",
-      "untried-read-commands",
-    ]) {
+    const names = wireLogFixtureNames();
+
+    expect(names.length).toBeGreaterThan(0);
+    for (const name of names) {
       const fixture = wireLogFixture(name);
 
       expect(parseWireLog(`${name}.wire`, formatWireLog(fixture))).toEqual(fixture);

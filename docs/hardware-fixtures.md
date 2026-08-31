@@ -115,6 +115,12 @@ console's own events already extend, so a loaded capture can be fed to anything
 that reads live traffic. Tests get one off disk with `wireLogFixture` from
 `src/test-wire-log.ts`, which takes the fixture's name without its extension.
 
+`wireLogFixtureNames` in the same module lists what is committed, by reading
+the directory rather than by naming files. `wire-log.test.ts` writes every
+capture it returns back out and parses it again, so **a fixture added here is
+covered by that test the moment it lands** and nothing has to be added to a
+list to keep the promise its name makes.
+
 Anything malformed throws `WireLogFormatError`, carrying the file name, the line
 number and what was wrong with it — a missing or duplicated header field, a date
 that is not a calendar date, a line that does not open with a time, times that
