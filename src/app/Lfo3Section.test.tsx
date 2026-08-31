@@ -101,6 +101,15 @@ describe("Lfo3Section", () => {
     ).toEqual(["Mod Wheel", "Aftertouch"]);
   });
 
+  it("reads the rate as the value itself, LFO 3 having no clock-synced mode to divide", () => {
+    const rate = within(section()).getByRole("slider", { name: "Rate" });
+
+    for (const value of [0, 48, 127]) {
+      controls.editField("lfo3Rate", value);
+      expect(rate).toHaveAttribute("aria-valuetext", String(value));
+    }
+  });
+
   it("draws no Mode control, LFO 3 having neither a field nor a panel button for one", () => {
     expect(within(section()).queryByRole("button", { name: "Mode" })).toBeNull();
     expect(section().textContent).not.toContain("Mode");

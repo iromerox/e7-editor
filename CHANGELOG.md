@@ -675,6 +675,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the preset cannot glide and that moving the knob repairs it, which is the
   first time that state has been visible rather than silent.
 
+- Musical-division readouts on the clock-synced rates. `LFO 1 Rate` and
+  `LFO 2 Rate` name the division they land on while the LFO is in either
+  clock-sync mode, and `Delay Time` does the same in the Stereo Sync and
+  Ping-Pong Sync types; every other mode and type reads the value itself as
+  before, and LFO 3, which has no sync mode, is untouched. The two run
+  opposite ways over the controller — the delay sweeps `1/32 Note` to
+  `Whole Note` and the LFO rates sweep the other way — so each reads through
+  its own mapping rather than a shared one.
+
 ### Changed
 
 - Consolidated every protocol error class into `src/protocol/errors.ts` as a

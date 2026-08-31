@@ -6,6 +6,7 @@ import type { LiveEdit } from "./live-edit";
 import { Show } from "solid-js";
 import { lfoModeFromCc, lfoModeToCc, lfoShapeFromCc, lfoShapeToCc } from "../protocol";
 import { DualButton } from "./ButtonLed";
+import { isClockSyncedLfoMode, lfoRateReadout } from "./clock-rate";
 import { ccValue } from "./control-value";
 import { Knob } from "./Knob";
 import { PanelSection } from "./PanelSection";
@@ -90,7 +91,7 @@ export const MODE_DESCRIPTION =
   "Steps through the six synchronization modes: monophonic, polyphonic, keyboard tracking, keyboard sync, clock sync, and keyboard plus clock sync. The instrument shows the mode on its display rather than in LEDs, so this layer lights none.";
 
 export const RATE_DESCRIPTION =
-  "Sets the frequency of the LFO. In the two clock-sync modes the instrument divides the MIDI clock instead, and this reads as the raw value rather than the musical division it lands on.";
+  "Sets the frequency of the LFO. In the two clock-sync modes the instrument divides the MIDI clock instead, and this reads as the musical division the value lands on rather than as the value itself.";
 
 export const EG1_MOD_NOTE =
   "EG1 Mod, the shift layer the panel prints on this knob, is not built yet: it is this LFO's own parameter, and the instrument makes it unavailable in the clock-sync and monophonic modes.";
@@ -170,6 +171,7 @@ function Lfo(props: LfoProps): JSX.Element {
             primary={props.live.control(props.fields.rate, {
               label: "Rate",
               description: props.rateDescription,
+              ...(isClockSyncedLfoMode(mode()) ? { format: lfoRateReadout } : {}),
             })}
           />
         </div>

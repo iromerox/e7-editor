@@ -3,6 +3,7 @@ import type { JSX } from "solid-js";
 import type { DelayType } from "../protocol";
 import type { LiveEdit } from "./live-edit";
 import { delayTypeFromCc } from "../protocol";
+import { delayTimeReadout, isClockSyncedDelayType } from "./clock-rate";
 import { ccValue } from "./control-value";
 import { EffectSection } from "./EffectSection";
 import { Knob } from "./Knob";
@@ -23,6 +24,9 @@ export function delayTypeReadout(value: number): string {
 }
 
 export function DelaySection(props: DelaySectionProps): JSX.Element {
+  const synced = (): boolean =>
+    isClockSyncedDelayType(delayTypeFromCc(ccValue(props.live.value("delayType"))));
+
   return (
     <EffectSection
       title="DELAY"
@@ -35,6 +39,7 @@ export function DelaySection(props: DelaySectionProps): JSX.Element {
           label: "Delay Time",
           description:
             "Time between repetitions — 50 ms to 1.35 s in the Stereo and Ping-Pong types, and a division of the MIDI clock in the two Sync ones.",
+          ...(synced() ? { format: delayTimeReadout } : {}),
         })}
         shift={props.live.control("delayType", {
           label: "Type",

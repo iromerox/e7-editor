@@ -52,6 +52,16 @@ const SHAPE_STEPS: readonly number[] = [16, 32, 48, 64, 0];
 
 const MODE_STEPS: readonly number[] = [16, 32, 48, 64, 80, 0];
 
+const CLOCK_SYNC_MODES: readonly number[] = [64, 80];
+
+const FREE_MODES: readonly number[] = [0, 16, 32, 48];
+
+const RATE_DIVISIONS: readonly (readonly [value: number, name: string])[] = [
+  [0, "Whole Note"],
+  [48, "1/4 Note"],
+  [127, "1/32 Note"],
+];
+
 function renderSection(): void {
   sent.length = 0;
   controls = createAppState();
@@ -167,6 +177,34 @@ describe("LfoSection", () => {
     expect(seen).toEqual(MODE_STEPS);
     expect(selection(scope, "Mode")).toBe("Monophonic");
     expect(scope.textContent).toContain("Monophonic");
+  });
+
+  it("reads each rate as a musical division in the two clock-sync modes, shortest at the top of the travel", () => {
+    for (const [name, fields] of LFOS) {
+      const rate = within(lfo(name)).getByRole("slider", { name: "Rate" });
+
+      for (const mode of CLOCK_SYNC_MODES) {
+        controls.editField(fields.mode, mode);
+        for (const [value, division] of RATE_DIVISIONS) {
+          controls.editField(fields.rate, value);
+          expect(rate).toHaveAttribute("aria-valuetext", division);
+        }
+      }
+    }
+  });
+
+  it("returns each rate to the value itself as the mode leaves clock sync", () => {
+    for (const [name, fields] of LFOS) {
+      const rate = within(lfo(name)).getByRole("slider", { name: "Rate" });
+      controls.editField(fields.rate, 48);
+      controls.editField(fields.mode, 64);
+      expect(rate).toHaveAttribute("aria-valuetext", "1/4 Note");
+
+      for (const mode of FREE_MODES) {
+        controls.editField(fields.mode, mode);
+        expect(rate).toHaveAttribute("aria-valuetext", "48");
+      }
+    }
   });
 
   it("keeps the wave shape's lenses lit and named while Mode holds the button", async () => {

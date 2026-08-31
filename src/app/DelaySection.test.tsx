@@ -60,6 +60,16 @@ const TYPE_ZONES: readonly (readonly [value: number, name: string])[] = [
   [127, "Ping-Pong Sync"],
 ];
 
+const SYNCED_TYPES: readonly number[] = [64, 96];
+
+const PLAIN_TYPES: readonly number[] = [0, 32];
+
+const TIME_DIVISIONS: readonly (readonly [value: number, name: string])[] = [
+  [0, "1/32 Note"],
+  [64, "Dotted 1/8 Note"],
+  [127, "Whole Note"],
+];
+
 function renderSection(part?: 3): void {
   sent.length = 0;
   controls = createAppState();
@@ -116,6 +126,32 @@ describe("DelaySection", () => {
     await fireEvent.keyDown(typeKnob(), { key: "End" });
 
     expect(sent).toContainEqual({ controller: DELAY_TYPE, value: 127 });
+  });
+
+  it("reads the time as a musical division in the two Sync types, longest at the top of the travel", () => {
+    renderSection();
+    const time = screen.getByRole("slider", { name: "Delay Time" });
+
+    for (const type of SYNCED_TYPES) {
+      controls.editField("delayType", type);
+      for (const [value, name] of TIME_DIVISIONS) {
+        controls.editField("delayTime", value);
+        expect(time).toHaveAttribute("aria-valuetext", name);
+      }
+    }
+  });
+
+  it("leaves the Stereo and Ping-Pong types reading the value itself", () => {
+    renderSection();
+    const time = screen.getByRole("slider", { name: "Delay Time" });
+
+    for (const type of PLAIN_TYPES) {
+      controls.editField("delayType", type);
+      for (const [value] of TIME_DIVISIONS) {
+        controls.editField("delayTime", value);
+        expect(time).toHaveAttribute("aria-valuetext", String(value));
+      }
+    }
   });
 
   it("lights the header indicator only once the mix is above zero", async () => {
