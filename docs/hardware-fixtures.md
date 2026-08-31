@@ -181,7 +181,7 @@ Six came off serial 361:
   behind it.
 - `fixtures/lfo-clock-rate-zones.wire` and `fixtures/delay-clock-rate-zones.wire`
   — each knob turned by hand across its whole travel, twice, while the value was
-  read back a block at a time. These are what `protocol-quirks.md` #20 rests on,
+  read back a block at a time. These are what `protocol-quirks.md` #26 rests on,
   and they are the first captures here whose point is not in the bytes: the
   divisions were read off the instrument's display by eye, so the header notes
   carry the readings and the frames only carry where the knob was. A capture

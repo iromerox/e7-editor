@@ -739,7 +739,7 @@ Delay is `part1Only` for the same reason Chorus is.
 Clockwise here goes from the shortest division to the longest — `1/32 Note` at
 minimum, `Whole Note` at maximum — where the LFO rate knobs go the other way.
 Both are the same 15 divisions in the same order; the delay's controller axis
-is simply reversed, which `protocol-quirks.md` #20 records with the measured
+is simply reversed, which `protocol-quirks.md` #26 records with the measured
 bands. It is real hardware behavior rather than a labelling accident, so a
 shared clock-division control that sweeps one direction for both is wrong on
 one of them, and the two need opposite mappings from knob angle to value.
@@ -1156,8 +1156,8 @@ The lamp is **saved with the preset**, because it is a rendering of a preset
 byte — nothing about it is runtime-only, and it survives a save, a load and
 a preset copy exactly as `mix` does. And **these lamps answer an incoming
 CC**, where the display answers only the panel — it never names a clock
-division for a rate arriving over MIDI (`protocol-quirks.md` confirmed entry
-20). A panel readout following physical controls only is therefore not a
+division for a rate arriving over MIDI (`protocol-quirks.md` #26). A panel
+readout following physical controls only is therefore not a
 general rule of this instrument, which matters to anyone designing a
 hardware run around what the panel shows.
 

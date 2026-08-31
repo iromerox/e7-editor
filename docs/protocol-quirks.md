@@ -613,7 +613,7 @@ answered it, the date and what was measured:
     **Two bounds on this.** It measures the parameter byte the device holds,
     not the sound it makes: if the audio path smooths or trails its own
     parameter state, nothing here would see it, and since the display answers
-    no incoming CC (confirmed entry 20 below) there is no readout to check
+    no incoming CC (#26) there is no readout to check
     against either. And it moves one controller at a time — the limiter
     budgets per channel/controller pair, so anything moving several controls
     at once puts a multiple of these rates on the wire, which was not tested.
@@ -660,7 +660,7 @@ answered it, the date and what was measured:
     `mix` cannot come to disagree with the panel about it.
 
     **These lamps answer an incoming CC where the display does not**
-    (confirmed entry 20). Worth keeping apart from the finding itself,
+    (#26). Worth keeping apart from the finding itself,
     because the display invites the generalisation that the panel's readouts
     follow physical controls only — and these do not. A run driving a
     parameter from MIDI can watch them and trust what it sees, which is a
@@ -734,51 +734,6 @@ were learned by running the instrument rather than by reading.
     is why `src/protocol/preset.ts` round-trips undocumented bytes verbatim
     instead of zeroing them on encode. Don't "clean" them.
 
-19. **An unwritten lock byte reads `0xFF`, and a panel save leaves it
-    unlocked.** Page 26's wording is deliberate — "if the value is *not* 1,
-    the preset is unlocked" — because a third value occurs: slots that have
-    never been written read `255` at byte 127, not `0` (8.8.8 and 3.1.1 of
-    serial #361 both did). `Unlock Preset` writes `0` rather than restoring
-    `255`, so the two unlocked values are not interchangeable when comparing
-    a slot byte-for-byte against a backup. Saving a preset from the panel
-    into an unlocked slot leaves byte 127 at `0`; the panel does not re-lock
-    what it writes. This is why `isPresetLocked` testing `=== 1` rather than
-    `!== 0` is load-bearing: a `!== 0` test reports every blank slot as
-    locked.
-
-20. **The clock-sync rate divisions are regular 8-wide bands, and the delay's
-    run backwards.** The MIDI implementation gives these no table at all; the
-    user manual names the 15 divisions and fixes their order (p.14, and p.15
-    for the delay, which defers to p.14) but says nothing about which CC
-    values select which. Measured on serial #361, both are the same regular
-    shape the document's other zoned CCs use — bands of 8, the fifteenth
-    division absorbing the 16-value remainder — over the manual's order:
-
-    | | band for division *i* | remainder band |
-    |---|---|---|
-    | `LfoClockRate` (CC 76) | `[8i, 8i+7]`, ascending from `Whole Note` at 0 | `1/32 Note`, 112-127 |
-    | `DelayClockRate` (CC 111) | the same bands, descending from `Whole Note` at 127 | `1/32 Note`, 0-15 |
-
-    So `delayClockRateFromCc(cc)` equals `lfoClockRateFromCc(127 - cc)` at
-    every one of the 128 values, and `delay-clock-rate.test.ts` asserts
-    exactly that. Both tables are built from that shape rather than listed
-    out: the LFO's from `bandedZones`, the delay's by running the LFO's
-    through `mirrorZones`. The two are a mirrored axis rather than two
-    unrelated orderings — which is visible at the panel, where `Delay Time`
-    sweeps from the shortest division to the longest and `LFO 1 Rate` sweeps
-    the other way. A control built to sweep both the same direction is wrong
-    on one of them.
-
-    Neither table's previously shipped boundaries were right; they came from
-    an earlier reverse-engineering pass and drifted by up to eight values.
-    Captured by turning each knob against the instrument's own display, since
-    **the display answers only to the panel and never to an incoming CC** —
-    Filter Cutoff was tested as a control and moved the byte without ever
-    lighting the screen. The edit buffer is no help either: byte 54 tracks CC
-    76 and byte 116 tracks CC 111 exactly, so nothing readable over MIDI names
-    the division. See `fixtures/lfo-clock-rate-zones.wire` and
-    `fixtures/delay-clock-rate-zones.wire`.
-
 24. **The instrument withholds the last ten bytes of everything it transmits,
     until ten more bytes are queued behind them.** Its MIDI output retains a
     ten-byte residue and ships only the excess. A Read Memory answer is 34
@@ -841,6 +796,51 @@ were learned by running the instrument rather than by reading.
     what it explains — but a client may not assume either behaviour, which is
     the same conclusion the entry already forces and the reason
     `requestResponse` has to attribute an answer rather than count on one.
+
+25. **An unwritten lock byte reads `0xFF`, and a panel save leaves it
+    unlocked.** Page 26's wording is deliberate — "if the value is *not* 1,
+    the preset is unlocked" — because a third value occurs: slots that have
+    never been written read `255` at byte 127, not `0` (8.8.8 and 3.1.1 of
+    serial #361 both did). `Unlock Preset` writes `0` rather than restoring
+    `255`, so the two unlocked values are not interchangeable when comparing
+    a slot byte-for-byte against a backup. Saving a preset from the panel
+    into an unlocked slot leaves byte 127 at `0`; the panel does not re-lock
+    what it writes. This is why `isPresetLocked` testing `=== 1` rather than
+    `!== 0` is load-bearing: a `!== 0` test reports every blank slot as
+    locked.
+
+26. **The clock-sync rate divisions are regular 8-wide bands, and the delay's
+    run backwards.** The MIDI implementation gives these no table at all; the
+    user manual names the 15 divisions and fixes their order (p.14, and p.15
+    for the delay, which defers to p.14) but says nothing about which CC
+    values select which. Measured on serial #361, both are the same regular
+    shape the document's other zoned CCs use — bands of 8, the fifteenth
+    division absorbing the 16-value remainder — over the manual's order:
+
+    | | band for division *i* | remainder band |
+    |---|---|---|
+    | `LfoClockRate` (CC 76) | `[8i, 8i+7]`, ascending from `Whole Note` at 0 | `1/32 Note`, 112-127 |
+    | `DelayClockRate` (CC 111) | the same bands, descending from `Whole Note` at 127 | `1/32 Note`, 0-15 |
+
+    So `delayClockRateFromCc(cc)` equals `lfoClockRateFromCc(127 - cc)` at
+    every one of the 128 values, and `delay-clock-rate.test.ts` asserts
+    exactly that. Both tables are built from that shape rather than listed
+    out: the LFO's from `bandedZones`, the delay's by running the LFO's
+    through `mirrorZones`. The two are a mirrored axis rather than two
+    unrelated orderings — which is visible at the panel, where `Delay Time`
+    sweeps from the shortest division to the longest and `LFO 1 Rate` sweeps
+    the other way. A control built to sweep both the same direction is wrong
+    on one of them.
+
+    Neither table's previously shipped boundaries were right; they came from
+    an earlier reverse-engineering pass and drifted by up to eight values.
+    Captured by turning each knob against the instrument's own display, since
+    **the display answers only to the panel and never to an incoming CC** —
+    Filter Cutoff was tested as a control and moved the byte without ever
+    lighting the screen. The edit buffer is no help either: byte 54 tracks CC
+    76 and byte 116 tracks CC 111 exactly, so nothing readable over MIDI names
+    the division. See `fixtures/lfo-clock-rate-zones.wire` and
+    `fixtures/delay-clock-rate-zones.wire`.
 
 27. **Seven controllers drive the LFO blocks' unnamed bytes, and the printed
     CC table assigns none of them.** Hardware-confirmed 2026-08-27, serial
