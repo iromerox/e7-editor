@@ -626,6 +626,24 @@ answered it, the date and what was measured:
     reached at a different sending speed. Treat #12, #16, and #19 as settled
     for USB and open for DIN until someone runs the same page through a DIN
     interface.
+
+    **The first DIN attempt, 2026-09-01, produced no measurement**, and the
+    bound above stands unchanged. It got far enough to establish one thing the
+    document did not have: the instrument **accepts note data on DIN IN** and
+    sounds it, so that port works. Nothing was ever received *from* the
+    instrument over DIN, because the interface was a USB controller with a MIDI
+    In jack rather than a MIDI interface — its manual routes MIDI In to its own
+    MIDI Out and never to USB, which no setting on it changes. So no SysEx round
+    trip was possible and #12, #16 and #19 are exactly as open for DIN as
+    before. What the next attempt needs is a bidirectional interface; a MIDI In
+    jack on a controller is not one.
+
+    One observation from that session is worth carrying with a caveat: Chorus
+    Mix (CC 13) was sent 25 times with the Chorus lamp never lighting while
+    notes on the same channel sounded, which is #29's Filter Mode bit — the
+    instrument was configured to accept no control change. It is an inference
+    rather than a reading, since confirming it needs Read Configuration and that
+    needs the return path the rig did not have.
 22. **The Chorus and Delay enable LEDs are `mix > 0`, and they answer an
     incoming CC** — this entry stays numbered here rather than moving to the
     confirmed section below so the cross-references to "#22" keep resolving.

@@ -1243,3 +1243,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   process that sent once and exited left nothing behind for the next. The
   retention is a state rather than a standing property, and nothing may assume
   either behaviour.
+- `docs/protocol-quirks.md` #21: the **first DIN MIDI attempt produced no
+  measurement**, and #12, #16 and #19 stay open for DIN. It did establish that
+  the instrument **accepts note data on DIN IN** and sounds it. Nothing was
+  received from the instrument over DIN: the interface was a USB controller
+  whose MIDI In routes only to its own MIDI Out and never to USB, so no SysEx
+  round trip was possible. A bidirectional interface is what the run needs.
