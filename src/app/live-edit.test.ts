@@ -147,12 +147,13 @@ describe("createLiveEdit", () => {
     expect(live.receive(ccEvent(MOD_WHEEL, 64))).toBeUndefined();
   });
 
-  it("ignores an inbound value the field's own table reserves, rather than failing on it", () => {
+  it("takes an inbound Voices value the instrument accepts, at every point on its range", () => {
     const { controls, live } = setUp({ kind: "channel", channel: 1 });
     live.receive(ccEvent(OTHER_VOICES, 34));
 
-    expect(live.receive(ccEvent(OTHER_VOICES, 100))).toBeUndefined();
     expect(readField(controls.state.editor.preset, "voices")).toBe(34);
+    expect(live.receive(ccEvent(OTHER_VOICES, 100))).toBe("voices");
+    expect(readField(controls.state.editor.preset, "voices")).toBe(68);
   });
 
   it("holds every field live for a single preset and for part 1 of a multi", () => {

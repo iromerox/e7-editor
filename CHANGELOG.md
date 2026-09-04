@@ -813,6 +813,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   a preset arrives with a time set and the switch off, which repairs one
   saved by the previous behaviour.
 
+- The `Voices` control now reaches the instrument. It sent **CC 97**, the
+  number the printed CC table's OTHER section gives it, which the hardware
+  ignores at every value; the controller it answers is **CC 47**, and that is
+  what the editor sends and receives now. Nothing else in the OTHER section
+  moved — the neighbouring `Mode` row is correct — so this was one wrong row
+  rather than a wrong table.
+- `Voices` no longer refuses controller values the instrument accepts. The
+  encoding was documented as capping at 71, with 72-127 and any low value
+  whose second nibble exceeded 7 treated as errors; sweeping the controller
+  across its whole range showed the instrument reserves none of them, taking
+  the monophonic voice from the low three bits and holding the polyphonic
+  selection at `7→1` from 80 up. Choosing a pair still emits `16*V1 + V2`, so
+  what the editor sends is unchanged, but an inbound value is no longer
+  dropped and the editor follows the device across the whole range.
 ### Removed
 
 - The CC directionality model — `CcDirection`, `ccDirection` and the
@@ -1249,3 +1263,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   received from the instrument over DIN: the interface was a USB controller
   whose MIDI In routes only to its own MIDI Out and never to USB, so no SysEx
   round trip was possible. A bidirectional interface is what the run needs.
+- `docs/protocol-quirks.md` #32: **CC 47's axis, measured across all 128
+  values** — `monoVoice = value & 7` and `polyVoice = min(4, value >> 4)`, so
+  the polyphonic half sits in five bands while the monophonic half cycles
+  every eight. Whole-image diffs at ten anchors found the controller moves
+  those two bytes and nothing else. #8 is rewritten around it: the reserved
+  range it described is a **stored** one, not a controller one, and the 64
+  factory bank-1 presets all store pairs inside the selection tables. #28
+  keeps the record of how the controller number was found.
+- `docs/protocol-quirks.md` #32 and `docs/panel-layout.md`: the seven `VOICES`
+  LEDs **do not follow CC 47**. Driven from MIDI to `7→1`/`4` and then to
+  `All`/`Free`, with the bytes read back at both, the row stayed dark — so
+  these lamps are unlike the Chorus and Delay pair, which answer an incoming
+  CC, and like the display, which does not. It also retires the standing guess
+  that an `All`/`Free` preset lights all seven, replacing it with an
+  observation rather than another inference.

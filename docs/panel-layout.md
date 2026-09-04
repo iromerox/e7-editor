@@ -625,18 +625,33 @@ press on the hardware.
 
 | Label | Shift | Widget | Binds to | Notes |
 |---|---|---|---|---|
-| `VOICES` | — | LED row (7) | `polyVoice` (byte 107) + `monoVoice` (byte 106), packed as CC 97 | Shows which of the 7 voices the current preset may use. Set from the Preset Menu (Shift + button 5) on the hardware, never from a panel control. |
+| `VOICES` | — | LED row (7) | `polyVoice` (byte 107) + `monoVoice` (byte 106), packed as CC 47 | Shows which of the 7 voices the current preset may use. Set from the Preset Menu (Shift + button 5) on the hardware, never from a panel control. |
+
+**The controller is CC 47, not the 97 the printed table prints.** Hardware
+answers 47 and ignores 97 entirely; the number is known only from the
+instrument, the way Resonance's is.
 
 The CC is packed: `16*V1 + V2`, where `V1` is the polyphonic selection
 (0-4: All, Even, Odd, 1→7, 7→1) and `V2` the monophonic one (0-7: Free, then
-voices 1-7). See `Voices` in `src/protocol/voices.ts`; V1 > 4 or V2 > 7 is
-reserved, capping the legal CC at 71.
+voices 1-7). See `Voices` in `src/protocol/voices.ts`. Sending a chosen pair
+uses that formula and nothing else, so the values the editor emits run 0-71 —
+but the controller reserves nothing: the instrument takes all 128 values,
+masking `V2` to three bits and holding `V1` at 4 from 80 up.
 
 Which LEDs light for a given V1/V2 pair is not documented and not visible in
 a still photograph. The editor should present the two selections directly —
 a poly option and a mono option — rather than trying to reproduce the LED
-row's logic. An `All`/`Free` preset presumably lights all seven; that is an
-inference, not an observation.
+row's logic.
+
+**And the row does not follow the controller.** Driving CC 47 from MIDI to
+`7→1`/`4` and then to `All`/`Free`, with the bytes read back at both, left the
+seven lamps dark throughout. So these are unlike the Chorus and Delay lamps,
+which do answer an incoming CC, and like the OLED, which does not. That also
+retires the guess this paragraph used to carry — that an `All`/`Free` preset
+lights all seven — without putting another inference in its place: at
+`All`/`Free` the row was dark. What the check does not separate is a row that
+ignores MIDI from a row dark for an unrelated reason, which would need it
+watched while a preset is loaded from the panel.
 
 **Built that way: two selectors, and no LED row at all.** The section draws
 `Polyphonic voices` and `Monophonic voice` as menu selectors, because that is
@@ -646,16 +661,21 @@ lenses lit from an inference would be the editor asserting something it
 cannot know. The section says so where the row would have been. If hardware
 work ever turns up a source for the row, the count to draw is 7.
 
-A reserved pair reaches the editor two ways, and both are handled where they
-arise rather than by relaxing `Voices`:
+A reserved pair reaches the editor **one** way, and it is handled where it
+arises rather than by relaxing `Voices`:
 
 - **From a preset.** Bytes 106/107 are read straight out of device memory, so
   a preset holding `polyVoice` 6 makes even *reading* the field throw. The
   section decodes through `unlessReserved`, shows neither selection, and says
   the value is reserved; picking either selection replaces it.
-- **From a control change.** The editor's inbound path ignores a CC value the
-  field's own accessor rejects, rather than letting it through and failing
-  mid-update. CC 97 above 71 therefore leaves the editor where it was.
+
+**Not from a control change, any more.** That used to be the second way in,
+on the strength of a cap the instrument turns out not to have: every value of
+CC 47 lands on a legal pair, so the inbound path has nothing to drop and the
+editor follows the device wherever it goes. The guard in `live-edit` stays —
+it costs nothing and a later zoned field would want it — but no controller
+exercises it today. The 64 factory presets all store pairs inside the tables,
+so the reserved case is one the instrument never writes itself.
 
 ---
 

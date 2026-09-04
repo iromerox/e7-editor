@@ -178,16 +178,27 @@ a `.semitones()`-style accessor for callers that want the float view. CC
 values 63 and 64 both map to 0 millisemitones (the spec's only duplicate) —
 pick a canonical direction (63) so all other values round-trip.
 
-## 8. Voices CC encoding caps at 71 (V1 ≤ 4, V2 ≤ 7)
+## 8. Voices has no reserved controller range — it masks and clamps instead
 
-**The controller number this is built on is wrong — see #28.** Hardware drives
-the voice bytes from CC 47, and ignores CC 97 entirely. The cap below is about
-the encoding rather than the controller, but nothing in the pair reaches the
-instrument as shipped.
+**Settled against hardware — see #28 for the controller and #32 for the axis.**
+This entry claimed a cap at 71 on the strength of the printed formula, and both
+halves of it were wrong: the controller is CC 47 rather than the printed 97,
+and the instrument reserves nothing at all on it.
 
-CC 97 packs `V1*16 + V2`. V1 above 4 and V2 above 7 are reserved, capping
-the maximum legal CC value at 71. Values 72-127, and low values whose V2
-nibble falls in the reserved range, should be treated as errors.
+`16*V1 + V2` still describes the canonical pairs, so writing stays what it
+was — V1 is the polyphonic selection (0-4: All, Even, Odd, 1→7, 7→1) and V2
+the monophonic one (0-7: Free, then voices 1-7), and the 40 legal pairs encode
+to 0-71 and read back unchanged. What is new is the other 56 values. The
+instrument accepts every one of them and lands each on a legal pair, by two
+different mechanisms in the two fields: **V2 is masked to three bits** and
+**V1 is clamped at 4**. So there is no value 0-127 that should be treated as
+an error, and none that the editor should drop on the way in.
+
+The reserved range that remains is the **stored** one: bytes 106 and 107 come
+out of device memory unvalidated, so a preset holding `polyVoice` 6 is still a
+pair the selection tables do not cover, and reading it still fails loudly per
+#9. That is the case `panel-layout.md` handles with `unlessReserved`, and it
+is a different case from an incoming controller value.
 
 ## 9. Reserved-range policy: errors, not silent fallback
 
@@ -908,12 +919,10 @@ were learned by running the instrument rather than by reading.
     row rather than a wrong section. As shipped, the editor's Voices control
     sends a controller the instrument ignores.
 
-    **The value mapping is not characterised and must not be guessed.** CC 47
-    at 100 put `4` into *both* bytes, which is not `16*V1 + V2` — that would
-    be `V1 6, V2 4`, and 6 is outside the range #8 documents. Whether CC 47 is
-    zoned, clamped, or sets the two counts from one axis needs its own run.
-    Until then the pair `Voices`/`VOICES` describes an encoding whose
-    controller was never verified against the instrument.
+    **The value mapping is characterised now — see #32**, which swept the
+    controller and settled the axis this entry could only say was unknown.
+    `cc.ts` and `cc-map.ts` send CC 47, and the editor's Voices control
+    reaches the instrument.
 
 29. **Filter Mode's Control Change bit is bit 2, and at 0 the instrument
     answers no controller at all.** Measured 2026-08-27 on serial #361 by
@@ -979,3 +988,58 @@ were learned by running the instrument rather than by reading.
     sense mid-run are both open. Whether the response is meant to be nibble
     packed like memory data (`00 04` would then be `0x40`) is likewise
     unasked.
+
+32. **CC 47's axis: V2 is masked to three bits, V1 is clamped at 4, and no
+    value 0-127 is reserved.** Hardware-confirmed 2026-09-02, serial #361,
+    over USB. CC 47 was swept across every value with bytes 106 and 107 read
+    back at each step, and the table is exactly
+
+        monoVoice (byte 106) = value & 7
+        polyVoice (byte 107) = min(4, value >> 4)
+
+    so byte 107 sits in five bands — `0-15` All, `16-31` Even, `32-47` Odd,
+    `48-63` 1→7, `64-127` 7→1 — while byte 106 cycles 0-7 every eight values
+    for the whole range. Whole-image diffs at ten anchor values found CC 47
+    moves those two bytes and nothing else, and CC 97 moved nothing at 0, 34
+    or 71 in the same run, which reconfirms #28 from the run that replaces it.
+
+    **The printed `16*V1 + V2` survives as the write direction and only that.**
+    The 40 canonical pairs still encode to 0-71 and read back unchanged, so
+    nothing about sending a chosen pair changes. What the sweep settles is the
+    other 56 values, which #8 called reserved and the instrument does not: the
+    two fields are reduced into range by *different* mechanisms, V2 wrapping
+    where V1 saturates, which is why 100 put `4` into both bytes and looked
+    like a coupled axis from that one reading. `voices.ts` builds the V1 half
+    out of `bandedZones(..., "absorb")` and takes the V2 half with a mask.
+
+    **The factory slots are the control group, and they agree.** Bytes 106 and
+    107 read out of all 64 bank-1 presets hold `0`, `1` or `4` in Mono Voice
+    and `0` in Poly Voice throughout — every one inside the selection tables,
+    and no slot storing anything the type cannot represent. So the reserved
+    range that remains is a stored one the instrument never writes itself, not
+    a controller range.
+
+    **The seven `VOICES` LEDs do not follow the controller.** Parked at 100
+    (poly `7→1`, mono `4`) and then at 0 (poly `All`, mono `Free`), with the
+    byte readback confirming both states and the second run's baseline showing
+    the first had persisted, the row stayed **dark at both**. So #22's finding
+    does not generalise to this row: the Chorus and Delay lamps answer an
+    incoming CC, and these do not — they behave like the display in #26. Worth
+    asking of each readout rather than of the panel as a whole, which is
+    exactly what #22 says and this is the counter-example for.
+
+    One thing the cheap version of this check does not separate: whether the
+    row is dark because it ignores MIDI, or dark for some reason independent of
+    the controller — an instrument sitting in Panel Mode with no preset
+    selected would look the same. Settling that means watching the row while a
+    preset with a known pair is loaded *from the panel*, which is a different
+    run and nothing in the editor is waiting on it. It also retires an
+    inference rather than confirming one: `panel-layout.md` guessed an
+    `All`/`Free` preset lights all seven, and at `All`/`Free` the row was dark.
+
+    Two things worth keeping from the run's shape. **A sweep of one controller
+    needs the same two controls as a sweep of all of them** — CC 74 moved byte
+    70, CC 102 moved nothing, and the run refused to start otherwise. And
+    **the restore has to be earned by the table**: until the axis was measured
+    there was no value known to reproduce the baseline pair, so the run looks
+    the baseline up in its own rows and says plainly when it cannot find one.

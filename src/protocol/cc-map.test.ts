@@ -148,8 +148,24 @@ describe("cc-map", () => {
     expect(changedByteIndices("voices", 71)).toEqual([106, 107]);
   });
 
-  it("rejects a reserved Voices CC value rather than storing it", () => {
-    expect(() => applyCc(blankPreset(), OTHER_VOICES, 72)).toThrow(ReservedValue);
-    expect(() => applyCc(blankPreset(), OTHER_VOICES, 15)).toThrow(ReservedValue);
+  it("lands a Voices CC past the canonical range where the instrument lands it", () => {
+    for (const { value, polyVoice, monoVoice } of [
+      { value: 15, polyVoice: 0, monoVoice: 7 },
+      { value: 72, polyVoice: 4, monoVoice: 0 },
+      { value: 100, polyVoice: 4, monoVoice: 4 },
+      { value: 127, polyVoice: 4, monoVoice: 7 },
+    ]) {
+      const applied = applyCc(blankPreset(), OTHER_VOICES, value);
+      expect(applied).toMatchObject({ kind: "applied", field: "voices" });
+      if (applied.kind !== "applied") {
+        return;
+      }
+      expect(applied.preset).toMatchObject({ polyVoice, monoVoice });
+    }
+  });
+
+  it("rejects a stored Voices pair the selection tables do not cover", () => {
+    expect(() => readField({ ...blankPreset(), polyVoice: 6 }, "voices")).toThrow(ReservedValue);
+    expect(() => readField({ ...blankPreset(), monoVoice: 9 }, "voices")).toThrow(ReservedValue);
   });
 });

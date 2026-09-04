@@ -193,4 +193,4 @@ export const DELAY_FEEDBACK = 112;
 export const DELAY_MIX = 12;
 
 export const OTHER_MODE = 116;
-export const OTHER_VOICES = 97;
+export const OTHER_VOICES = 47;

@@ -10,7 +10,7 @@ describe("unlessReserved", () => {
 
   it("reads the reserved range as no value at all, for either kind of table", () => {
     expect(unlessReserved(() => otherModeFromCc(80))).toBeUndefined();
-    expect(unlessReserved(() => Voices.fromCc(72))).toBeUndefined();
+    expect(unlessReserved(() => new Voices(6, 0))).toBeUndefined();
   });
 
   it("lets every other failure through, so only the reserved range is recovered from", () => {
